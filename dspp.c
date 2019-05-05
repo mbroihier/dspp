@@ -25,6 +25,8 @@
 
 /* ---------------------------------------------------------------------- */
 
+int convert_byteLE_int16();
+
 static const char USAGE_STR[] = "\n"
         "Usage: %s <command> [ parameter 1 [ ... parameter n]]\n"
         "  -h                     : help\n"
@@ -41,14 +43,9 @@ int main(int argc, char *argv[]) {
 
   const int COMMAND_LENGTH = 32;
 
-  if (argc > 1 && argv[1]) {
-    if (strlen(argv[1]) >= COMMAND_LENGTH) {
-      fprintf(stderr, USAGE_STR, argv[0]);
-      return -2;
-    }
-  } else {
-      fprintf(stderr, USAGE_STR, argv[0]);
-      return -2;
+  if (argc <= 1 || ! argv[1] || (strlen(argv[1]) >= COMMAND_LENGTH)) {
+    fprintf(stderr, USAGE_STR, argv[0]);
+    return -2;
   }
 
   char command[strlen(argv[1])+1];
@@ -83,7 +80,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, USAGE_STR, argv[0]);
         return -2;    
       case 1:
-	fprintf(stderr, "Processing convertbytesLE_int16, %d\n", optopt);
+        convert_byteLE_int16();
         break;
       default:
 	return -2;
