@@ -31,7 +31,7 @@ static const char USAGE_STR[] = "\n"
         "  convert_byteLE_int16  : convert little endian byte stream to internal short ints\n";
 
 static struct option longOpts[] = {
-  { "convert_bytesLE_int16", no_argument, NULL, 1 },
+  { "convert_byteLE_int16", no_argument, NULL, 1 },
   { NULL, 0, NULL, 0 }
 };
 
