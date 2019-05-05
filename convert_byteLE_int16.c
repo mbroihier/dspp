@@ -11,7 +11,7 @@
 #include <stdio.h>
 
 /* ---------------------------------------------------------------------- */
-
+#ifdef LE_MACHINE
 int convert_byteLE_int16() {
 
   union encode {
@@ -30,3 +30,22 @@ int convert_byteLE_int16() {
 }
 
 /* ---------------------------------------------------------------------- */
+#else
+
+int convert_byteLE_int16() {
+
+  union encode {
+    char bytes[2];
+    short integer;
+  } piece;
+
+  for (;;) {
+    fread(&piece.bytes[1], sizeof(char), 1, stdin);
+    fread(&piece.bytes[0], sizeof(char), 1, stdin);
+    fwrite(&piece.integer, sizeof(short), 1, stdout);
+  }
+
+  return 0;
+
+}
+#endif

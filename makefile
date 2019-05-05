@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS= -O0 -c -Wall
+CFLAGS= -O0 -c -Wall -DLE_MACHINE
 LDFLAGS=
 
 SOURCES=$ dspp.c convert_byteLE_int16.c
