@@ -51,9 +51,9 @@ int main(int argc, char *argv[]) {
       return -2;
   }
 
-  char command[strlen(argv[1])];
+  char command[strlen(argv[1])+1];
 
-  memset(command, 0, COMMAND_LENGTH);
+  memset(command, 0, strlen(argv[1])+1);
 
   char * new_argv[argc];
   if (argc > 1) {
