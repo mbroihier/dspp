@@ -1,5 +1,5 @@
 /*
- *      Test input
+ *      Test input for operator 1
  *
  *      Copyright (C) 2019 
  *          Mark Broihier
@@ -14,11 +14,12 @@
 
 int main(int argc, char *argv[]) {
 
-  short integer;
-  
+  char lsb;
+  char msb = 0;
   for (;;) {
-    fread(&integer, 2, 1, stdin);
-    fprintf(stdout, "%d\n", integer);
+    fwrite(&lsb, 1, 1, stdout);
+    fwrite(&msb, 1, 1, stdout);
+    lsb++;
   }
   return 0;
 
