@@ -9,6 +9,7 @@
 /* ---------------------------------------------------------------------- */
 
 #include <stdio.h>
+#include <fcntl.h>
 /* ---------------------------------------------------------------------- */
 
 int convert_aByte_f() {
@@ -17,7 +18,9 @@ int convert_aByte_f() {
   float f[BUFFER_SIZE];
   int count;
   float * fptr;
-  signed char * cptr; 
+  signed char * cptr;
+  fcntl(STDIN_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
+  fcntl(STDOUT_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
   for (;;) {
     count = fread(&c, sizeof(char), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {
