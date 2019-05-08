@@ -1,5 +1,5 @@
 /*
- *      convert_aByte_f.c -- DSP Pipe - byte(signed) stream to float
+ *      convert_aUnsignedByte_f.c -- DSP Pipe - byte(unsigned) stream to float
  *
  *      Copyright (C) 2019 
  *          Mark Broihier
@@ -13,13 +13,13 @@
 #include <fcntl.h>
 /* ---------------------------------------------------------------------- */
 
-int convert_aByte_f() {
+int convert_aUnsignedByte_f() {
   const int BUFFER_SIZE = 4096;
-  signed char c[BUFFER_SIZE];
+  unsigned char c[BUFFER_SIZE];
   float f[BUFFER_SIZE];
   int count;
   float * fptr;
-  signed char * cptr;
+  unsigned char * cptr;
   fcntl(STDIN_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
   fcntl(STDOUT_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
   for (;;) {
@@ -32,7 +32,7 @@ int convert_aByte_f() {
     cptr = c;
     fptr = f;
     for (int i=0; i < BUFFER_SIZE; i++) {
-      *fptr++ = *cptr++/128.0 ;
+      *fptr++ = (*cptr++ - 128)/128.0;
     }
     fwrite(&f, sizeof(float), BUFFER_SIZE, stdout);
   }

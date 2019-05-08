@@ -27,17 +27,20 @@
 
 int convert_byteLE_int16();
 int convert_aByte_f();
+int convert_aUnsignedByte_f();
 
 
 static const char USAGE_STR[] = "\n"
         "Usage: %s <command> [ parameter 1 [ ... parameter n]]\n"
-        "  -h                     : help\n"
-        "  convert_byteLE_int16  : convert little endian byte stream to internal short ints\n"
-        "  convert_aByte_f       : convert a signed byte stream to internal floating point\n";
+        "  -h                       : help\n"
+        "  convert_byteLE_int16     : convert little endian byte stream to internal short ints\n"
+        "  convert_aByte_f          : convert a signed byte stream to internal floating point\n"
+        "  convert_aUnsignedByte_f  : convert a signed byte stream to internal floating point\n";
 
 static struct option longOpts[] = {
-  { "convert_byteLE_int16", no_argument, NULL, 1 },
-  { "convert_aByte_f"     , no_argument, NULL, 2 },
+  { "convert_byteLE_int16"   , no_argument, NULL, 1 },
+  { "convert_aByte_f"        , no_argument, NULL, 2 },
+  { "convert_aUnsignedByte_f", no_argument, NULL, 3 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -88,6 +91,9 @@ int main(int argc, char *argv[]) {
         break;
       case 2:
         convert_aByte_f();
+        break;
+      case 3:
+        convert_aUnsignedByte_f();
         break;
       default:
 	return -2;
