@@ -17,7 +17,6 @@
 
 int shift_frequency_cc(float amount) {
   const int BUFFER_SIZE = 4096;
-  unsigned char c[BUFFER_SIZE];
   float f[BUFFER_SIZE];
   float of[BUFFER_SIZE];
   int count;
@@ -30,6 +29,7 @@ int shift_frequency_cc(float amount) {
   float sinAmount = 0.0;
   float I;
   float Q;
+  fprintf(stderr, "cycles per sample correction: %f\n", amount);
   for (;;) {
     count = fread(&f, sizeof(char), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {
