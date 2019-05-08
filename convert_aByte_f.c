@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 /* ---------------------------------------------------------------------- */
 
 int convert_aByte_f() {
