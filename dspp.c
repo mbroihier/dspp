@@ -37,13 +37,15 @@ static const char USAGE_STR[] = "\n"
         "  convert_byteLE_int16     : convert little endian byte stream to internal short ints\n"
         "  convert_aByte_f          : convert a signed byte stream to internal floating point\n"
         "  convert_aUnsignedByte_f  : convert a signed byte stream to internal floating point\n"
-        "  shift_frequency_cc       : recenter a signal by x cycles per sample\n";
+        "  shift_frequency_cc       : recenter a signal by x cycles per sample\n"
+        "  decimate_cc              : replace every n samples with 1\n";
 
 static struct option longOpts[] = {
   { "convert_byteLE_int16"   , no_argument, NULL, 1 },
   { "convert_aByte_f"        , no_argument, NULL, 2 },
   { "convert_aUnsignedByte_f", no_argument, NULL, 3 },
   { "shift_frequency_cc"     , no_argument, NULL, 4 },
+  { "decimate_cc"            , no_argument, NULL, 5 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -106,6 +108,12 @@ int main(int argc, char *argv[]) {
           float amount; 
           sscanf(argv[2], "%f", &amount);
           shift_frequency_cc(amount);
+          break;
+      }
+      case 5: {
+          int amount; 
+          sscanf(argv[2], "%d", &amount);
+          decimate_cc(amount);
           break;
       }
       default:

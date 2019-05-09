@@ -32,6 +32,7 @@ int shift_frequency_cc(float amount) {
 
   float I;
   float Q;
+
   fprintf(stderr, "cycles per sample correction: %f\n", amount);
   for (;;) {
     count = fread(&f, sizeof(float), BUFFER_SIZE, stdin);
@@ -44,6 +45,22 @@ int shift_frequency_cc(float amount) {
     ofptr = of;
 
     for (int i=0; i < BUFFER_SIZE; i+=2) {
+      /*
+        Assuming I is r*cos(2*PI*fc*t) and
+                 Q is -r*sin(2*PI*fc*t)  where fc is the center frequency the signal r is sampled at
+
+        Then to to recenter to a new frequency fs, use the trigonometric identities:
+          cos(a + b) = cos(a)*cos(b) - sin(a)*sin(b)
+          sin(a + b) = sin(a)*cos(b) + cos(a)*sin(b)
+
+        shifted I = I * cos(2*PI*fs*t) + Q * sin(2*PI*fs*t)
+        shifted Q = Q * cos(2*PI*fs*t) - I * sin(2*PI*fs*t)
+
+        To advance the sin/cos 2*PI*fs*t functions, the sin/cos of sum of angles identities are again 
+        used. Since each sample is separated by a fixed delta of time, successively applying the 
+        identities advances the angle/time.
+
+       */
       I = *fptr++;
       Q = *fptr++;
       *ofptr++ = I * cosAmount + Q * sinAmount;

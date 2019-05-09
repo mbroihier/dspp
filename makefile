@@ -18,7 +18,7 @@ CC=gcc
 CFLAGS= -O0 -c -Wall -DLE_MACHINE 
 LDFLAGS=
 
-SOURCES=$ dspp.c convert_byteLE_int16.c convert_aByte_f.c convert_aUnsignedByte_f.c shift_frequency_cc.c
+SOURCES=$ dspp.c convert_byteLE_int16.c convert_aByte_f.c convert_aUnsignedByte_f.c shift_frequency_cc.c decimate_cc.c
 OBJECTS=$(SOURCES:.c=.o)
 #LIBS=$ -lX11
 DEPTS=$ 
