@@ -47,7 +47,7 @@ int decimate_cc(int amount) {
       return 0;
     }
     correction = (amount - (BUFFER_SIZE - remainder)/2)*2*sizeof(float);
-    fprintf(stderr, "remainder: %d, correction: %d\n", remainder); 
+    fprintf(stderr, "remainder: %d, correction: %d\n", remainder, correction); 
     fptr = f + correction;
     ofptr = of;
 
