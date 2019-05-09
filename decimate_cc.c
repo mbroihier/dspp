@@ -37,7 +37,7 @@ int decimate_cc(int amount) {
   int correction;
   fprintf(stderr, "remainder: %d\n", remainder); 
   
-  const int bump = (amount -1)*2*sizeof(float);
+  const int bump = (amount -1)*2;
 
   fprintf(stderr, "bump: %d\n", bump);
 
@@ -48,7 +48,7 @@ int decimate_cc(int amount) {
       fclose(stdout);
       return 0;
     }
-    correction = (amount - (BUFFER_SIZE - remainder)/2)*2*sizeof(float);
+    correction = (amount - (BUFFER_SIZE - remainder)/2)*2;
     fprintf(stderr, "remainder: %d, correction: %d\n", remainder, correction); 
     fptr = f + correction;
     ofptr = of;
@@ -59,7 +59,7 @@ int decimate_cc(int amount) {
       *ofptr++ = *fptr++;
       fprintf(stderr, "new ofptr: %p, new fptr: %p\n", ofptr, fptr);
       *ofptr++ = *fptr++;
-      fptr = fptr + bump;
+      fptr += bump;
       fprintf(stderr, "new ofptr: %p, new fptr: %p, bump: %d\n", ofptr, fptr, bump);
       outputBufferCount += 2;
       if (outputBufferCount >= BUFFER_SIZE) {
