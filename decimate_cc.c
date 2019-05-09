@@ -37,7 +37,7 @@ int decimate_cc(int amount) {
   int correction;
   //fprintf(stderr, "remainder: %d\n", remainder); 
   
-  //const int bump = (amount -1)*2;
+  const int bump = (amount -1)*2;
 
   //fprintf(stderr, "bump: %d\n", bump);
 
