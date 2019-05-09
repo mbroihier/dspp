@@ -35,11 +35,11 @@ int decimate_cc(int amount) {
   int remainder = BUFFER_SIZE - amount*2;
   int outputBufferCount = 0;
   int correction;
-  fprintf(stderr, "remainder: %d\n", remainder); 
+  //fprintf(stderr, "remainder: %d\n", remainder); 
   
-  const int bump = (amount -1)*2;
+  //const int bump = (amount -1)*2;
 
-  fprintf(stderr, "bump: %d\n", bump);
+  //fprintf(stderr, "bump: %d\n", bump);
 
   for (;;) {
     count = fread(&f, sizeof(float), BUFFER_SIZE, stdin);
@@ -55,21 +55,21 @@ int decimate_cc(int amount) {
 
     for (int i=0; i < BUFFER_SIZE; i+=2*amount) {
       remainder = i;
-      fprintf(stderr, "old ofptr: %p, old fptr: %p\n", ofptr, fptr);
+      //fprintf(stderr, "old ofptr: %p, old fptr: %p\n", ofptr, fptr);
       *ofptr++ = *fptr++;
-      fprintf(stderr, "new ofptr: %p, new fptr: %p\n", ofptr, fptr);
+      //fprintf(stderr, "new ofptr: %p, new fptr: %p\n", ofptr, fptr);
       *ofptr++ = *fptr++;
       fptr += bump;
-      fprintf(stderr, "new ofptr: %p, new fptr: %p, bump: %d\n", ofptr, fptr, bump);
+      //fprintf(stderr, "new ofptr: %p, new fptr: %p, bump: %d\n", ofptr, fptr, bump);
       outputBufferCount += 2;
       if (outputBufferCount >= BUFFER_SIZE) {
-        fprintf(stderr, "remainder: %d\n", remainder); 
+        //fprintf(stderr, "remainder: %d\n", remainder); 
         fwrite(&of, sizeof(float), BUFFER_SIZE, stdout);
         outputBufferCount = 0;
       }
-      fprintf(stderr, "outputBufferCount: %d\n", outputBufferCount);
+      //fprintf(stderr, "outputBufferCount: %d\n", outputBufferCount);
     }
-    fprintf(stderr, "need to read another buffer\n");
+    //fprintf(stderr, "need to read another buffer\n");
   }
   return 0;
 
