@@ -43,7 +43,7 @@ int shift_frequency_cc(float amount) {
     fptr = f;
     ofptr = of;
 
-    for (int i=0; i < BUFFER_SIZE; i+=sizeof(float)*2) {
+    for (int i=0; i < BUFFER_SIZE; i+=2) {
       I = *fptr++;
       Q = *fptr++;
       *ofptr++ = I * cosAmount + Q * sinAmount;
