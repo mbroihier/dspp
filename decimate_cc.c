@@ -21,8 +21,6 @@ int decimate_cc(int amount) {
   float of[BUFFER_SIZE];
   int count;
   float * fptr, * ofptr;
-  fcntl(STDIN_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
-  fcntl(STDOUT_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
 
   if (amount > BUFFER_SIZE) {
     fprintf(stderr, "Error - decimation amount is too large\n");
@@ -32,44 +30,31 @@ int decimate_cc(int amount) {
     return -1;
   }
 
-  int remainder = BUFFER_SIZE - amount*2;
-  int outputBufferCount = 0;
-  int correction;
-  //fprintf(stderr, "remainder: %d\n", remainder); 
-  
-  const int bump = (amount -1)*2;
+  int modBufferSize = (BUFFER_SIZE / (2*amount)) * amount * 2;
+  fcntl(STDIN_FILENO, F_SETPIPE_SZ, modBufferSize); 
+  fcntl(STDOUT_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
 
-  //fprintf(stderr, "bump: %d\n", bump);
+  ofptr = of;
 
   for (;;) {
-    count = fread(&f, sizeof(float), BUFFER_SIZE, stdin);
-    if(count < BUFFER_SIZE) {
+    count = fread(&f, sizeof(float), modBufferSize, stdin);
+    if(count < modBufferSize) {
       fprintf(stderr, "Short data stream\n");
       fclose(stdout);
       return 0;
     }
-    correction = (amount - (BUFFER_SIZE - remainder)/2)*2;
-    fprintf(stderr, "remainder: %d, correction: %d\n", remainder, correction); 
-    fptr = f + correction;
-    ofptr = of;
-
-    for (int i=0; i < BUFFER_SIZE; i+=2*amount) {
-      remainder = i;
-      //fprintf(stderr, "old ofptr: %p, old fptr: %p\n", ofptr, fptr);
+    fptr = f;
+    for (int i=0; i < modBufferSize; i+=2*amount) {
       *ofptr++ = *fptr++;
-      //fprintf(stderr, "new ofptr: %p, new fptr: %p\n", ofptr, fptr);
       *ofptr++ = *fptr++;
-      fptr += bump;
-      //fprintf(stderr, "new ofptr: %p, new fptr: %p, bump: %d\n", ofptr, fptr, bump);
+      fptr += (amount-1)*2;
       outputBufferCount += 2;
       if (outputBufferCount >= BUFFER_SIZE) {
-        //fprintf(stderr, "remainder: %d\n", remainder); 
         fwrite(&of, sizeof(float), BUFFER_SIZE, stdout);
         outputBufferCount = 0;
+        ofptr = of;
       }
-      //fprintf(stderr, "outputBufferCount: %d\n", outputBufferCount);
     }
-    //fprintf(stderr, "need to read another buffer\n");
   }
   return 0;
 
