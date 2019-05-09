@@ -32,9 +32,11 @@ int decimate_cc(int amount) {
     return -1;
   }
 
-  int remainder = 0;
+  int remainder = BUFFER_SIZE - amount*2;
   int outputBufferCount = 0;
   
+  const int bump = (amount -1)*2*sizeof(float);
+
   for (;;) {
     count = fread(&f, sizeof(float), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {
@@ -42,16 +44,17 @@ int decimate_cc(int amount) {
       fclose(stdout);
       return 0;
     }
-    fptr = f + amount - (BUFFER_SIZE - remainder);
+    fptr = f + (amount - (BUFFER_SIZE - remainder)/2)*2*sizeof(float);
     ofptr = of;
 
     for (int i=0; i < BUFFER_SIZE; i+=2*amount) {
       remainder = i;
       *ofptr++ = *fptr++;
       *ofptr++ = *fptr++;
-      fptr += (amount-1)*2*sizeof(float);
+      fptr += bump;
       outputBufferCount++;
       if (outputBufferCount >= BUFFER_SIZE) {
+        fprintf(stderr, "remainder: %d\n", remainder); 
         fwrite(&of, sizeof(float), BUFFER_SIZE, stdout);
         outputBufferCount = 0;
       }
