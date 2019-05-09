@@ -57,7 +57,7 @@ int decimate_cc(int amount) {
       remainder = i;
       *ofptr++ = *fptr++;
       *ofptr++ = *fptr++;
-      fptr += bump;
+      fptr = fptr + bump;
       fprintf(stderr, "new ofptr: %p, new fptr: %p\n", ofptr, fptr);
       outputBufferCount += 2;
       if (outputBufferCount >= BUFFER_SIZE) {
