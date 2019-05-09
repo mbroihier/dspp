@@ -39,6 +39,8 @@ int decimate_cc(int amount) {
   
   const int bump = (amount -1)*2*sizeof(float);
 
+  fprintf(stderr, "bump: %d\n", bump);
+
   for (;;) {
     count = fread(&f, sizeof(float), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {
@@ -64,6 +66,7 @@ int decimate_cc(int amount) {
       }
       fprintf(stderr, "outputBufferCount: %d\n", outputBufferCount);
     }
+    fprintf(stderr, "need to read another buffer\n");
   }
   return 0;
 
