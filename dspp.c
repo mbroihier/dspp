@@ -29,7 +29,7 @@ int convert_byteLE_int16();
 int convert_aByte_f();
 int convert_aUnsignedByte_f();
 int shift_frequency_cc(float cyclesPerSample);
-
+int decimate_cc(int amount);
 
 static const char USAGE_STR[] = "\n"
         "Usage: %s <command> [ parameter 1 [ ... parameter n]]\n"
