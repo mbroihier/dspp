@@ -35,6 +35,7 @@ int decimate_cc(int amount) {
   fcntl(STDOUT_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
 
   ofptr = of;
+  int outputBufferCount = 0;
 
   for (;;) {
     count = fread(&f, sizeof(float), modBufferSize, stdin);
