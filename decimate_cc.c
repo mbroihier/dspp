@@ -55,10 +55,12 @@ int decimate_cc(int amount) {
 
     for (int i=0; i < BUFFER_SIZE; i+=2*amount) {
       remainder = i;
+      fprintf(stderr, "old ofptr: %p, old fptr: %p\n", ofptr, fptr);
       *ofptr++ = *fptr++;
+      fprintf(stderr, "new ofptr: %p, new fptr: %p\n", ofptr, fptr);
       *ofptr++ = *fptr++;
       fptr = fptr + bump;
-      fprintf(stderr, "new ofptr: %p, new fptr: %p\n", ofptr, fptr);
+      fprintf(stderr, "new ofptr: %p, new fptr: %p, bump: %d\n", ofptr, fptr, bump);
       outputBufferCount += 2;
       if (outputBufferCount >= BUFFER_SIZE) {
         fprintf(stderr, "remainder: %d\n", remainder); 
