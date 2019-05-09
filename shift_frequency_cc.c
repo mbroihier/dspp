@@ -34,7 +34,7 @@ int shift_frequency_cc(float amount) {
   float Q;
   fprintf(stderr, "cycles per sample correction: %f\n", amount);
   for (;;) {
-    count = fread(&f, sizeof(char), BUFFER_SIZE, stdin);
+    count = fread(&f, sizeof(float), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {
       fprintf(stderr, "Short data stream\n");
       fclose(stdout);
