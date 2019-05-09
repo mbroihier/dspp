@@ -62,6 +62,7 @@ int decimate_cc(int amount) {
         fwrite(&of, sizeof(float), BUFFER_SIZE, stdout);
         outputBufferCount = 0;
       }
+      fprintf(stderr, "outputBufferCount: %d\n", outputBufferCount);
     }
   }
   return 0;
