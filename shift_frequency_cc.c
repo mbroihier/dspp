@@ -23,10 +23,13 @@ int shift_frequency_cc(float amount) {
   float * fptr, * ofptr;
   fcntl(STDIN_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
   fcntl(STDOUT_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
-  float sinDeltaAmount = sin(amount);
-  float cosDeltaAmount = cos(amount);
+  float sinDeltaAmount = sin(amount*2.0*PI);
+  float cosDeltaAmount = cos(amount*2.0*PI);
   float cosAmount = 1.0;
   float sinAmount = 0.0;
+  float newCosAmount;
+  float newSinAmount;
+
   float I;
   float Q;
   fprintf(stderr, "cycles per sample correction: %f\n", amount);
@@ -45,8 +48,8 @@ int shift_frequency_cc(float amount) {
       Q = *fptr++;
       *ofptr++ = I * cosAmount + Q * sinAmount;
       *ofptr++ = Q * cosAmount - I * sinAmount;
-      float newCosAmount = cosAmount * cosDeltaAmount - sinAmount * sinDeltaAmount;
-      float newSinAmount = sinAmount * cosDeltaAmount + cosAmount * sinDeltaAmount;
+      newCosAmount = cosAmount * cosDeltaAmount - sinAmount * sinDeltaAmount;
+      newSinAmount = sinAmount * cosDeltaAmount + cosAmount * sinDeltaAmount;
       cosAmount = newCosAmount;
       sinAmount = newSinAmount;
     }
