@@ -14,7 +14,7 @@
 
 int main(int argc, char *argv[]) {
 
-  float val 0.0;
+  float val = 0.0;
   for (;;) {
     fwrite(&val, sizeof(float), 1, stdout);
     val += 1.0;
