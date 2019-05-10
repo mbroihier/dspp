@@ -14,9 +14,9 @@ PARAMS_MISC = -Wno-unused-result
 FFTW_PACKAGE = fftw-3.3.3
 
 CC=gcc
-#CFLAGS= -O0 -c -Wall -DLE_MACHINE $(PARMS_LOOPVECT) $(PARMS_SIMD) $(PARAMS_LIBS)
-CFLAGS= -O0 -c -Wall -DLE_MACHINE 
-LDFLAGS=
+CFLAGS= -O0 -c -Wall -DLE_MACHINE $(PARMS_LOOPVECT) $(PARMS_SIMD)
+#CFLAGS= -O0 -c -Wall -DLE_MACHINE 
+LDFLAGS= $(PARAMS_LIBS)
 
 SOURCES=$ dspp.c convert_byteLE_int16.c convert_aByte_f.c convert_aUnsignedByte_f.c shift_frequency_cc.c decimate_cc.c
 OBJECTS=$(SOURCES:.c=.o)

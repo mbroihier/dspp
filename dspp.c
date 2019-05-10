@@ -55,21 +55,21 @@ int main(int argc, char *argv[]) {
 
   const int COMMAND_LENGTH = 32;
 
-  if (argc <= 1 || ! argv[1] || (strlen(argv[1]) >= COMMAND_LENGTH)) {
+  if (argc <= 1 || !argv[1] || (strlen(argv[1]) >= COMMAND_LENGTH)) {
     fprintf(stderr, USAGE_STR, argv[0]);
     return -2;
   }
 
   char command[strlen(argv[1])+1];
 
-  memset(command, 0, strlen(argv[1])+1);
+  memset(command, 0, sizeof(command));
 
   char * new_argv[argc];
   if (argc > 1) {
     if (argv[1][0] == '-') {
-      sprintf(command, "%s", argv[1]);
+      snprintf(command, sizeof(command)-1, "%s", argv[1]);
     } else {
-      sprintf(command, "--%s", argv[1]);
+      snprintf(command, sizeof(command)-3, "--%s", argv[1]);
     }
   } else {
     fprintf(stderr, USAGE_STR, argv[0]);
@@ -86,40 +86,44 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  while ((c = getopt_long(argc, new_argv, "h", longOpts, NULL)) >= 0 ) {
+  int doneProcessing = 0;
+  while ((c = getopt_long(argc, new_argv, "h", longOpts, NULL)) >= 0) {
     switch (c) {
       case 'h': {
         fprintf(stderr, USAGE_STR, argv[0]);
         return -2;
       }
       case 1: {
-        convert_byteLE_int16();
+        doneProcessing = !convert_byteLE_int16();
         break;
       }
       case 2: {
-        convert_aByte_f();
+        doneProcessing = !convert_aByte_f();
         break;
       }
       case 3: {
-        convert_aUnsignedByte_f();
+        doneProcessing = !convert_aUnsignedByte_f();
         break;
       }
       case 4: {
-          float amount; 
+          float amount;
           sscanf(argv[2], "%f", &amount);
-          shift_frequency_cc(amount);
+          doneProcessing = !shift_frequency_cc(amount);
           break;
       }
       case 5: {
-          int amount; 
+          int amount;
           sscanf(argv[2], "%d", &amount);
-          decimate_cc(amount);
+          doneProcessing = !decimate_cc(amount);
           break;
       }
       default:
-	return -2;
+        return -2;
       }
+    if (doneProcessing) {
+      break;
     }
+  }
 
   return 0;
 
