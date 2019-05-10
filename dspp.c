@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
     return -2;
   }
 
-  char command[strlen(argv[1])+1];
+  char command[COMMAND_LENGTH];
 
   memset(command, 0, sizeof(command));
 
