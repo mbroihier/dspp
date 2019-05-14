@@ -18,7 +18,7 @@ CFLAGS= -O0 -c -Wall -DLE_MACHINE $(PARMS_LOOPVECT) $(PARMS_SIMD)
 #CFLAGS= -O0 -c -Wall -DLE_MACHINE 
 LDFLAGS= $(PARAMS_LIBS)
 
-SOURCES=$ dspp.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc
+SOURCES=$ dspp.cc FIRFilter.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc
 OBJECTS=$(SOURCES:.cc=.o)
 #LIBS=$ -lX11
 DEPTS=$ 

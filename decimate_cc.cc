@@ -13,14 +13,17 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <math.h>
+
+#include "FIRFilter.h"
 /* ---------------------------------------------------------------------- */
 
-int decimate_cc(int amount) {
+int decimate_cc(float cutOffFrequency, int M, int amount, const char * window) {
   const int BUFFER_SIZE = 4096;
   float f[BUFFER_SIZE];
   float of[BUFFER_SIZE];
   int count;
   float * fptr, * ofptr;
+  FIRFilter filter(cutOffFrequency, M, amount, FIRFilter::HAMMING);
 
   if (amount > BUFFER_SIZE) {
     fprintf(stderr, "Error - decimation amount is too large\n");
@@ -31,6 +34,7 @@ int decimate_cc(int amount) {
   }
 
   int modBufferSize = (BUFFER_SIZE / (2*amount)) * amount * 2;
+  int numberOfSamples = modBufferSize / 4;
   fcntl(STDIN_FILENO, F_SETPIPE_SZ, modBufferSize); 
   fcntl(STDOUT_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
 
@@ -44,6 +48,9 @@ int decimate_cc(int amount) {
       fclose(stdout);
       return 0;
     }
+    filter.filterSignal(f, of, numberOfSamples);
+    fwrite(&of, sizeof(float), numberOfSamples/amount, stdin);
+    /*
     fptr = f;
     for (int i=0; i < modBufferSize; i+=2*amount) {
       *ofptr++ = *fptr++;
@@ -56,6 +63,7 @@ int decimate_cc(int amount) {
         ofptr = of;
       }
     }
+    */
   }
   return 0;
 

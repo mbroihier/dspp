@@ -23,13 +23,14 @@
 
 #include <sys/ioctl.h>
 
+
 /* ---------------------------------------------------------------------- */
 
 int convert_byteLE_int16();
 int convert_aByte_f();
 int convert_aUnsignedByte_f();
 int shift_frequency_cc(float cyclesPerSample);
-int decimate_cc(int amount);
+int decimate_cc(float cutOffFrequency, int M, int amount, const char * window);
 
 static const char USAGE_STR[] = "\n"
         "Usage: %s <command> [ parameter 1 [ ... parameter n]]\n"
@@ -112,9 +113,13 @@ int main(int argc, char *argv[]) {
           break;
       }
       case 5: {
+          float cutOffFrequency;
+          int M;
           int amount;
-          sscanf(argv[2], "%d", &amount);
-          doneProcessing = !decimate_cc(amount);
+          sscanf(argv[2], "%f", &cutOffFrequency);
+          sscanf(argv[3], "%d", &M);
+          sscanf(argv[4], "%d", &amount);
+          doneProcessing = !decimate_cc(cutOffFrequency, M, amount, "HAMMING");
           break;
       }
       default:
