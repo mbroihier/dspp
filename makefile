@@ -6,7 +6,7 @@ PARAMS_RASPI = -mfloat-abi=hard -mcpu=arm1176jzf-s -mfpu=vfp -funsafe-math-optim
 PARAMS_ARM = $(if $(call cpufeature,BCM2708,dummy-text),$(PARAMS_RASPI),$(PARAMS_NEON))
 PARAMS_SIMD = $(if $(call cpufeature,sse,dummy-text),$(PARAMS_SSE),$(PARAMS_ARM))
 PARAMS_LOOPVECT = -O3 -ffast-math -fdump-tree-vect-details -dumpbase dumpvect
-PARAMS_LIBS = -g -lm -lrt -lfftw3f -DUSE_FFTW -DLIBCSDR_GPL -DUSE_IMA_ADPCM
+PARAMS_LIBS = -g -lm -lrt -lfftw3f -lstdc++ -DUSE_FFTW -DLIBCSDR_GPL -DUSE_IMA_ADPCM
 PARAMS_SO = -fpic  
 PARAMS_MISC = -Wno-unused-result
 #DEBUG_ON = 0 #debug is always on by now (anyway it could be compiled with `make DEBUG_ON=1`)
@@ -14,7 +14,7 @@ PARAMS_MISC = -Wno-unused-result
 FFTW_PACKAGE = fftw-3.3.3
 
 CC=gcc
-CFLAGS= -O0 -c -Wall -DLE_MACHINE $(PARMS_LOOPVECT) $(PARMS_SIMD)
+CFLAGS=$ -O0 -c -Wall -DLE_MACHINE -D_GNU_SOURCE $(PARAMS_LOOPVECT) $(PARAMS_SIMD) $(PARAMS_MISC) 
 #CFLAGS= -O0 -c -Wall -DLE_MACHINE 
 LDFLAGS= $(PARAMS_LIBS)
 
@@ -33,7 +33,7 @@ $(SOURCES):
 	$(CC) $(CFLAGS) $< -lm -o $@
 
 test:
-	$(CC) $(CFLAGS) testIn1.cc -o testIn1.o
+	$(CC) $(CFLAGS) testIn1.cc -lm -o testIn1.o
 	$(CC) $(CFLAGS) testOut1.cc -o testOut1.o
 	$(CC) $(LDFLAGS) testIn1.o -o testIn1 -lm $(LIBS)
 	$(CC) $(LDFLAGS) testOut1.o -o testOut1 -lm $(LIBS)
@@ -42,8 +42,10 @@ test:
 	$(CC) $(LDFLAGS) testIn2.o -o testIn2 -lm $(LIBS)
 	$(CC) $(LDFLAGS) testOut2.o -o testOut2 -lm $(LIBS)
 	$(CC) $(CFLAGS) testIn5.cc -o testIn5.o
+	$(CC) $(CFLAGS) testIn5a.cc -o testIn5a.o
 	$(CC) $(CFLAGS) testOut5.cc -o testOut5.o
 	$(CC) $(LDFLAGS) testIn5.o -o testIn5 -lm $(LIBS)
+	$(CC) $(LDFLAGS) testIn5a.o -o testIn5a -lm $(LIBS)
 	$(CC) $(LDFLAGS) testOut5.o -o testOut5 -lm $(LIBS)
 	$(CC) $(CFLAGS) findDiff.cc -o findDiff.o
 	$(CC) $(LDFLAGS) findDiff.o -o findDiff -lm $(LIBS)

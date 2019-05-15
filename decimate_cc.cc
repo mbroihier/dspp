@@ -8,7 +8,6 @@
  */
 
 /* ---------------------------------------------------------------------- */
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -33,37 +32,27 @@ int decimate_cc(float cutOffFrequency, int M, int amount, const char * window) {
     return -1;
   }
 
-  int modBufferSize = (BUFFER_SIZE / (2*amount)) * amount * 2;
-  int numberOfSamples = modBufferSize / 4;
-  fcntl(STDIN_FILENO, F_SETPIPE_SZ, modBufferSize); 
-  fcntl(STDOUT_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
+  int modBufferSizeBytes = ((BUFFER_SIZE / (2*amount)) * amount * 2)*sizeof(float);
+  int numberOfSamples = modBufferSizeBytes / (8 * amount); // original count decimated by amount
+  int outputBufferSizeBytes = numberOfSamples * 8;
+
+  fprintf(stderr, "There will be %d samples in the filtered and decimated output buffer\n", numberOfSamples);
+  
+  fcntl(STDIN_FILENO, F_SETPIPE_SZ, modBufferSizeBytes); 
+  fcntl(STDOUT_FILENO, F_SETPIPE_SZ, outputBufferSizeBytes); 
 
   ofptr = of;
   int outputBufferCount = 0;
 
   for (;;) {
-    count = fread(&f, sizeof(float), modBufferSize, stdin);
-    if(count < modBufferSize) {
+    count = fread(&f, sizeof(char), modBufferSizeBytes, stdin);
+    if(count < modBufferSizeBytes) {
       fprintf(stderr, "Short data stream\n");
       fclose(stdout);
       return 0;
     }
     filter.filterSignal(f, of, numberOfSamples);
-    fwrite(&of, sizeof(float), numberOfSamples/amount, stdin);
-    /*
-    fptr = f;
-    for (int i=0; i < modBufferSize; i+=2*amount) {
-      *ofptr++ = *fptr++;
-      *ofptr++ = *fptr++;
-      fptr += (amount-1)*2;
-      outputBufferCount += 2;
-      if (outputBufferCount >= BUFFER_SIZE) {
-        fwrite(&of, sizeof(float), BUFFER_SIZE, stdout);
-        outputBufferCount = 0;
-        ofptr = of;
-      }
-    }
-    */
+    fwrite(&of, sizeof(char), outputBufferSizeBytes, stdout);
   }
   return 0;
 

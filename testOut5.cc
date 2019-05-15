@@ -18,7 +18,9 @@ int main(int argc, char *argv[]) {
   
   for (;;) {
     fread(&f, sizeof(float), 1, stdin);
-    fprintf(stdout, "%f\n", f);
+    fprintf(stdout, "I: %f\n", f);
+    fread(&f, sizeof(float), 1, stdin);
+    fprintf(stdout, "Q: %f\n", f);
   }
   return 0;
 

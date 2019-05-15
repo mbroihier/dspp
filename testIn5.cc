@@ -15,7 +15,7 @@
 int main(int argc, char *argv[]) {
 
   float val = 0.0;
-  for (;;) {
+  for (int i = 0; i < 8000; i++) {
     fwrite(&val, sizeof(float), 1, stdout);
     fwrite(&val, sizeof(float), 1, stdout);
     val += 1.0;
@@ -23,6 +23,16 @@ int main(int argc, char *argv[]) {
       val = 0.0;
     }
   }
+  val = 0.0;
+  for (int i = 0; i < 2000; i++) {
+    fwrite(&val, sizeof(float), 1, stdout);
+    fwrite(&val, sizeof(float), 1, stdout);
+  }
+  float step = 1.0;
+  for (;;) {
+    fwrite(&step, sizeof(float), 1, stdout);
+    fwrite(&val, sizeof(float), 1, stdout);
+  }    
   return 0;
 
 }
