@@ -18,7 +18,7 @@ CFLAGS=$ -O0 -c -Wall -DLE_MACHINE -D_GNU_SOURCE $(PARAMS_LOOPVECT) $(PARAMS_SIM
 #CFLAGS= -O0 -c -Wall -DLE_MACHINE 
 LDFLAGS= $(PARAMS_LIBS)
 
-SOURCES=$ dspp.cc FIRFilter.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc
+SOURCES=$ dspp.cc FIRFilter.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc fmdemod_cf.cc
 OBJECTS=$(SOURCES:.cc=.o)
 #LIBS=$ -lX11
 DEPTS=$ 
@@ -49,5 +49,7 @@ test:
 	$(CC) $(LDFLAGS) testOut5.o -o testOut5 -lm $(LIBS)
 	$(CC) $(CFLAGS) findDiff.cc -o findDiff.o
 	$(CC) $(LDFLAGS) findDiff.o -o findDiff -lm $(LIBS)
+	$(CC) $(CFLAGS) testIn6.cc -o testIn6.o
+	$(CC) $(LDFLAGS) testIn6.o -o testIn6 -lm $(LIBS)
 clean:
 	rm -fr $(OBJECTS) $(EXECUTABLE)

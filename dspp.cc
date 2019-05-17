@@ -31,6 +31,7 @@ int convert_aByte_f();
 int convert_aUnsignedByte_f();
 int shift_frequency_cc(float cyclesPerSample);
 int decimate_cc(float cutOffFrequency, int M, int amount, const char * window);
+int fmdemod_cf();
 
 static const char USAGE_STR[] = "\n"
         "Usage: %s <command> [ parameter 1 [ ... parameter n]]\n"
@@ -39,7 +40,8 @@ static const char USAGE_STR[] = "\n"
         "  convert_aByte_f          : convert a signed byte stream to internal floating point\n"
         "  convert_aUnsignedByte_f  : convert a signed byte stream to internal floating point\n"
         "  shift_frequency_cc       : recenter a signal by x cycles per sample\n"
-        "  decimate_cc              : replace every n samples with 1\n";
+        "  decimate_cc              : replace every n samples with 1\n"
+        "  fmdemod_cf               : demodulate FM signal\n";
 
 static struct option longOpts[] = {
   { "convert_byteLE_int16"   , no_argument, NULL, 1 },
@@ -47,6 +49,7 @@ static struct option longOpts[] = {
   { "convert_aUnsignedByte_f", no_argument, NULL, 3 },
   { "shift_frequency_cc"     , no_argument, NULL, 4 },
   { "decimate_cc"            , no_argument, NULL, 5 },
+  { "fmdemod_cf"             , no_argument, NULL, 6 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -121,6 +124,10 @@ int main(int argc, char *argv[]) {
           sscanf(argv[4], "%d", &amount);
           doneProcessing = !decimate_cc(cutOffFrequency, M, amount, "HAMMING");
           break;
+      }
+      case 6: {
+        doneProcessing = !fmdemod_cf();
+        break;
       }
       default:
         return -2;
