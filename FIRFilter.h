@@ -30,6 +30,7 @@ class FIRFilter {
   float * inputBuffer;    // buffer read directly from stream within signalBuffer
   float * outputBuffer;   // filtered I/Q values
   float * inputToDelay;   // input to copy to delayed area
+  bool real = false;      // real processing only
   
   int readSignalPipe();
   int writeSignalPipe();
@@ -38,8 +39,10 @@ class FIRFilter {
   enum WindowType {HAMMING, BLACKMAN};
 
   FIRFilter(float cutoffFrequency, int M, int decimation, int N, WindowType windowType);
+  FIRFilter(float cutoffFrequency, int M, int decimation, int N, WindowType windowType, bool real);
 
   void filterSignal();
+  void filterReal();
 
   ~FIRFilter(void);
     

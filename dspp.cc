@@ -32,6 +32,7 @@ int convert_aUnsignedByte_f();
 int shift_frequency_cc(float cyclesPerSample);
 int decimate_cc(float cutOffFrequency, int M, int amount, int N, const char * window);
 int fmdemod_cf();
+int decimate_ff(float cutOffFrequency, int M, int amount, int N, const char * window);
 
 static const char USAGE_STR[] = "\n"
         "Usage: %s <command> [ parameter 1 [ ... parameter n]]\n"
@@ -40,8 +41,9 @@ static const char USAGE_STR[] = "\n"
         "  convert_aByte_f          : convert a signed byte stream to internal floating point\n"
         "  convert_aUnsignedByte_f  : convert a signed byte stream to internal floating point\n"
         "  shift_frequency_cc       : recenter a signal by x cycles per sample\n"
-        "  decimate_cc              : replace every n samples with 1\n"
-        "  fmdemod_cf               : demodulate FM signal\n";
+        "  decimate_cc              : replace every n samples with 1 (complex)\n"
+        "  fmdemod_cf               : demodulate FM signal\n"
+        "  decimate_ff              : replace every n samples with 1 (real)\n";
 
 static struct option longOpts[] = {
   { "convert_byteLE_int16"   , no_argument, NULL, 1 },
@@ -50,6 +52,7 @@ static struct option longOpts[] = {
   { "shift_frequency_cc"     , no_argument, NULL, 4 },
   { "decimate_cc"            , no_argument, NULL, 5 },
   { "fmdemod_cf"             , no_argument, NULL, 6 },
+  { "decimate_ff"            , no_argument, NULL, 7 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -130,6 +133,18 @@ int main(int argc, char *argv[]) {
       case 6: {
         doneProcessing = !fmdemod_cf();
         break;
+      }
+      case 7: {
+          float cutOffFrequency;
+          int M;
+          int amount;
+	  int N;
+          sscanf(argv[2], "%f", &cutOffFrequency);
+          sscanf(argv[3], "%d", &M);
+          sscanf(argv[4], "%d", &amount);
+	  sscanf(argv[5], "%d", &N);
+          doneProcessing = !decimate_ff(cutOffFrequency, M, amount, N, "HAMMING");
+          break;
       }
       default:
         return -2;
