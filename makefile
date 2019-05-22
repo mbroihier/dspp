@@ -18,7 +18,7 @@ CFLAGS=$ -O0 -c -Wall -DLE_MACHINE -D_GNU_SOURCE $(PARAMS_LOOPVECT) $(PARAMS_SIM
 #CFLAGS= -O0 -c -Wall -DLE_MACHINE 
 LDFLAGS= $(PARAMS_LIBS)
 
-SOURCES=$ dspp.cc FIRFilter.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc fmdemod_cf.cc decimate_ff.cc
+SOURCES=$ dspp.cc FIRFilter.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc fmdemod_cf.cc decimate_ff.cc convert_f_unsignedShort.cc convert_f_signedShort.cc
 OBJECTS=$(SOURCES:.cc=.o)
 #LIBS=$ -lX11
 DEPTS=$ 

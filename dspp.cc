@@ -33,6 +33,8 @@ int shift_frequency_cc(float cyclesPerSample);
 int decimate_cc(float cutOffFrequency, int M, int amount, int N, const char * window);
 int fmdemod_cf();
 int decimate_ff(float cutOffFrequency, int M, int amount, int N, const char * window);
+int convert_f_unsignedShort();
+int convert_f_signedShort();
 
 static const char USAGE_STR[] = "\n"
         "Usage: %s <command> [ parameter 1 [ ... parameter n]]\n"
@@ -43,7 +45,9 @@ static const char USAGE_STR[] = "\n"
         "  shift_frequency_cc       : recenter a signal by x cycles per sample\n"
         "  decimate_cc              : replace every n samples with 1 (complex)\n"
         "  fmdemod_cf               : demodulate FM signal\n"
-        "  decimate_ff              : replace every n samples with 1 (real)\n";
+        "  decimate_ff              : replace every n samples with 1 (real)\n"
+        "  convert_f_unsignedShort  : convert a float(real) stream into an unsigned short stream\n"
+        "  convert_f_signedShort    : convert a float(real) stream into an signed short stream\n";
 
 static struct option longOpts[] = {
   { "convert_byteLE_int16"   , no_argument, NULL, 1 },
@@ -53,6 +57,8 @@ static struct option longOpts[] = {
   { "decimate_cc"            , no_argument, NULL, 5 },
   { "fmdemod_cf"             , no_argument, NULL, 6 },
   { "decimate_ff"            , no_argument, NULL, 7 },
+  { "convert_f_unsignedShort", no_argument, NULL, 8 },
+  { "convert_f_signedShort"  , no_argument, NULL, 9 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -145,6 +151,14 @@ int main(int argc, char *argv[]) {
 	  sscanf(argv[5], "%d", &N);
           doneProcessing = !decimate_ff(cutOffFrequency, M, amount, N, "HAMMING");
           break;
+      }
+      case 8: {
+        doneProcessing = !convert_f_unsignedShort();
+        break;
+      }
+      case 9: {
+        doneProcessing = !convert_f_signedShort();
+        break;
       }
       default:
         return -2;
