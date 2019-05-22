@@ -1,5 +1,5 @@
 /*
- *      Test output - operator 5
+ *      Test input - operator 5
  *
  *      Copyright (C) 2019 
  *          Mark Broihier
@@ -14,16 +14,11 @@
 
 int main(int argc, char *argv[]) {
 
-  float f;
-  int sample = 0;
-  
+  float val = 0.0;
   for (;;) {
-    sample++;
-    fprintf(stdout, "Sample: %i\n", sample);
-    fread(&f, sizeof(float), 1, stdin);
-    fprintf(stdout, "I: %f\n", f);
-    fread(&f, sizeof(float), 1, stdin);
-    fprintf(stdout, "Q: %f\n", f);
+    fwrite(&val, sizeof(float), 1, stdout);
+    fwrite(&val, sizeof(float), 1, stdout);
+    val++;
   }
   return 0;
 

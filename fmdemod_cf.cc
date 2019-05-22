@@ -50,7 +50,7 @@
 /* ---------------------------------------------------------------------- */
 
 int fmdemod_cf() {
-  const int BUFFER_SIZE = 4096;
+  const int BUFFER_SIZE = 2048;
   float f[BUFFER_SIZE];
   const int HALF_BUFFER_SIZE = BUFFER_SIZE / 2;
   float of[HALF_BUFFER_SIZE];
@@ -64,6 +64,14 @@ int fmdemod_cf() {
   int count = 0;
 
   fprintf(stderr, "demod buffer input size: %d\n", fSize);
+
+  float I, Q;
+  float lastI = 0.0;
+  float lastQ = 0.0;
+  float lastOutput = 0.0;
+  float Isquared;
+  float Qsquared;
+
   for (;;) {
     count = fread(&f, sizeof(char), fSize, stdin);
     if(count < fSize) {
@@ -73,17 +81,14 @@ int fmdemod_cf() {
     }
     ofptr = of;
     fptr = f;
-    float I, Q;
-    float lastI = 0.0;
-    float lastQ = 0.0;
-    float lastOutput = 0.0;
-    float ratio;
     for (int i = 0; i < HALF_BUFFER_SIZE; i++) {
       I = *fptr++;
       Q = *fptr++;
-      if (abs(I) > EPSILON) {
-	ratio = Q / I;
-        lastOutput = (I * (Q - lastQ) - Q * (I - lastI)) / ((1.0 + ratio * ratio) * I * I);
+      if ((abs(I) > EPSILON) || (abs(Q) > EPSILON)) {
+        Isquared = I * I;
+	Qsquared = Q * Q;
+        //lastOutput = (I * (Q - lastQ) - Q * (I - lastI)) / ((1.0 + ratio * ratio) * I * I);
+        lastOutput = (Q*lastI - I*lastQ) / (Isquared + Qsquared);
       }
       *ofptr++ = lastOutput;
       lastI = I;

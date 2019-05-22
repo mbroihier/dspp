@@ -8,20 +8,51 @@
 
 /* ---------------------------------------------------------------------- */
 
+#include <fcntl.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 
 #include "FIRFilter.h"
 
 /* ---------------------------------------------------------------------- */
-FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, WindowType windowType) {
+FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, WindowType windowType) {
   this->decimation = decimation;
   this->M = M;
+  this->N = N;
   if ((M % 2) == 0) {
     fprintf(stderr, "There must be an odd number of coefficients\n");
     exit(-1);
   }
+
+  int additionalSamplesNeeded = M / decimation;
+
+  if ( additionalSamplesNeeded > 0 ) {
+    fprintf(stderr, "Note: requested number of samples per buffer was %d, but the number of taps requires additional samples: %d\n", N, additionalSamplesNeeded);
+    this->N = N + additionalSamplesNeeded;
+    N = this->N;
+  }
+
+  // Always make the number of samples read a multiple of decimation factor and this number of samples must always be greater than the
+  // number of coefficients.
+  floatSamplesPerBufferToRead = N * decimation;
+  if (floatSamplesPerBufferToRead < M) {
+    fprintf(stderr, "Must always read enough samples to fill the filter taps\n");
+    exit(-1);
+  }
+  INPUT_BUFFER_SIZE = (floatSamplesPerBufferToRead) * sizeof(float) * 2;
+  SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + M * sizeof(float) * 2; // always delay the last M samples for the next buffer read
+  OUTPUT_BUFFER_SIZE = N * 2 * sizeof(float);
+  fcntl(STDIN_FILENO, F_SETPIPE_SZ, INPUT_BUFFER_SIZE); 
+  fcntl(STDOUT_FILENO, F_SETPIPE_SZ, OUTPUT_BUFFER_SIZE); 
+  signalBuffer = (float *) malloc(SIGNAL_BUFFER_SIZE);
+  outputBuffer = (float *) malloc(OUTPUT_BUFFER_SIZE);
+  inputBuffer = signalBuffer + M*2; // buffer start for read
+  int diff = inputBuffer - signalBuffer;
+  fprintf(stderr, "inputBuffer location: %p, signalBuffer location: %p, difference: %d\n", inputBuffer, signalBuffer, diff);
+  inputToDelay = inputBuffer + (INPUT_BUFFER_SIZE - M * sizeof(float) * 2) / sizeof(float);
   float sinc[M];
   midPoint = M/2;
   fprintf(stderr, "decimation factor: %d, number of filter coefficients: %d, midpoint: %d\n", decimation, M, midPoint);
@@ -48,8 +79,7 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, WindowType wi
     }
   }
   coefficients = (float *) malloc(sizeof(float)*M);
-  oldInput = (float *) malloc(sizeof(float)*M*2);
-  oldestQ = 2*M - 1;
+
   float accumulator = 0.0;
   float * coefficientReference = coefficients;
   for (int i = 0; i < M; i++) {
@@ -61,8 +91,8 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, WindowType wi
     *coefficientReference = *coefficientReference / accumulator; // normalize the coefficients so the total gain is 1.0
     coefficientReference++;
   }
-  for (int i = 0; i <= oldestQ; i++) {
-    oldInput[i] = 0.0;
+  for (int i = 0; i < 2 * M; i++) {
+    signalBuffer[i] = 0.0;
   }
   fprintf(stderr, "FIR filter initialized\n");
 
@@ -72,89 +102,81 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, WindowType wi
 
 };
 
-void FIRFilter::filterSignal(float * input, float * output, int samples){
+int FIRFilter::readSignalPipe() {
+  int count = fread(inputBuffer, sizeof(char), INPUT_BUFFER_SIZE, stdin);
+  return count;
+}
 
-  float * I = input;
-  float * Q = input + 1;
-  float * signal = I;
-  float sum = 0.0;
-  //fprintf(stderr, "first couple inputs: %f, %f, %f, %f\n", *input, *(input+1), *(input+2), *(input+3));
-  //fprintf(stderr, "first couple outputs: %f, %f, %f, %f\n", *output, *(output+1), *(output+2), *(output+3));
-  //fprintf(stderr, "starting to filter a buffer\n");
+int FIRFilter::writeSignalPipe() {
+  int count = fwrite(outputBuffer, sizeof(char), OUTPUT_BUFFER_SIZE, stdout);
+  return count;
+}
 
-  //
-  // Filter using previously stored input from the last buffer
-  //
+void FIRFilter::filterSignal(){
 
-  float * oldSignal = oldInput + 2 * M -2 ;  // point at least old I
-  for (int j = midPoint; j < M; j++) {
-    sum += coefficients[j] * *signal;
-    //fprintf(stderr, "working with I: %f\n", *signal);
-    signal += 2;
-    if (j != midPoint) {
-      sum += coefficients[j] * *oldSignal;
-      //fprintf(stderr, "working with oldI: %f\n", *oldSignal);
-      oldSignal -= 2;
-    }
-  }
-  *output++ = sum;
-  sum = 0.0;
-  signal = Q;
-  oldSignal = oldInput + 2 * M - 1;
-  for (int j = midPoint; j < M; j++) {
-    sum += coefficients[j] * *signal;
-    //fprintf(stderr, "working with Q: %f\n", *signal);
-    signal += 2;
-    if (j != midPoint) {
-      sum += coefficients[j] * *oldSignal;
-      //fprintf(stderr, "working with oldQ: %f\n", *oldSignal);
-      oldSignal -= 2;
-    }
-  }
-  *output++ = sum;
+  float * I;
+  float * Q;
+  float * coefficientPtr;
+  float * output;
+  float sum;
+  float sumI;
+  float sumQ;
 
   //
   // Filter with this current buffer of input
   //
 
-  sum = 0.0;
-  for (int i = 1; i < samples; i++) {
-    //fprintf(stderr, "doing sample %d of %d, output pointer is at: %p\n", i, samples, output);
-    I += decimation*2;
+  for (;;) {
+    if (readSignalPipe() != INPUT_BUFFER_SIZE) {
+      fprintf(stderr, "Short read....\n");
+      exit(-1);
+    }
+    //fprintf(stderr, "last old I is pointing at: %p, value is: %f, last old Q is pointing at: %p, value is: %f\n", inputBuffer-2, *(inputBuffer-2), inputBuffer-1, *(inputBuffer-1));
+    //fprintf(stderr, "first new I is pointing at: %p, value is: %f, first new Q is pointing at: %p, value is: %f\n", inputBuffer, *(inputBuffer), inputBuffer+1, *(inputBuffer+1));
+
+    I = inputBuffer - M / 2 * 2;
+                                                  // set I to the first input
+                                                  // that will be processed by
+                                                  // coefficient[0]
     Q = I + 1;
-    //fprintf(stderr, "I is pointing at: %p, value is: %f, Q is pointing at: %p, value is: %f\n", I, *I, Q, *Q);
-    signal = I;
-    for (int j = 0; j < M; j++) {
-      sum += coefficients[j] * signal[(j - midPoint)*2];
+    output = outputBuffer;
+    coefficientPtr = coefficients;
+    //for (int i = 0; i < N + extra - 1; i++) {
+    for (int i = 0; i < N; i++) {
+      //fprintf(stderr, "doing sample %d of %d, output pointer is at: %p\n", i, N + extra, output);
+      //fprintf(stderr, "I is pointing at: %p, value is: %f, Q is pointing at: %p, value is: %f\n", I, *I, Q, *Q);
+      sumI = 0.0;
+      sumQ = 0.0;
+      coefficientPtr = coefficients;
+      for (int j = 0; j < M; j++) {
+        //fprintf(stderr, "j is: %d, I is pointing at: %p, value is: %f, Q is pointing at: %p, value is: %f\n", j, I, *I, Q, *Q);
+        sumI += *coefficientPtr * *I;
+        sumQ += *coefficientPtr * *Q;
+        coefficientPtr++;
+        I += 2;
+        Q += 2;
+      }
+      I += (decimation - M) * 2;
+      Q = I + 1;
+      *output++ = sumI;
+      *output++ = sumQ;
     }
-    *output++ = sum;
-    sum = 0.0;
-    signal = Q;
-    for (int j = 0; j < M; j++) {
-      sum += coefficients[j] * signal[(j - midPoint)*2];
-    }
-    *output++ = sum;
-    sum = 0.0;
-  }
 
-  //
-  // Copy the end of the buffer that will be used in the filtering
-  // of the next buffer that arrives
-  //
-
-  I += decimation*2; // is first location after buffer
-  I--; //point at last Q
-  //fprintf(stderr, "copying the remaining input buffer\n");
-  for (int i = oldestQ; i > 0; i -= 2) {
-    oldInput[i] = *I--; // old Q
-    oldInput[i-1] = *I--; // old I
-    //fprintf(stderr, "oldInput %d: Q=%f, I=%f\n", i, oldInput[i], oldInput[i-1]);
+    //
+    // Copy the end of the buffer that will be used in the filtering
+    // of the next buffer that arrives
+    //
+    writeSignalPipe();
+    memcpy(signalBuffer, inputToDelay, M * 8);
+    // after copy, the end of the copied data should match up with the beginning of the input buffer, so
+    // look at it after the read
+    //fprintf(stderr, "filtered a buffer\n");
   }
-  //fprintf(stderr, "filtered a buffer\n");
 };
 
 FIRFilter::~FIRFilter(void) {
   free(coefficients);
-  free(oldInput);
+  free(inputBuffer);
+  free(outputBuffer);
 };
 

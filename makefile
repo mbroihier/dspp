@@ -49,7 +49,11 @@ test:
 	$(CC) $(LDFLAGS) testOut5.o -o testOut5 -lm $(LIBS)
 	$(CC) $(CFLAGS) findDiff.cc -o findDiff.o
 	$(CC) $(LDFLAGS) findDiff.o -o findDiff -lm $(LIBS)
+	$(CC) $(CFLAGS) testIn5b.cc -o testIn5b.o
+	$(CC) $(CFLAGS) testIn5c.cc -o testIn5c.o
 	$(CC) $(CFLAGS) testIn6.cc -o testIn6.o
+	$(CC) $(LDFLAGS) testIn5b.o -o testIn5b -lm $(LIBS)
+	$(CC) $(LDFLAGS) testIn5c.o -o testIn5c -lm $(LIBS)
 	$(CC) $(LDFLAGS) testIn6.o -o testIn6 -lm $(LIBS)
 clean:
 	rm -fr $(OBJECTS) $(EXECUTABLE)

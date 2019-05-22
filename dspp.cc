@@ -30,7 +30,7 @@ int convert_byteLE_int16();
 int convert_aByte_f();
 int convert_aUnsignedByte_f();
 int shift_frequency_cc(float cyclesPerSample);
-int decimate_cc(float cutOffFrequency, int M, int amount, const char * window);
+int decimate_cc(float cutOffFrequency, int M, int amount, int N, const char * window);
 int fmdemod_cf();
 
 static const char USAGE_STR[] = "\n"
@@ -119,10 +119,12 @@ int main(int argc, char *argv[]) {
           float cutOffFrequency;
           int M;
           int amount;
+	  int N;
           sscanf(argv[2], "%f", &cutOffFrequency);
           sscanf(argv[3], "%d", &M);
           sscanf(argv[4], "%d", &amount);
-          doneProcessing = !decimate_cc(cutOffFrequency, M, amount, "HAMMING");
+	  sscanf(argv[5], "%d", &N);
+          doneProcessing = !decimate_cc(cutOffFrequency, M, amount, N, "HAMMING");
           break;
       }
       case 6: {
