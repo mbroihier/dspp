@@ -35,6 +35,7 @@ int fmdemod_cf();
 int decimate_ff(float cutOffFrequency, int M, int amount, int N, const char * window);
 int convert_f_unsignedShort();
 int convert_f_signedShort();
+int convert_tcp_aUnsignedByte(const char * IPAddress, int port, int frequency, int sampleRate);
 
 static const char USAGE_STR[] = "\n"
         "Usage: %s <command> [ parameter 1 [ ... parameter n]]\n"
@@ -47,18 +48,20 @@ static const char USAGE_STR[] = "\n"
         "  fmdemod_cf               : demodulate FM signal\n"
         "  decimate_ff              : replace every n samples with 1 (real)\n"
         "  convert_f_unsignedShort  : convert a float(real) stream into an unsigned short stream\n"
-        "  convert_f_signedShort    : convert a float(real) stream into an signed short stream\n";
+        "  convert_f_signedShort    : convert a float(real) stream into an signed short stream\n"
+        "  convert_tcp_aUnsignedByte: convert a tcp stream into an unsigned byte stream\n";
 
 static struct option longOpts[] = {
-  { "convert_byteLE_int16"   , no_argument, NULL, 1 },
-  { "convert_aByte_f"        , no_argument, NULL, 2 },
-  { "convert_aUnsignedByte_f", no_argument, NULL, 3 },
-  { "shift_frequency_cc"     , no_argument, NULL, 4 },
-  { "decimate_cc"            , no_argument, NULL, 5 },
-  { "fmdemod_cf"             , no_argument, NULL, 6 },
-  { "decimate_ff"            , no_argument, NULL, 7 },
-  { "convert_f_unsignedShort", no_argument, NULL, 8 },
-  { "convert_f_signedShort"  , no_argument, NULL, 9 },
+  { "convert_byteLE_int16"     , no_argument, NULL, 1 },
+  { "convert_aByte_f"          , no_argument, NULL, 2 },
+  { "convert_aUnsignedByte_f"  , no_argument, NULL, 3 },
+  { "shift_frequency_cc"       , no_argument, NULL, 4 },
+  { "decimate_cc"              , no_argument, NULL, 5 },
+  { "fmdemod_cf"               , no_argument, NULL, 6 },
+  { "decimate_ff"              , no_argument, NULL, 7 },
+  { "convert_f_unsignedShort"  , no_argument, NULL, 8 },
+  { "convert_f_signedShort"    , no_argument, NULL, 9 },
+  { "convert_tcp_aUnsignedByte", no_argument, NULL, 10 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -158,6 +161,17 @@ int main(int argc, char *argv[]) {
       }
       case 9: {
         doneProcessing = !convert_f_signedShort();
+        break;
+      }
+      case 10: {
+        int port;
+        int frequency;
+        int sampleRate;
+        sscanf(argv[3], "%d", &port);
+        sscanf(argv[4], "%d", &frequency);
+	sscanf(argv[5], "%d", &sampleRate);
+        fprintf(stderr, "calling tcp client\n");
+        doneProcessing = !convert_tcp_aUnsignedByte(argv[2], port, frequency, sampleRate);
         break;
       }
       default:
