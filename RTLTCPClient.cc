@@ -49,12 +49,18 @@ void RTLTCPClient::doWork(const char * address, int port, int frequency, int sam
   }
   char buffer[4096];
   bool done = false;
+  bool firstMessage = true;
   int count = 0;
   while (!done) {
     count = recv(mySocket, buffer, sizeof(buffer), 0);
-    if (count < sizeof(buffer)) {
+    if (count <= 0) {
+      done = true;
+      continue;
+    }
+    if (count != sizeof(buffer)) {
       fprintf(stderr, "Short buffer: %d\n", count);
-      if (count == 12) {
+      if ((count == 12) && firstMessage) {
+	firstMessage = false;
         if (frequency <= 0) {
           continue;
         }
@@ -71,10 +77,6 @@ void RTLTCPClient::doWork(const char * address, int port, int frequency, int sam
         commandPacket.bytes[3] = (sampleRate >> 8) & 0xff;
         commandPacket.bytes[4] = sampleRate & 0xff;
         send(mySocket, commandPacket.bytes, 5, 0);
-        continue;
-      }
-      if (count <= 0) {
-        done = true;
         continue;
       }
     }

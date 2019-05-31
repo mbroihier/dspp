@@ -123,8 +123,13 @@ int main(int argc, char *argv[]) {
       }
       case 4: {
           float amount;
-          sscanf(argv[2], "%f", &amount);
-          doneProcessing = !shift_frequency_cc(amount);
+	  if (argc == 3) {
+            sscanf(argv[2], "%f", &amount);
+            doneProcessing = !shift_frequency_cc(amount);
+	  } else {
+	    fprintf(stderr, "shift_frequency_cc parameter error\n");
+	    doneProcessing = true;
+	  }
           break;
       }
       case 5: {
@@ -132,11 +137,16 @@ int main(int argc, char *argv[]) {
           int M;
           int amount;
 	  int N;
-          sscanf(argv[2], "%f", &cutOffFrequency);
-          sscanf(argv[3], "%d", &M);
-          sscanf(argv[4], "%d", &amount);
-	  sscanf(argv[5], "%d", &N);
-          doneProcessing = !decimate_cc(cutOffFrequency, M, amount, N, "HAMMING");
+	  if (argc == 7) {
+            sscanf(argv[2], "%f", &cutOffFrequency);
+            sscanf(argv[3], "%d", &M);
+            sscanf(argv[4], "%d", &amount);
+	    sscanf(argv[5], "%d", &N);
+            doneProcessing = !decimate_cc(cutOffFrequency, M, amount, N, argv[6]);
+	  } else {
+	    fprintf(stderr, "decimate_cc parameter error\n");
+	    doneProcessing = true;
+	  }
           break;
       }
       case 6: {
@@ -148,11 +158,15 @@ int main(int argc, char *argv[]) {
           int M;
           int amount;
 	  int N;
-          sscanf(argv[2], "%f", &cutOffFrequency);
-          sscanf(argv[3], "%d", &M);
-          sscanf(argv[4], "%d", &amount);
-	  sscanf(argv[5], "%d", &N);
-          doneProcessing = !decimate_ff(cutOffFrequency, M, amount, N, "HAMMING");
+	  if (argc == 7) {
+            sscanf(argv[2], "%f", &cutOffFrequency);
+            sscanf(argv[3], "%d", &M);
+            sscanf(argv[4], "%d", &amount);
+	    sscanf(argv[5], "%d", &N);
+            doneProcessing = !decimate_ff(cutOffFrequency, M, amount, N, argv[6]);
+	  } else {
+	    doneProcessing = true;
+	  }
           break;
       }
       case 8: {
@@ -165,13 +179,20 @@ int main(int argc, char *argv[]) {
       }
       case 10: {
         int port;
-        int frequency;
-        int sampleRate;
-        sscanf(argv[3], "%d", &port);
-        sscanf(argv[4], "%d", &frequency);
-	sscanf(argv[5], "%d", &sampleRate);
-        fprintf(stderr, "calling tcp client\n");
-        doneProcessing = !convert_tcp_aUnsignedByte(argv[2], port, frequency, sampleRate);
+        int frequency = 0;
+        int sampleRate = 0;
+	if (argc == 6 || argc == 4) {
+          sscanf(argv[3], "%d", &port);
+	  if (argc == 6) {
+            sscanf(argv[4], "%d", &frequency);
+	    sscanf(argv[5], "%d", &sampleRate);
+	  }
+          fprintf(stderr, "calling tcp client\n");
+          doneProcessing = !convert_tcp_aUnsignedByte(argv[2], port, frequency, sampleRate);
+	} else {
+	  fprintf(stderr, "convert_tcp_aUnsignedByte parameter error\n");
+	  doneProcessing = true;
+	}
         break;
       }
       default:

@@ -6,7 +6,8 @@ PARAMS_RASPI = -mfloat-abi=hard -mcpu=arm1176jzf-s -mfpu=vfp -funsafe-math-optim
 PARAMS_ARM = $(if $(call cpufeature,BCM2708,dummy-text),$(PARAMS_RASPI),$(PARAMS_NEON))
 PARAMS_SIMD = $(if $(call cpufeature,sse,dummy-text),$(PARAMS_SSE),$(PARAMS_ARM))
 PARAMS_LOOPVECT = -O3 -ffast-math -fdump-tree-vect-details -dumpbase dumpvect
-PARAMS_LIBS = -g -lm -lrt -lfftw3f -lstdc++ -DUSE_FFTW -DLIBCSDR_GPL -DUSE_IMA_ADPCM
+#PARAMS_LIBS = -g -lm -lrt -lfftw3f -lstdc++ -DUSE_FFTW -DLIBCSDR_GPL -DUSE_IMA_ADPCM
+PARAMS_LIBS = -g -lm -lstdc++ 
 PARAMS_SO = -fpic  
 PARAMS_MISC = -Wno-unused-result
 #DEBUG_ON = 0 #debug is always on by now (anyway it could be compiled with `make DEBUG_ON=1`)
@@ -14,23 +15,19 @@ PARAMS_MISC = -Wno-unused-result
 FFTW_PACKAGE = fftw-3.3.3
 
 CC=gcc
-CFLAGS=$ -O0 -c -Wall -DLE_MACHINE -D_GNU_SOURCE $(PARAMS_LOOPVECT) $(PARAMS_SIMD) $(PARAMS_MISC) 
-#CFLAGS= -O0 -c -Wall -DLE_MACHINE 
+CFLAGS= -O0 -c -Wall -DLE_MACHINE -D_GNU_SOURCE $(PARAMS_LOOPVECT) $(PARAMS_SIMD) $(PARAMS_MISC) 
 LDFLAGS= $(PARAMS_LIBS)
 
-SOURCES=$ dspp.cc RTLTCPClient.cc FIRFilter.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc fmdemod_cf.cc decimate_ff.cc convert_f_unsignedShort.cc convert_f_signedShort.cc convert_tcp_aUnsignedByte.cc
+SOURCES= dspp.cc RTLTCPClient.cc FIRFilter.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc fmdemod_cf.cc decimate_ff.cc convert_f_unsignedShort.cc convert_f_signedShort.cc convert_tcp_aUnsignedByte.cc
 OBJECTS=$(SOURCES:.cc=.o)
+
 #LIBS=$ -lX11
-DEPTS=$ 
+
+DEPTS= FIRFilter.h RTLTCPClient.h
 
 EXECUTABLE=dspp
 
-all: $(DEPTS) $(SOURCES) $(OBJECTS) $(EXECUTABLE)
-
-$(EXECUTABLE): $(OBJECTS)
-	$(CC) $(LDFLAGS) $(OBJECTS) -o dspp -lm $(LIBS)
-$(SOURCES):
-	$(CC) $(CFLAGS) $< -lm -o $@
+all: $(SOURCES) $(OBJECTS) $(EXECUTABLE)
 
 test:
 	$(CC) $(CFLAGS) testIn1.cc -lm -o testIn1.o
@@ -55,5 +52,14 @@ test:
 	$(CC) $(LDFLAGS) testIn5b.o -o testIn5b -lm $(LIBS)
 	$(CC) $(LDFLAGS) testIn5c.o -o testIn5c -lm $(LIBS)
 	$(CC) $(LDFLAGS) testIn6.o -o testIn6 -lm $(LIBS)
+
+$(EXECUTABLE): $(OBJECTS)
+	$(CC) $(LDFLAGS) $(OBJECTS) -o dspp -lm $(LIBS)
+
+$(OBJECTS) : $(SOURCES) $(DEPTS)
+#$(OBJECTS): $${@:.o=.c} $(DEPTS)
+	$(CC) $(CFLAGS) $*.cc -lm -o $@
+#	$(CC) $(CFLAGS) $? -lm -o $@
+
 clean:
 	rm -fr $(OBJECTS) $(EXECUTABLE)

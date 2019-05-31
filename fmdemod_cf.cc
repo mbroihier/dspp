@@ -43,6 +43,7 @@
 
 /* ---------------------------------------------------------------------- */
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <math.h>
@@ -59,8 +60,8 @@ int fmdemod_cf() {
   int ofSize = sizeof(of);
   const float EPSILON = 1.0 / 128.0;
 
-  fcntl(STDIN_FILENO, F_SETPIPE_SZ, fSize); 
-  fcntl(STDOUT_FILENO, F_SETPIPE_SZ, ofSize);
+  //fcntl(STDIN_FILENO, F_SETPIPE_SZ, fSize); 
+  //fcntl(STDOUT_FILENO, F_SETPIPE_SZ, ofSize);
   int count = 0;
 
   fprintf(stderr, "demod buffer input size: %d\n", fSize);

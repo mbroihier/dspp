@@ -19,8 +19,8 @@ int convert_aUnsignedByte_f() {
   int count;
   float * fptr;
   unsigned char * cptr;
-  fcntl(STDIN_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
-  fcntl(STDOUT_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
+  //fcntl(STDIN_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
+  //fcntl(STDOUT_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
   for (;;) {
     count = fread(&c, sizeof(char), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {

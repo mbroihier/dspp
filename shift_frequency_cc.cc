@@ -20,8 +20,8 @@ int shift_frequency_cc(float amount) {
   float of[BUFFER_SIZE];
   int count;
   float * fptr, * ofptr;
-  fcntl(STDIN_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
-  fcntl(STDOUT_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
+  //fcntl(STDIN_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
+  //fcntl(STDOUT_FILENO, F_SETPIPE_SZ, BUFFER_SIZE); 
   float sinDeltaAmount = sin(amount*2.0*M_PI);
   float cosDeltaAmount = cos(amount*2.0*M_PI);
   float cosAmount = 1.0;

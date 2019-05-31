@@ -22,6 +22,7 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
   this->decimation = decimation;
   this->M = M;
   this->N = N;
+  this->real = false;
   if ((M % 2) == 0) {
     fprintf(stderr, "There must be an odd number of coefficients\n");
     exit(-1);
@@ -45,8 +46,8 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
   INPUT_BUFFER_SIZE = (floatSamplesPerBufferToRead) * sizeof(float) * 2;
   SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + M * sizeof(float) * 2; // always delay the last M samples for the next buffer read
   OUTPUT_BUFFER_SIZE = N * 2 * sizeof(float);
-  fcntl(STDIN_FILENO, F_SETPIPE_SZ, INPUT_BUFFER_SIZE); 
-  fcntl(STDOUT_FILENO, F_SETPIPE_SZ, OUTPUT_BUFFER_SIZE); 
+  //fcntl(STDIN_FILENO, F_SETPIPE_SZ, INPUT_BUFFER_SIZE); 
+  //fcntl(STDOUT_FILENO, F_SETPIPE_SZ, OUTPUT_BUFFER_SIZE); 
   signalBuffer = (float *) malloc(SIGNAL_BUFFER_SIZE);
   outputBuffer = (float *) malloc(OUTPUT_BUFFER_SIZE);
   inputBuffer = signalBuffer + M*2; // buffer start for read
@@ -69,10 +70,18 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
   sinc[midPoint] = 1.0;
   float window[M];
   const float K2 = 2.0 * M_PI / (M - 1.0);
+  const float K3 = 4.0 * M_PI / (M - 1.0);
   switch (windowType) {
     case HAMMING: {
       for (int i = 1; i <= midPoint; i++) {
         window[midPoint + i] = window[midPoint - i] = 0.54 - 0.46 * cos(K2 * (midPoint - i));
+        //fprintf(stderr, "window index %d and %d, value: %f\n", midPoint + i, midPoint - i, window[midPoint + i]);
+      }
+      window[midPoint] = 1.0;
+    }
+    case BLACKMAN: {
+      for (int i = 1; i <= midPoint; i++) {
+        window[midPoint + i] = window[midPoint - i] = 0.42 - 0.5 * cos(K2 * (midPoint - i) + 0.08 * cos(K3 * (midPoint - 1)));
         //fprintf(stderr, "window index %d and %d, value: %f\n", midPoint + i, midPoint - i, window[midPoint + i]);
       }
       window[midPoint] = 1.0;
@@ -130,8 +139,8 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
   INPUT_BUFFER_SIZE = (floatSamplesPerBufferToRead) * sizeof(float);
   SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + M * sizeof(float); // always delay the last M samples for the next buffer read
   OUTPUT_BUFFER_SIZE = N * sizeof(float);
-  fcntl(STDIN_FILENO, F_SETPIPE_SZ, INPUT_BUFFER_SIZE); 
-  fcntl(STDOUT_FILENO, F_SETPIPE_SZ, OUTPUT_BUFFER_SIZE); 
+  //fcntl(STDIN_FILENO, F_SETPIPE_SZ, INPUT_BUFFER_SIZE); 
+  //fcntl(STDOUT_FILENO, F_SETPIPE_SZ, OUTPUT_BUFFER_SIZE); 
   signalBuffer = (float *) malloc(SIGNAL_BUFFER_SIZE);
   outputBuffer = (float *) malloc(OUTPUT_BUFFER_SIZE);
   inputBuffer = signalBuffer + M; // buffer start for read
@@ -154,10 +163,18 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
   sinc[midPoint] = 1.0;
   float window[M];
   const float K2 = 2.0 * M_PI / (M - 1.0);
+  const float K3 = 4.0 * M_PI / (M - 1.0);
   switch (windowType) {
     case HAMMING: {
       for (int i = 1; i <= midPoint; i++) {
         window[midPoint + i] = window[midPoint - i] = 0.54 - 0.46 * cos(K2 * (midPoint - i));
+        //fprintf(stderr, "window index %d and %d, value: %f\n", midPoint + i, midPoint - i, window[midPoint + i]);
+      }
+      window[midPoint] = 1.0;
+    }
+    case BLACKMAN: {
+      for (int i = 1; i <= midPoint; i++) {
+        window[midPoint + i] = window[midPoint - i] = 0.42 - 0.5 * cos(K2 * (midPoint - i) + 0.08 * cos(K3 * (midPoint - 1)));
         //fprintf(stderr, "window index %d and %d, value: %f\n", midPoint + i, midPoint - i, window[midPoint + i]);
       }
       window[midPoint] = 1.0;
@@ -203,7 +220,6 @@ void FIRFilter::filterSignal(){
   float * Q;
   float * coefficientPtr;
   float * output;
-  float sum;
   float sumI;
   float sumQ;
 

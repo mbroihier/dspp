@@ -30,7 +30,7 @@ class FIRFilter {
   float * inputBuffer;    // buffer read directly from stream within signalBuffer
   float * outputBuffer;   // filtered I/Q values
   float * inputToDelay;   // input to copy to delayed area
-  bool real = false;      // real processing only
+  bool real;              // real processing only
   
   int readSignalPipe();
   int writeSignalPipe();

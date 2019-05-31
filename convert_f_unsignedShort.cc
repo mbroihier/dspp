@@ -20,8 +20,8 @@ int convert_f_unsignedShort() {
   int count;
   float * fptr;
   unsigned short * iptr;
-  fcntl(STDIN_FILENO, F_SETPIPE_SZ, sizeof(f)); 
-  fcntl(STDOUT_FILENO, F_SETPIPE_SZ, sizeof(i)); 
+  //fcntl(STDIN_FILENO, F_SETPIPE_SZ, sizeof(f)); 
+  //fcntl(STDOUT_FILENO, F_SETPIPE_SZ, sizeof(i)); 
   for (;;) {
     count = fread(&f, sizeof(float), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {
