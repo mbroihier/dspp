@@ -15,51 +15,54 @@ PARAMS_MISC = -Wno-unused-result
 FFTW_PACKAGE = fftw-3.3.3
 
 CC=gcc
-CFLAGS= -O0 -c -Wall -DLE_MACHINE -D_GNU_SOURCE $(PARAMS_LOOPVECT) $(PARAMS_SIMD) $(PARAMS_MISC) 
+CFLAGS= -O0 -c -Wall -DLE_MACHINE -D_GNU_SOURCE $(PARAMS_LOOPVECT) $(PARAMS_SIMD) $(PARAMS_MISC)
+CXX = $(CC)
+CXXFLAGS = $(CFLAGS) # set these flags for use of suffix rules for cc
 LDFLAGS= $(PARAMS_LIBS)
 
-SOURCES= dspp.cc RTLTCPClient.cc FIRFilter.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc fmdemod_cf.cc decimate_ff.cc convert_f_unsignedShort.cc convert_f_signedShort.cc convert_tcp_aUnsignedByte.cc
+SOURCES= dspp.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc fmdemod_cf.cc decimate_ff.cc convert_f_unsignedShort.cc convert_f_signedShort.cc convert_tcp_aUnsignedByte.cc
 OBJECTS=$(SOURCES:.cc=.o)
 
-#LIBS=$ -lX11
-
-DEPTS= FIRFilter.h RTLTCPClient.h
+RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h
+FIRFILTSRC = FIRFilter.cc FIRFilter.h
+RTLTCPOBJ = RTLTCPClient.o
+FIRFILTOBJ = FIRFilter.o
 
 EXECUTABLE=dspp
 
-all: $(SOURCES) $(OBJECTS) $(EXECUTABLE)
+all: $(EXECUTABLE)
 
 test:
 	$(CC) $(CFLAGS) testIn1.cc -lm -o testIn1.o
 	$(CC) $(CFLAGS) testOut1.cc -o testOut1.o
-	$(CC) $(LDFLAGS) testIn1.o -o testIn1 -lm $(LIBS)
-	$(CC) $(LDFLAGS) testOut1.o -o testOut1 -lm $(LIBS)
+	$(CC) $(LDFLAGS) testIn1.o -o testIn1 -lm 
+	$(CC) $(LDFLAGS) testOut1.o -o testOut1 -lm
 	$(CC) $(CFLAGS) testIn2.cc -o testIn2.o
 	$(CC) $(CFLAGS) testOut2.cc -o testOut2.o
-	$(CC) $(LDFLAGS) testIn2.o -o testIn2 -lm $(LIBS)
-	$(CC) $(LDFLAGS) testOut2.o -o testOut2 -lm $(LIBS)
+	$(CC) $(LDFLAGS) testIn2.o -o testIn2 -lm
+	$(CC) $(LDFLAGS) testOut2.o -o testOut2 -lm
 	$(CC) $(CFLAGS) testIn5.cc -o testIn5.o
 	$(CC) $(CFLAGS) testIn5a.cc -o testIn5a.o
 	$(CC) $(CFLAGS) testOut5.cc -o testOut5.o
-	$(CC) $(LDFLAGS) testIn5.o -o testIn5 -lm $(LIBS)
-	$(CC) $(LDFLAGS) testIn5a.o -o testIn5a -lm $(LIBS)
-	$(CC) $(LDFLAGS) testOut5.o -o testOut5 -lm $(LIBS)
+	$(CC) $(LDFLAGS) testIn5.o -o testIn5 -lm
+	$(CC) $(LDFLAGS) testIn5a.o -o testIn5a -lm
+	$(CC) $(LDFLAGS) testOut5.o -o testOut5 -lm
 	$(CC) $(CFLAGS) findDiff.cc -o findDiff.o
-	$(CC) $(LDFLAGS) findDiff.o -o findDiff -lm $(LIBS)
+	$(CC) $(LDFLAGS) findDiff.o -o findDiff -lm
 	$(CC) $(CFLAGS) testIn5b.cc -o testIn5b.o
 	$(CC) $(CFLAGS) testIn5c.cc -o testIn5c.o
 	$(CC) $(CFLAGS) testIn6.cc -o testIn6.o
-	$(CC) $(LDFLAGS) testIn5b.o -o testIn5b -lm $(LIBS)
-	$(CC) $(LDFLAGS) testIn5c.o -o testIn5c -lm $(LIBS)
-	$(CC) $(LDFLAGS) testIn6.o -o testIn6 -lm $(LIBS)
+	$(CC) $(LDFLAGS) testIn5b.o -o testIn5b -lm 
+	$(CC) $(LDFLAGS) testIn5c.o -o testIn5c -lm 
+	$(CC) $(LDFLAGS) testIn6.o -o testIn6 -lm 
 
-$(EXECUTABLE): $(OBJECTS)
-	$(CC) $(LDFLAGS) $(OBJECTS) -o dspp -lm $(LIBS)
+$(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ)
+	$(CC) $(LDFLAGS) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) -o dspp
 
-$(OBJECTS) : $(SOURCES) $(DEPTS)
-#$(OBJECTS): $${@:.o=.c} $(DEPTS)
-	$(CC) $(CFLAGS) $*.cc -lm -o $@
-#	$(CC) $(CFLAGS) $? -lm -o $@
+$(RTLTCPOBJ) : $(RTLTCPSRC)
+	$(CC) $(CFLAGS) $*.cc -o $@
+$(FIRFILTOBJ) : $(FIRFILTSRC)
+	$(CC) $(CFLAGS) $*.cc -o $@
 
 clean:
-	rm -fr $(OBJECTS) $(EXECUTABLE)
+	rm -fr $(OBJECTS) $(EXECUTABLE) *.o
