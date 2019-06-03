@@ -76,7 +76,7 @@ int fmdemod_cf() {
   for (;;) {
     count = fread(&f, sizeof(char), fSize, stdin);
     if(count < fSize) {
-      fprintf(stderr, "Short data stream\n");
+      fprintf(stderr, "Short data stream, fmdemod_cf\n");
       fclose(stdout);
       return 0;
     }
@@ -85,7 +85,7 @@ int fmdemod_cf() {
     for (int i = 0; i < HALF_BUFFER_SIZE; i++) {
       I = *fptr++;
       Q = *fptr++;
-      if ((abs(I) > EPSILON) || (abs(Q) > EPSILON)) {
+      if ((fabs(I) > EPSILON) || (fabs(Q) > EPSILON)) {
         Isquared = I * I;
 	Qsquared = Q * Q;
         //lastOutput = (I * (Q - lastQ) - Q * (I - lastI)) / ((1.0 + ratio * ratio) * I * I);
