@@ -34,7 +34,7 @@ void RTLTCPClient::doWork(const char * address, int port, int frequency, int sam
   RTLServerSocketAddr.sin_port = htons(port);
   RTLServerSocketAddr.sin_addr.s_addr = inet_addr(address);
   mySocket = socket(AF_INET, SOCK_STREAM, 0);
-  if (myConnection) {
+  if (mySocket) {
     fprintf(stderr, "Socket creation successful\n");
   } else {
     perror("RTLTCPClient (create):");
