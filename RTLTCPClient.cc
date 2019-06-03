@@ -59,6 +59,7 @@ void RTLTCPClient::doWork(const char * address, int port, int frequency, int sam
     }
     if (count != sizeof(buffer)) {
       fprintf(stderr, "Short buffer: %d\n", count);
+      if (count % 8) fprintf(stderr, "not on floating point I/Q boundary!!\n");
       if ((count == 12) && firstMessage) {
 	firstMessage = false;
         if (frequency <= 0) {

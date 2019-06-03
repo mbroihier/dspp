@@ -18,7 +18,6 @@ int convert_tcp_aUnsignedByte(const char * IPAddress, int port, int frequency, i
   fprintf(stderr, "Creating a client object\n");
   RTLTCPClient client(IPAddress, port, frequency, sampleRate);
   fprintf(stderr, "Client terminated\n");
-  for(;;);
   return 0;
 }
 
