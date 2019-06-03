@@ -36,6 +36,7 @@ int decimate_ff(float cutOffFrequency, int M, int amount, int N, const char * wi
 int convert_f_unsignedShort();
 int convert_f_signedShort();
 int convert_tcp_aUnsignedByte(const char * IPAddress, int port, int frequency, int sampleRate);
+int convert_byte_tcp(const char * IPAddress, int port);
 
 static const char USAGE_STR[] = "\n"
         "Usage: %s <command> [ parameter 1 [ ... parameter n]]\n"
@@ -49,7 +50,8 @@ static const char USAGE_STR[] = "\n"
         "  decimate_ff              : replace every n samples with 1 (real)\n"
         "  convert_f_unsignedShort  : convert a float(real) stream into an unsigned short stream\n"
         "  convert_f_signedShort    : convert a float(real) stream into an signed short stream\n"
-        "  convert_tcp_aUnsignedByte: convert a tcp stream into an unsigned byte stream\n";
+        "  convert_tcp_aUnsignedByte: convert a tcp stream into an unsigned byte stream\n"
+        "  convert_byte_tcp         : convert a byte stream to a tcp byte stream\n";
 
 static struct option longOpts[] = {
   { "convert_byteLE_int16"     , no_argument, NULL, 1 },
@@ -62,6 +64,7 @@ static struct option longOpts[] = {
   { "convert_f_unsignedShort"  , no_argument, NULL, 8 },
   { "convert_f_signedShort"    , no_argument, NULL, 9 },
   { "convert_tcp_aUnsignedByte", no_argument, NULL, 10 },
+  { "convert_byte_tcp"         , no_argument, NULL, 11 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -191,6 +194,18 @@ int main(int argc, char *argv[]) {
           doneProcessing = !convert_tcp_aUnsignedByte(argv[2], port, frequency, sampleRate);
 	} else {
 	  fprintf(stderr, "convert_tcp_aUnsignedByte parameter error\n");
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 11: {
+        int port;
+	if (argc == 4) {
+          sscanf(argv[3], "%d", &port);
+          fprintf(stderr, "calling tcp client\n");
+          doneProcessing = !convert_byte_tcp(argv[2], port);
+	} else {
+	  fprintf(stderr, "convert_byte_tcp parameter error\n");
 	  doneProcessing = true;
 	}
         break;

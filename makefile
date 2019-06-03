@@ -15,17 +15,18 @@ PARAMS_MISC = -Wno-unused-result
 FFTW_PACKAGE = fftw-3.3.3
 
 CC=gcc
-CFLAGS= -O0 -c -Wall -DLE_MACHINE -D_GNU_SOURCE $(PARAMS_LOOPVECT) $(PARAMS_SIMD) $(PARAMS_MISC)
+
+CFLAGS= $(if $(shell uname -a | grep -i armv), -c -Wall -DLE_MACHINE -D_GNU_SOURCE $(PARAMS_LOOPVECT) $(PARAMS_SIMD) $(PARAMS_MISC), -c -Wall -DLE_MACHINE -D_GNU_SOURCE )
 CXX = $(CC)
 CXXFLAGS = $(CFLAGS) # set these flags for use of suffix rules for cc
 LDFLAGS= $(PARAMS_LIBS)
 
-SOURCES= dspp.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc fmdemod_cf.cc decimate_ff.cc convert_f_unsignedShort.cc convert_f_signedShort.cc convert_tcp_aUnsignedByte.cc
+SOURCES= dspp.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc fmdemod_cf.cc decimate_ff.cc convert_f_unsignedShort.cc convert_f_signedShort.cc convert_tcp_aUnsignedByte.cc convert_byte_tcp.cc
 OBJECTS=$(SOURCES:.cc=.o)
 
-RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h
+RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h RTLTCPServer.cc RTLTCPServer.h
 FIRFILTSRC = FIRFilter.cc FIRFilter.h
-RTLTCPOBJ = RTLTCPClient.o
+RTLTCPOBJ = RTLTCPClient.o RTLTCPServer.o
 FIRFILTOBJ = FIRFilter.o
 
 EXECUTABLE=dspp
