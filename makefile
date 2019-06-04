@@ -21,7 +21,8 @@ CXX = $(CC)
 CXXFLAGS = $(CFLAGS) # set these flags for use of suffix rules for cc
 LDFLAGS= $(PARAMS_LIBS)
 
-SOURCES= dspp.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc fmdemod_cf.cc decimate_ff.cc convert_f_unsignedShort.cc convert_f_signedShort.cc convert_tcp_aUnsignedByte.cc convert_byte_tcp.cc
+#SOURCES= dspp.cc convert_byteLE_int16.cc convert_aByte_f.cc convert_aUnsignedByte_f.cc shift_frequency_cc.cc decimate_cc.cc fmdemod_cf.cc decimate_ff.cc convert_f_unsignedShort.cc convert_f_signedShort.cc convert_tcp_aUnsignedByte.cc convert_byte_tcp.cc
+SOURCES= dspp.cc 
 OBJECTS=$(SOURCES:.cc=.o)
 
 RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h RTLTCPServer.cc RTLTCPServer.h

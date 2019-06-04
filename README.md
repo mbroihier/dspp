@@ -34,24 +34,47 @@ Installation (Raspberry PI example):
 Now you have an executable, dspp, that you can pipe data to and apply operations on each section of pipe.
 
 
-Conventions:
-  1) dspp is the program name and commands have the format:
-     a) <do something> <parameter 1> ... <parameter n>
-     b) do something consists of:
-     	i) convert_x_y - convert an incoming stream from x format to y format
-	   *) x is byte - signed byte
-	   *)      uByte - unsigned byte
-	   *)      f - internal float (always signed, 32 bits)
-	   *)      sInt16 - signed short integer - little endian
-	   *)      uInt16 - unsigned short integer - little endian
-	   *)      tcp - TCP stream of unsigned bytes
-	   *) y is byte - signed byte
-	   *)      uByte - unsigned byte
-	   *)      f - internal float (always signed, 32 bits)
-	   *)      sInt16 - signed short integer - little endian
-	   *)      uInt16 - unsigned short integer - little endian
-	ii) shift_frequency_cc - shift the center frequency of the incoming signal, assumed to be in I/Q format, by x Hertz per sample.
-	iii) decimate_cc - filter the incoming complex stream and take 1 out of every n samples of complex data
-	iv) decimate_ff - filter the incoming real stream and take 1 out of every n samples
-	v) fmdemod_cf - use FM demodulation on a complex incoming signal and produce a real signal having the frequency characteristics originally modulated into the RF signal
-	
+Operation:
+  1) dspp is the program name and commands have the format
+
+\<do something\> \<parameter 1\> ... \<parameter n\>
+
+   do something consists of:
+  * convert_x_y - convert an incoming stream from x format to y format
+  
+    where x is:
+  
+        byte - signed/generic byte
+        uByte - unsigned byte
+        f - internal float (always signed, 32 bits)
+        sInt16 - signed short integer - little endian
+        uInt16 - unsigned short integer - little endian
+        tcp - TCP stream of generic bytes
+    and y is:
+
+        byte - signed/generic byte
+        uByte - unsigned byte
+        f - internal float (always signed, 32 bits)
+        sInt16 - signed short integer - little endian
+        uInt16 - unsigned short integer - little endian
+        tcp - TCP stream of generic bytes
+
+  * shift_frequency_cc - shift the center frequency of the incoming signal, assumed to be in I/Q format, by x Hertz per sample
+  * decimate_cc - filter the incoming complex stream and take 1 out of every n samples of complex data
+  * decimate_ff - filter the incoming real stream and take 1 out of every n samples
+  * fmdemod_cf - use FM demodulation on a complex incoming signal and produce a real signal having the frequency characteristics originally modulated into the RF signal
+
+2) So a processing flow could look like this:
+
+
+rtl_sdr -s 2400000 -f 145000000 - | ./dspp convert_uByte_f | ./dspp shift_frequency_cc `python -c "print float(144390000-145000000)/2400000"` | ./dspp decimate_cc 0.005 79 50 40 HAMMING | ./dspp fmdemod_cf | sox -t raw -b 32 -e float -r 48000 /dev/stdin -e signed-integer -b16 -t raw -r 22050 - | multimon-ng -t raw -A /dev/stdin
+
+Which translates to:
+
+* sample RF data from an rtl-sdr dongle centered at 145 MHz at a sampling rate of 2.4 MHz
+* pipe that to dspp and convert the unsigned I/Q bytes to floating point
+* shift the center frequency to 144.39 MHz
+* pass that floating point I/Q data to a decimation filter that is a low pass filter that saves 0.005 of the bandwidth using a HAMMING window FIR filter with 79 taps, 1 out of every 50 samples, with a sample size of 40 samples on the output
+* send the filtered data (now at a 48 kHz sample rate) to the FM demodulator
+* pass the derived sound stream to sox to convert it to 22,050 Hz
+* then send it to multimon-ng to extract APRS data. 
