@@ -28,32 +28,15 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
     exit(-1);
   }
 
-  int additionalSamplesNeeded = M / decimation;
-
-  if ( additionalSamplesNeeded > 0 ) {
-    fprintf(stderr, "Note: requested number of samples per buffer was %d, but the number of taps requires additional samples: %d\n", N, additionalSamplesNeeded);
-    this->N = N + additionalSamplesNeeded;
-    N = this->N;
-  }
-
-  // Always make the number of samples read a multiple of decimation factor and this number of samples must always be greater than the
-  // number of coefficients.
-  floatSamplesPerBufferToRead = N * decimation;
-  if (floatSamplesPerBufferToRead < M) {
-    fprintf(stderr, "Must always read enough samples to fill the filter taps\n");
-    exit(-1);
-  }
-  INPUT_BUFFER_SIZE = (floatSamplesPerBufferToRead) * sizeof(float) * 2;
-  SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + M * sizeof(float) * 2; // always delay the last M samples for the next buffer read
+  INPUT_BUFFER_SIZE = (N * decimation) * sizeof(float) * 2;
+  SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + (M - 1) * sizeof(float) * 2; // always delay the last M samples for the next buffer read
   OUTPUT_BUFFER_SIZE = N * 2 * sizeof(float);
-  //fcntl(STDIN_FILENO, F_SETPIPE_SZ, INPUT_BUFFER_SIZE); 
-  //fcntl(STDOUT_FILENO, F_SETPIPE_SZ, OUTPUT_BUFFER_SIZE); 
   signalBuffer = (float *) malloc(SIGNAL_BUFFER_SIZE);
   outputBuffer = (float *) malloc(OUTPUT_BUFFER_SIZE);
-  inputBuffer = signalBuffer + M*2; // buffer start for read
+  inputBuffer = signalBuffer + (M - 1)*2; // buffer start for read
   int diff = inputBuffer - signalBuffer;
   fprintf(stderr, "inputBuffer location: %p, signalBuffer location: %p, difference: %d\n", inputBuffer, signalBuffer, diff);
-  inputToDelay = inputBuffer + (INPUT_BUFFER_SIZE - M * sizeof(float) * 2) / sizeof(float);
+  inputToDelay = inputBuffer + (INPUT_BUFFER_SIZE - (M - 1)* sizeof(float) * 2) / sizeof(float);
   float sinc[M];
   midPoint = M/2;
   fprintf(stderr, "decimation factor: %d, number of filter coefficients: %d, midpoint: %d\n", decimation, M, midPoint);
@@ -121,32 +104,18 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
     exit(-1);
   }
 
-  int additionalSamplesNeeded = M / decimation;
-
-  if ( additionalSamplesNeeded > 0 ) {
-    fprintf(stderr, "Note: requested number of samples per buffer was %d, but the number of taps requires additional samples: %d\n", N, additionalSamplesNeeded);
-    this->N = N + additionalSamplesNeeded;
-    N = this->N;
-  }
-
-  // Always make the number of samples read a multiple of decimation factor and this number of samples must always be greater than the
-  // number of coefficients.
-  floatSamplesPerBufferToRead = N * decimation;
-  if (floatSamplesPerBufferToRead < M) {
-    fprintf(stderr, "Must always read enough samples to fill the filter taps\n");
-    exit(-1);
-  }
-  INPUT_BUFFER_SIZE = (floatSamplesPerBufferToRead) * sizeof(float);
-  SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + M * sizeof(float); // always delay the last M samples for the next buffer read
+  INPUT_BUFFER_SIZE = (N * decimation) * sizeof(float);
+  SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + (M - 1) * sizeof(float); // always delay the last M-1 samples for the next buffer read
+  fprintf(stderr, "INPUT_BUFFER_SIZE = %d, SIGNAL_BUFFER_SIZE = %d\n", INPUT_BUFFER_SIZE, SIGNAL_BUFFER_SIZE);
   OUTPUT_BUFFER_SIZE = N * sizeof(float);
   //fcntl(STDIN_FILENO, F_SETPIPE_SZ, INPUT_BUFFER_SIZE); 
   //fcntl(STDOUT_FILENO, F_SETPIPE_SZ, OUTPUT_BUFFER_SIZE); 
   signalBuffer = (float *) malloc(SIGNAL_BUFFER_SIZE);
   outputBuffer = (float *) malloc(OUTPUT_BUFFER_SIZE);
-  inputBuffer = signalBuffer + M; // buffer start for read
+  inputBuffer = signalBuffer + M - 1; // buffer start for read
   int diff = inputBuffer - signalBuffer;
   fprintf(stderr, "inputBuffer location: %p, signalBuffer location: %p, difference: %d\n", inputBuffer, signalBuffer, diff);
-  inputToDelay = inputBuffer + (INPUT_BUFFER_SIZE - M * sizeof(float)) / sizeof(float);
+  inputToDelay = inputBuffer + (INPUT_BUFFER_SIZE - (M - 1) * sizeof(float)) / sizeof(float);
   float sinc[M];
   midPoint = M/2;
   fprintf(stderr, "decimation factor: %d, number of filter coefficients: %d, midpoint: %d\n", decimation, M, midPoint);
@@ -193,7 +162,7 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
     *coefficientReference = *coefficientReference / accumulator; // normalize the coefficients so the total gain is 1.0
     coefficientReference++;
   }
-  for (int i = 0; i < 2 * M; i++) {
+  for (int i = 0; i < M; i++) {
     signalBuffer[i] = 0.0;
   }
   fprintf(stderr, "FIR filter initialized\n");
@@ -239,7 +208,7 @@ void FIRFilter::filterSignal(){
     //fprintf(stderr, "last old I is pointing at: %p, value is: %f, last old Q is pointing at: %p, value is: %f\n", inputBuffer-2, *(inputBuffer-2), inputBuffer-1, *(inputBuffer-1));
     //fprintf(stderr, "first new I is pointing at: %p, value is: %f, first new Q is pointing at: %p, value is: %f\n", inputBuffer, *(inputBuffer), inputBuffer+1, *(inputBuffer+1));
 
-    I = inputBuffer - M / 2 * 2;
+    I = signalBuffer;
                                                   // set I to the first input
                                                   // that will be processed by
                                                   // coefficient[0]
@@ -272,7 +241,7 @@ void FIRFilter::filterSignal(){
     // of the next buffer that arrives
     //
     writeSignalPipe();
-    memcpy(signalBuffer, inputToDelay, M * 8);
+    memcpy(signalBuffer, inputToDelay, (M-1) * 8);
     // after copy, the end of the copied data should match up with the beginning of the input buffer, so
     // look at it after the read
     //fprintf(stderr, "filtered a buffer\n");
@@ -299,7 +268,7 @@ void FIRFilter::filterReal(){
       fprintf(stderr, "Short read....\n");
       exit(-1);
     }
-    I = inputBuffer - M / 2;
+    I = signalBuffer;
                                                   // set I to the first input
                                                   // that will be processed by
                                                   // coefficient[0]
@@ -324,7 +293,7 @@ void FIRFilter::filterReal(){
     // of the next buffer that arrives
     //
     writeSignalPipe();
-    memcpy(signalBuffer, inputToDelay, M * 4);
+    memcpy(signalBuffer, inputToDelay, (M-1) * 4);
     // after copy, the end of the copied data should match up with the beginning of the input buffer, so
     // look at it after the read
     //fprintf(stderr, "filtered a buffer\n");

@@ -53,9 +53,19 @@ test:
 	$(CC) $(LDFLAGS) findDiff.o -o findDiff -lm
 	$(CC) $(CFLAGS) testIn5b.cc -o testIn5b.o
 	$(CC) $(CFLAGS) testIn5c.cc -o testIn5c.o
+	$(CC) $(CFLAGS) testIn5d.cc -o testIn5d.o
+	$(CC) $(CFLAGS) testIn5e.cc -o testIn5e.o
+	$(CC) $(CFLAGS) testIn5f.cc -o testIn5f.o
+	$(CC) $(CFLAGS) testOut5d.cc -o testOut5d.o
+	$(CC) $(CFLAGS) testOut5f.cc -o testOut5f.o
 	$(CC) $(CFLAGS) testIn6.cc -o testIn6.o
 	$(CC) $(LDFLAGS) testIn5b.o -o testIn5b -lm 
 	$(CC) $(LDFLAGS) testIn5c.o -o testIn5c -lm 
+	$(CC) $(LDFLAGS) testIn5d.o -o testIn5d -lm 
+	$(CC) $(LDFLAGS) testOut5d.o -o testOut5d -lm 
+	$(CC) $(LDFLAGS) testOut5f.o -o testOut5f -lm 
+	$(CC) $(LDFLAGS) testIn5e.o -o testIn5e -lm 
+	$(CC) $(LDFLAGS) testIn5f.o -o testIn5f -lm 
 	$(CC) $(LDFLAGS) testIn6.o -o testIn6 -lm 
 
 $(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ)
