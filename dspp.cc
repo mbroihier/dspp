@@ -40,7 +40,8 @@ static const char USAGE_STR[] = "\n"
         "  convert_f_uInt16         : convert a float(real) stream into an unsigned short stream\n"
         "  convert_f_sInt16         : convert a float(real) stream into an signed short stream\n"
         "  convert_tcp_byte         : convert a tcp stream into an unsigned/generic byte stream\n"
-        "  convert_byte_tcp         : convert a byte stream to a tcp byte stream\n";
+        "  convert_byte_tcp         : convert a byte stream to a tcp byte stream\n"
+        "  custom_fir_ff            : convert a byte stream to a tcp byte stream\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"      , no_argument, NULL, 1 },
@@ -52,8 +53,9 @@ static struct option longOpts[] = {
   { "decimate_ff"              , no_argument, NULL, 7 },
   { "convert_f_uInt16"         , no_argument, NULL, 8 },
   { "convert_f_sInt16"         , no_argument, NULL, 9 },
-  { "convert_tcp_byte"         ,no_argument, NULL, 10 },
+  { "convert_tcp_byte"         , no_argument, NULL, 10 },
   { "convert_byte_tcp"         , no_argument, NULL, 11 },
+  { "custom_fir_ff"            , no_argument, NULL, 12 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -500,6 +502,24 @@ int dspp::convert_byte_tcp(const char * IPAddress, int port) {
 }
 
 /* ---------------------------------------------------------------------- */
+/*
+ *      custom_fir_ff.cc -- DSP Pipe - custom FIR filter
+ *
+ *      Copyright (C) 2019 
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+int dspp::custom_fir_ff(const char * filePath, int M, int N, FIRFilter::WindowType window) {
+  fprintf(stderr, "Creating a custom FIR filter object\n");
+  FIRFilter customFilter(filePath, M, N, FIRFilter::CUSTOM);
+  customFilter.filterReal();
+  fprintf(stderr, "Custom FIR filter terminated\n");
+  return 0;
+}
+
+/* ---------------------------------------------------------------------- */
 
 int main(int argc, char *argv[]) {
 
@@ -641,6 +661,21 @@ int main(int argc, char *argv[]) {
           doneProcessing = !dsppInstance.convert_byte_tcp(argv[2], port);
 	} else {
 	  fprintf(stderr, "convert_byte_tcp parameter error\n");
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 12: {
+        int M;
+        int N;
+	if (argc == 6 && !strncmp("CUSTOM", argv[5], strlen("CUSTOM"))) {
+          sscanf(argv[3], "%d", &M);
+          sscanf(argv[4], "%d", &N);
+          fprintf(stderr, "starting custom FIR filter\n");
+          doneProcessing = !dsppInstance.custom_fir_ff(argv[2], M, N, FIRFilter::CUSTOM);
+	} else {
+	  fprintf(stderr, "custom_fir_ff parameter error\n");
+          fprintf(stderr, "%d %s\n", argc, argv[5]);
 	  doneProcessing = true;
 	}
         break;

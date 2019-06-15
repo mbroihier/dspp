@@ -27,6 +27,10 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
     fprintf(stderr, "There must be an odd number of coefficients\n");
     exit(-1);
   }
+  if (windowType == CUSTOM) {
+    fprintf(stderr, "Conflicting FIR filter configuration request\n");
+    exit(-1);
+  }
 
   INPUT_BUFFER_SIZE = (N * decimation) * sizeof(float) * 2;
   SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + (M - 1) * sizeof(float) * 2; // always delay the last M samples for the next buffer read
@@ -61,6 +65,7 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
         //fprintf(stderr, "window index %d and %d, value: %f\n", midPoint + i, midPoint - i, window[midPoint + i]);
       }
       window[midPoint] = 1.0;
+      break;
     }
     case BLACKMAN: {
       for (int i = 1; i <= midPoint; i++) {
@@ -68,6 +73,10 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
         //fprintf(stderr, "window index %d and %d, value: %f\n", midPoint + i, midPoint - i, window[midPoint + i]);
       }
       window[midPoint] = 1.0;
+      break;
+    }
+    default: {
+      fprintf(stderr, "Internal error, should not ever get here!\n");
     }
   }
   coefficients = (float *) malloc(sizeof(float)*M);
@@ -103,13 +112,15 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
     fprintf(stderr, "There must be an odd number of coefficients\n");
     exit(-1);
   }
+  if (windowType == CUSTOM) {
+    fprintf(stderr, "Conflicting FIR filter configuration request\n");
+    exit(-1);
+  }
 
   INPUT_BUFFER_SIZE = (N * decimation) * sizeof(float);
   SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + (M - 1) * sizeof(float); // always delay the last M-1 samples for the next buffer read
   fprintf(stderr, "INPUT_BUFFER_SIZE = %d, SIGNAL_BUFFER_SIZE = %d\n", INPUT_BUFFER_SIZE, SIGNAL_BUFFER_SIZE);
   OUTPUT_BUFFER_SIZE = N * sizeof(float);
-  //fcntl(STDIN_FILENO, F_SETPIPE_SZ, INPUT_BUFFER_SIZE); 
-  //fcntl(STDOUT_FILENO, F_SETPIPE_SZ, OUTPUT_BUFFER_SIZE); 
   signalBuffer = (float *) malloc(SIGNAL_BUFFER_SIZE);
   outputBuffer = (float *) malloc(OUTPUT_BUFFER_SIZE);
   inputBuffer = signalBuffer + M - 1; // buffer start for read
@@ -140,6 +151,7 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
         //fprintf(stderr, "window index %d and %d, value: %f\n", midPoint + i, midPoint - i, window[midPoint + i]);
       }
       window[midPoint] = 1.0;
+      break;
     }
     case BLACKMAN: {
       for (int i = 1; i <= midPoint; i++) {
@@ -147,6 +159,10 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
         //fprintf(stderr, "window index %d and %d, value: %f\n", midPoint + i, midPoint - i, window[midPoint + i]);
       }
       window[midPoint] = 1.0;
+      break;
+    }
+    default: {
+      fprintf(stderr, "Internal error, should not ever get here!\n");
     }
   }
   coefficients = (float *) malloc(sizeof(float)*M);
@@ -162,6 +178,59 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
     *coefficientReference = *coefficientReference / accumulator; // normalize the coefficients so the total gain is 1.0
     coefficientReference++;
   }
+  for (int i = 0; i < M; i++) {
+    signalBuffer[i] = 0.0;
+  }
+  fprintf(stderr, "FIR filter initialized\n");
+
+  for (int i = 0; i < M; i++) {
+    fprintf(stderr, "%d: %f\n", i, coefficients[i]);
+  }
+
+};
+
+FIRFilter::FIRFilter(const char * filePath, int M, int N, WindowType windowType) {
+  this->decimation = 1;
+  this->M = M;
+  this->N = N;
+  this->real = true;
+  if ((M % 2) == 0) {
+    fprintf(stderr, "There must be an odd number of coefficients\n");
+    exit(-1);
+  }
+  if (windowType != CUSTOM) {
+    fprintf(stderr, "Conflicting FIR filter configuration request\n");
+    exit(-1);
+  }
+
+  INPUT_BUFFER_SIZE = (N * decimation) * sizeof(float);
+  SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + (M - 1) * sizeof(float); // always delay the last M-1 samples for the next buffer read
+  fprintf(stderr, "INPUT_BUFFER_SIZE = %d, SIGNAL_BUFFER_SIZE = %d\n", INPUT_BUFFER_SIZE, SIGNAL_BUFFER_SIZE);
+  OUTPUT_BUFFER_SIZE = N * sizeof(float);
+  signalBuffer = (float *) malloc(SIGNAL_BUFFER_SIZE);
+  outputBuffer = (float *) malloc(OUTPUT_BUFFER_SIZE);
+  inputBuffer = signalBuffer + M - 1; // buffer start for read
+  int diff = inputBuffer - signalBuffer;
+  fprintf(stderr, "inputBuffer location: %p, signalBuffer location: %p, difference: %d\n", inputBuffer, signalBuffer, diff);
+  inputToDelay = inputBuffer + (INPUT_BUFFER_SIZE - (M - 1) * sizeof(float)) / sizeof(float);
+  midPoint = M/2;
+  fprintf(stderr, "decimation factor: %d, number of filter coefficients: %d, midpoint: %d\n", decimation, M, midPoint);
+
+  coefficients = (float *) malloc(sizeof(float)*M);
+
+  FILE * filePtr = fopen(filePath, "r");
+  if (!filePtr) {
+    fprintf(stderr, "Custom coefficient file does not exist.\n");
+    exit(-1);
+  }
+  for (int i = 0; i < M; i++) {
+    if (! fscanf(filePtr, "%f", &coefficients[i])) {
+      fprintf(stderr, "Not enough coefficients\n");
+      exit(-1);
+    }
+  }
+  fclose(filePtr); 
+  
   for (int i = 0; i < M; i++) {
     signalBuffer[i] = 0.0;
   }

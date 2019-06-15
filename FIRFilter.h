@@ -36,10 +36,11 @@ class FIRFilter {
   int writeSignalPipe();
   public:
 
-  enum WindowType {HAMMING, BLACKMAN};
+  enum WindowType {HAMMING, BLACKMAN, CUSTOM};
 
   FIRFilter(float cutoffFrequency, int M, int decimation, int N, WindowType windowType);
   FIRFilter(float cutoffFrequency, int M, int decimation, int N, WindowType windowType, bool real);
+  FIRFilter(const char * filePath, int M, int N, WindowType windowType);
 
   void filterSignal();
   void filterReal();
