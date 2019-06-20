@@ -33,6 +33,7 @@ class dspp {
   int convert_tcp_byte(const char * IPAddress, int port, int frequency, int sampleRate);
   int convert_byte_tcp(const char * IPAddress, int port);
   int custom_fir_ff(const char * filePath, int M, int N, FIRFilter::WindowType window);
+  int custom_fir_cc(const char * filePath, int M, int N, FIRFilter::WindowType window);
 
   //dspp(void);
 

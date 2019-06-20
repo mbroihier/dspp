@@ -17,7 +17,9 @@ int main(int argc, char *argv[]) {
   float f;
   
   for (;;) {
-    fread(&f, sizeof(float), 1, stdin);
+    if (fread(&f, sizeof(float), 1, stdin) < 1) {
+      break;
+    }
     fprintf(stdout, "%f\n", f);
   }
   return 0;
