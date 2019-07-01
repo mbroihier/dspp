@@ -42,7 +42,8 @@ static const char USAGE_STR[] = "\n"
         "  convert_tcp_byte         : convert a tcp stream into an unsigned/generic byte stream\n"
         "  convert_byte_tcp         : convert a byte stream to a tcp byte stream\n"
         "  custom_fir_ff            : FIR filter a real stream\n"
-        "  custom_fir_cc            : FIR filter a complex stream\n";
+        "  custom_fir_cc            : FIR filter a complex stream\n"
+        "  real_to_complex_fc       : real stream to complex stream\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"      , no_argument, NULL, 1 },
@@ -58,6 +59,7 @@ static struct option longOpts[] = {
   { "convert_byte_tcp"         , no_argument, NULL, 11 },
   { "custom_fir_ff"            , no_argument, NULL, 12 },
   { "custom_fir_cc"            , no_argument, NULL, 13 },
+  { "real_to_complex_fc"       , no_argument, NULL, 14 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -538,6 +540,43 @@ int dspp::custom_fir_cc(const char * filePath, int M, int N, FIRFilter::WindowTy
   fprintf(stderr, "Custom FIR filter terminated\n");
   return 0;
 }
+/* ---------------------------------------------------------------------- */
+/*
+ *      real_to_complex_fc.cc -- DSP Pipe - real stream to complex quadrature
+ *
+ *      Copyright (C) 2019 
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+int dspp::real_to_complex_fc() {
+  const int BUFFER_SIZE = 4096;
+  float signal[BUFFER_SIZE];
+  float complexSignal[BUFFER_SIZE*2];
+  int numberRead = 0;
+  int count = 0;
+
+  float * signalPtr;
+  float * complexSignalPtr;
+  for (;;) {
+    numberRead = fread(&signal, sizeof(float), BUFFER_SIZE, stdin);
+    if(numberRead < BUFFER_SIZE) {
+      fprintf(stderr, "Short data stream, real_to_complex_fc\n");
+      fclose(stdout);
+      return 0;
+    }
+    signalPtr = signal;
+    complexSignalPtr = complexSignal;
+    for (int i=0; i < BUFFER_SIZE; i++) {
+      *complexSignalPtr++ = *signalPtr++;
+      *complexSignalPtr++ = 0.0;
+    }
+    fwrite(&complexSignal, sizeof(float), BUFFER_SIZE*2, stdout);
+  }
+
+  return 0;
+}
 
 /* ---------------------------------------------------------------------- */
 
@@ -711,6 +750,17 @@ int main(int argc, char *argv[]) {
 	} else {
 	  fprintf(stderr, "custom_fir_cc parameter error\n");
           fprintf(stderr, "%d %s\n", argc, argv[5]);
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 14: {
+	if (argc == 2) {
+          fprintf(stderr, "starting real to complex quadrature \n");
+          doneProcessing = !dsppInstance.real_to_complex_fc();
+	} else {
+	  fprintf(stderr, "real_to_complex_fc parameter error\n");
+          fprintf(stderr, "%d\n", argc);
 	  doneProcessing = true;
 	}
         break;

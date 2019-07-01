@@ -34,6 +34,7 @@ class dspp {
   int convert_byte_tcp(const char * IPAddress, int port);
   int custom_fir_ff(const char * filePath, int M, int N, FIRFilter::WindowType window);
   int custom_fir_cc(const char * filePath, int M, int N, FIRFilter::WindowType window);
+  int real_to_complex_fc();
 
   //dspp(void);
 
