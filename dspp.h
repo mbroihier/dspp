@@ -12,6 +12,7 @@
 #include <sys/types.h>
 
 #include "FIRFilter.h"
+#include "FMMod.h"
 #include "RTLTCPClient.h"
 #include "RTLTCPServer.h"
 /* ---------------------------------------------------------------------- */
@@ -35,6 +36,7 @@ class dspp {
   int custom_fir_ff(const char * filePath, int M, int N, FIRFilter::WindowType window);
   int custom_fir_cc(const char * filePath, int M, int N, FIRFilter::WindowType window);
   int real_to_complex_fc();
+  int fmmod_fc(float sampleRate);
 
   //dspp(void);
 

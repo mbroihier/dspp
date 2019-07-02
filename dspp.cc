@@ -43,7 +43,8 @@ static const char USAGE_STR[] = "\n"
         "  convert_byte_tcp         : convert a byte stream to a tcp byte stream\n"
         "  custom_fir_ff            : FIR filter a real stream\n"
         "  custom_fir_cc            : FIR filter a complex stream\n"
-        "  real_to_complex_fc       : real stream to complex stream\n";
+        "  real_to_complex_fc       : real stream to complex stream\n"
+        "  fmmod_fc                 : real stream FM modulated quadrature (I/Q) stream\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"      , no_argument, NULL, 1 },
@@ -60,6 +61,7 @@ static struct option longOpts[] = {
   { "custom_fir_ff"            , no_argument, NULL, 12 },
   { "custom_fir_cc"            , no_argument, NULL, 13 },
   { "real_to_complex_fc"       , no_argument, NULL, 14 },
+  { "fmmod_fc"                 , no_argument, NULL, 15 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -764,6 +766,18 @@ int main(int argc, char *argv[]) {
 	  doneProcessing = true;
 	}
         break;
+      }
+      case 15: {
+        float sampleRate;
+        if (argc == 3) {
+          sscanf(argv[2], "%f", &sampleRate);
+          FMMod modulator(sampleRate);
+          doneProcessing = !modulator.modulate();
+        } else {
+	  fprintf(stderr, "fmmod_fc parameter error\n");
+          fprintf(stderr, "%d\n", argc);
+	  doneProcessing = true;
+        }
       }
       default:
         return -2;

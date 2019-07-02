@@ -27,8 +27,10 @@ OBJECTS=$(SOURCES:.cc=.o)
 
 RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h RTLTCPServer.cc RTLTCPServer.h
 FIRFILTSRC = FIRFilter.cc FIRFilter.h
+MODSRC = FMMod.cc FMMod.h
 RTLTCPOBJ = RTLTCPClient.o RTLTCPServer.o
 FIRFILTOBJ = FIRFilter.o
+MODOBJ = FMMod.o
 
 EXECUTABLE=dspp
 
@@ -36,44 +38,55 @@ all: $(EXECUTABLE)
 
 test:
 	$(CC) $(CFLAGS) testIn1.cc -lm -o testIn1.o
-	$(CC) $(CFLAGS) testOut1.cc -o testOut1.o
 	$(CC) $(LDFLAGS) testIn1.o -o testIn1 -lm 
-	$(CC) $(LDFLAGS) testOut1.o -o testOut1 -lm
 	$(CC) $(CFLAGS) testIn2.cc -o testIn2.o
-	$(CC) $(CFLAGS) testOut2.cc -o testOut2.o
 	$(CC) $(LDFLAGS) testIn2.o -o testIn2 -lm
-	$(CC) $(LDFLAGS) testOut2.o -o testOut2 -lm
 	$(CC) $(CFLAGS) testIn5.cc -o testIn5.o
 	$(CC) $(CFLAGS) testIn5a.cc -o testIn5a.o
-	$(CC) $(CFLAGS) testOut5.cc -o testOut5.o
 	$(CC) $(LDFLAGS) testIn5.o -o testIn5 -lm
 	$(CC) $(LDFLAGS) testIn5a.o -o testIn5a -lm
+	$(CC) $(CFLAGS) testIn5b.cc -o testIn5b.o
+	$(CC) $(LDFLAGS) testIn5b.o -o testIn5b -lm 
+	$(CC) $(CFLAGS) testIn5c.cc -o testIn5c.o
+	$(CC) $(LDFLAGS) testIn5c.o -o testIn5c -lm 
+	$(CC) $(CFLAGS) testIn5d.cc -o testIn5d.o
+	$(CC) $(LDFLAGS) testIn5d.o -o testIn5d -lm 
+	$(CC) $(CFLAGS) testIn5e.cc -o testIn5e.o
+	$(CC) $(LDFLAGS) testIn5e.o -o testIn5e -lm 
+	$(CC) $(CFLAGS) testIn5f.cc -o testIn5f.o
+	$(CC) $(LDFLAGS) testIn5f.o -o testIn5f -lm 
+	$(CC) $(CFLAGS) testIn6.cc -o testIn6.o
+	$(CC) $(LDFLAGS) testIn6.o -o testIn6 -lm
+	$(CC) $(CFLAGS) testIn14.cc -o testIn14.o
+	$(CC) $(LDFLAGS) testIn14.o -o testIn14 -lm
+	$(CC) $(CFLAGS) testIn14a.cc -o testIn14a.o
+	$(CC) $(LDFLAGS) testIn14a.o -o testIn14a -lm
+
+	$(CC) $(CFLAGS) testOut1.cc -o testOut1.o
+	$(CC) $(LDFLAGS) testOut1.o -o testOut1 -lm
+	$(CC) $(CFLAGS) testOut2.cc -o testOut2.o
+	$(CC) $(LDFLAGS) testOut2.o -o testOut2 -lm
+	$(CC) $(CFLAGS) testOut5.cc -o testOut5.o
 	$(CC) $(LDFLAGS) testOut5.o -o testOut5 -lm
+	$(CC) $(CFLAGS) testOut5d.cc -o testOut5d.o
+	$(CC) $(LDFLAGS) testOut5d.o -o testOut5d -lm 
+	$(CC) $(CFLAGS) testOut5f.cc -o testOut5f.o
+	$(CC) $(LDFLAGS) testOut5f.o -o testOut5f -lm 
+	$(CC) $(CFLAGS) testOut14.cc -o testOut14.o
+	$(CC) $(LDFLAGS) testOut14.o -o testOut14 -lm
+
 	$(CC) $(CFLAGS) findDiff.cc -o findDiff.o
 	$(CC) $(LDFLAGS) findDiff.o -o findDiff -lm
-	$(CC) $(CFLAGS) testIn5b.cc -o testIn5b.o
-	$(CC) $(CFLAGS) testIn5c.cc -o testIn5c.o
-	$(CC) $(CFLAGS) testIn5d.cc -o testIn5d.o
-	$(CC) $(CFLAGS) testIn5e.cc -o testIn5e.o
-	$(CC) $(CFLAGS) testIn5f.cc -o testIn5f.o
-	$(CC) $(CFLAGS) testOut5d.cc -o testOut5d.o
-	$(CC) $(CFLAGS) testOut5f.cc -o testOut5f.o
-	$(CC) $(CFLAGS) testIn6.cc -o testIn6.o
-	$(CC) $(LDFLAGS) testIn5b.o -o testIn5b -lm 
-	$(CC) $(LDFLAGS) testIn5c.o -o testIn5c -lm 
-	$(CC) $(LDFLAGS) testIn5d.o -o testIn5d -lm 
-	$(CC) $(LDFLAGS) testOut5d.o -o testOut5d -lm 
-	$(CC) $(LDFLAGS) testOut5f.o -o testOut5f -lm 
-	$(CC) $(LDFLAGS) testIn5e.o -o testIn5e -lm 
-	$(CC) $(LDFLAGS) testIn5f.o -o testIn5f -lm 
-	$(CC) $(LDFLAGS) testIn6.o -o testIn6 -lm 
 
-$(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ)
-	$(CC) $(LDFLAGS) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) -o dspp
+
+$(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ)
+	$(CC) $(LDFLAGS) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) -o dspp
 
 $(RTLTCPOBJ) : $(RTLTCPSRC)
 	$(CC) $(CFLAGS) $*.cc -o $@
 $(FIRFILTOBJ) : $(FIRFILTSRC)
+	$(CC) $(CFLAGS) $*.cc -o $@
+$(MODOBJ) : $(MODSRC)
 	$(CC) $(CFLAGS) $*.cc -o $@
 
 clean:
