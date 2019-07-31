@@ -37,6 +37,8 @@ class dspp {
   int custom_fir_cc(const char * filePath, int M, int N, FIRFilter::WindowType window);
   int real_to_complex_fc();
   int fmmod_fc(float sampleRate);
+  int head(int amount);
+  int tail(int amount);
 
   //dspp(void);
 

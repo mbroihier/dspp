@@ -44,7 +44,9 @@ static const char USAGE_STR[] = "\n"
         "  custom_fir_ff            : FIR filter a real stream\n"
         "  custom_fir_cc            : FIR filter a complex stream\n"
         "  real_to_complex_fc       : real stream to complex stream\n"
-        "  fmmod_fc                 : real stream FM modulated quadrature (I/Q) stream\n";
+        "  fmmod_fc                 : real stream FM modulated quadrature (I/Q) stream\n"
+        "  head                     : take first n bytes of stream\n"
+        "  tail                     : take bytes after n bytes of stream\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"      , no_argument, NULL, 1 },
@@ -62,6 +64,8 @@ static struct option longOpts[] = {
   { "custom_fir_cc"            , no_argument, NULL, 13 },
   { "real_to_complex_fc"       , no_argument, NULL, 14 },
   { "fmmod_fc"                 , no_argument, NULL, 15 },
+  { "head"                     , no_argument, NULL, 16 },
+  { "tail"                     , no_argument, NULL, 17 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -557,7 +561,6 @@ int dspp::real_to_complex_fc() {
   float signal[BUFFER_SIZE];
   float complexSignal[BUFFER_SIZE*2];
   int numberRead = 0;
-  int count = 0;
 
   float * signalPtr;
   float * complexSignalPtr;
@@ -581,6 +584,86 @@ int dspp::real_to_complex_fc() {
 }
 
 /* ---------------------------------------------------------------------- */
+/*
+ *      head.cc -- DSP Pipe - take the first n bytes of a stream
+ *
+ *      Copyright (C) 2019 
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+
+int dspp::head(int amount) {
+  const int BUFFER_SIZE = 4096;
+  int count = 0;
+  unsigned char bytes[BUFFER_SIZE];
+  for (;;) {
+    count = fread(&bytes, sizeof(unsigned char), BUFFER_SIZE, stdin);
+    if(count < BUFFER_SIZE) {
+      fprintf(stderr, "Short data stream, head\n");
+      fwrite(&bytes, sizeof(unsigned char), count, stdout);
+      fclose(stdout);
+      return 0;
+    }
+    if (amount > count) {
+      fwrite(&bytes, sizeof(unsigned char), count, stdout);
+    } else {
+      fwrite(&bytes, sizeof(unsigned char), amount, stdout);
+    }
+    amount -= BUFFER_SIZE;
+    if (amount < 1) {
+      break;
+    }
+  }
+  fclose(stdout);
+  return 0;
+}
+/* ---------------------------------------------------------------------- */
+/*
+ *      tail.cc -- DSP Pipe - take bytes after the first n bytes of a stream
+ *
+ *      Copyright (C) 2019 
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+
+int dspp::tail(int amount) {
+  const int BUFFER_SIZE = 4096;
+  int count = 0;
+  int offset = 0;
+  unsigned char bytes[BUFFER_SIZE];
+  bool skipPhase = true;
+  for (;;) {
+    count = fread(&bytes, sizeof(unsigned char), BUFFER_SIZE, stdin);
+    if(count < BUFFER_SIZE) {
+      if (count == 0) {
+        fprintf(stderr, "Short data stream, tail\n");
+        fwrite(&bytes, sizeof(unsigned char), count, stdout);
+        fclose(stdout);
+        return 0;
+      }
+    }
+    if (skipPhase) {
+      amount -= count;
+      if (amount < 1) {
+        offset = abs(amount);
+        count -= offset;
+        fwrite(&bytes[offset], sizeof(unsigned char), count, stdout);
+        skipPhase = false;
+      }
+    } else {
+        fwrite(&bytes, sizeof(unsigned char), count, stdout);
+    }
+  }
+  fprintf(stderr, "Internal error path - should not get here, tail\n");
+  fclose(stdout);
+  return 0;
+}
+
+/* ---------------------------------------------------------------------- */
 
 int main(int argc, char *argv[]) {
 
@@ -588,7 +671,7 @@ int main(int argc, char *argv[]) {
 
   int c;
 
-  const int COMMAND_LENGTH = 32;
+  const unsigned int COMMAND_LENGTH = 32;
 
   if (argc <= 1 || !argv[1] || (strlen(argv[1]) >= COMMAND_LENGTH)) {
     fprintf(stderr, USAGE_STR, argv[0]);
@@ -775,6 +858,28 @@ int main(int argc, char *argv[]) {
           doneProcessing = !modulator.modulate();
         } else {
 	  fprintf(stderr, "fmmod_fc parameter error\n");
+          fprintf(stderr, "%d\n", argc);
+	  doneProcessing = true;
+        }
+      }
+      case 16: {
+        int amount;
+        if (argc == 3) {
+          sscanf(argv[2], "%d", &amount);
+          doneProcessing = !dsppInstance.head(amount);
+        } else {
+	  fprintf(stderr, "head parameter error\n");
+          fprintf(stderr, "%d\n", argc);
+	  doneProcessing = true;
+        }
+      }
+      case 17: {
+        int amount;
+        if (argc == 3) {
+          sscanf(argv[2], "%d", &amount);
+          doneProcessing = !dsppInstance.tail(amount);
+        } else {
+	  fprintf(stderr, "tail parameter error\n");
           fprintf(stderr, "%d\n", argc);
 	  doneProcessing = true;
         }
