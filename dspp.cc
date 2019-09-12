@@ -67,7 +67,7 @@ static struct option longOpts[] = {
   { "fmmod_fc"                 , no_argument, NULL, 15 },
   { "head"                     , no_argument, NULL, 16 },
   { "tail"                     , no_argument, NULL, 17 },
-  { "convert_f_sInt16"         , no_argument, NULL, 18 },
+  { "convert_sInt16_f"         , no_argument, NULL, 18 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -142,7 +142,7 @@ int dspp::convert_byte_f() {
   for (;;) {
     count = fread(&c, sizeof(char), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {
-      fprintf(stderr, "Short data stream\n");
+      fprintf(stderr, "Short data stream, convert_byte_f\n");
       fclose(stdout);
       return 0;
     }
@@ -179,7 +179,7 @@ int dspp::convert_uByte_f() {
   for (;;) {
     count = fread(&c, sizeof(char), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {
-      fprintf(stderr, "Short data stream\n");
+      fprintf(stderr, "Short data stream, convert_uByte_f\n");
       fclose(stdout);
       return 0;
     }
@@ -424,7 +424,7 @@ int dspp::convert_f_uInt16() {
   for (;;) {
     count = fread(&f, sizeof(float), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {
-      fprintf(stderr, "Short data stream\n");
+      fprintf(stderr, "Short data stream, convert_f_uInt16\n");
       fclose(stdout);
       return 0;
     }
@@ -462,7 +462,7 @@ int dspp::convert_f_sInt16() {
   for (;;) {
     count = fread(&f, sizeof(float), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {
-      fprintf(stderr, "Short data stream\n");
+      fprintf(stderr, "Short data stream, convert_f_sInt16\n");
       fclose(stdout);
       return 0;
     }
@@ -498,9 +498,10 @@ int dspp::convert_sInt16_f() {
   short * iptr;
   float scale = 1.0 / 32767.0;
   for (;;) {
-    count = fread(&sin, sizeof(float), BUFFER_SIZE, stdin);
+    count = fread(&sin, sizeof(short), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {
-      fprintf(stderr, "Short data stream\n");
+      fprintf(stderr, "Short data stream, convert_sInt16_f\n");
+      fprintf(stderr, "shorts: %d\n", count);
       fclose(stdout);
       return 0;
     }
@@ -925,7 +926,7 @@ int main(int argc, char *argv[]) {
         }
       }
       case 18: {
-        doneProcessing = !dsppInstance.convert_f_sInt16();
+        doneProcessing = !dsppInstance.convert_sInt16_f();
         break;
       }
       default:
