@@ -46,7 +46,8 @@ static const char USAGE_STR[] = "\n"
         "  real_to_complex_fc       : real stream to complex stream\n"
         "  fmmod_fc                 : real stream FM modulated quadrature (I/Q) stream\n"
         "  head                     : take first n bytes of stream\n"
-        "  tail                     : take bytes after n bytes of stream\n";
+        "  tail                     : take bytes after n bytes of stream\n"
+        "  convert_sInt16_f         : convert a signed short stream to a float(real) stream\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"      , no_argument, NULL, 1 },
@@ -66,6 +67,7 @@ static struct option longOpts[] = {
   { "fmmod_fc"                 , no_argument, NULL, 15 },
   { "head"                     , no_argument, NULL, 16 },
   { "tail"                     , no_argument, NULL, 17 },
+  { "convert_f_sInt16"         , no_argument, NULL, 18 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -470,6 +472,44 @@ int dspp::convert_f_sInt16() {
       *iptr++ = *fptr++ * 32767.0;
     }
     fwrite(&sin, sizeof(short), BUFFER_SIZE, stdout);
+  }
+
+  return 0;
+
+}
+/* ---------------------------------------------------------------------- */
+/*
+ *      convert_sInt16_f -- DSP Pipe - signed int -32767 to 32767
+ *                                    float (-1.0 to 1.0)
+ *
+ *      Copyright (C) 2019 
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+
+int dspp::convert_sInt16_f() {
+  const int BUFFER_SIZE = 4096;
+  short sin[BUFFER_SIZE];
+  float f[BUFFER_SIZE];
+  int count;
+  float * fptr;
+  short * iptr;
+  float scale = 1.0 / 32767.0;
+  for (;;) {
+    count = fread(&sin, sizeof(float), BUFFER_SIZE, stdin);
+    if(count < BUFFER_SIZE) {
+      fprintf(stderr, "Short data stream\n");
+      fclose(stdout);
+      return 0;
+    }
+    iptr = sin;
+    fptr = f;
+    for (int i=0; i < BUFFER_SIZE; i++) {
+      *fptr++ = *iptr++ * scale;
+    }
+    fwrite(&f, sizeof(float), BUFFER_SIZE, stdout);
   }
 
   return 0;
@@ -883,6 +923,10 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "%d\n", argc);
 	  doneProcessing = true;
         }
+      }
+      case 18: {
+        doneProcessing = !dsppInstance.convert_f_sInt16();
+        break;
       }
       default:
         return -2;

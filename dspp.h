@@ -39,6 +39,7 @@ class dspp {
   int fmmod_fc(float sampleRate);
   int head(int amount);
   int tail(int amount);
+  int convert_sInt16_f();
 
   //dspp(void);
 
