@@ -47,7 +47,8 @@ static const char USAGE_STR[] = "\n"
         "  fmmod_fc                 : real stream FM modulated quadrature (I/Q) stream\n"
         "  head                     : take first n bytes of stream\n"
         "  tail                     : take bytes after n bytes of stream\n"
-        "  convert_sInt16_f         : convert a signed short stream to a float(real) stream\n";
+        "  convert_sInt16_f         : convert a signed short stream to a float(real) stream\n"
+        "  fft_cc                   : convert a complex stream to a complex stream in the frequency domain\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"      , no_argument, NULL, 1 },
@@ -68,6 +69,7 @@ static struct option longOpts[] = {
   { "head"                     , no_argument, NULL, 16 },
   { "tail"                     , no_argument, NULL, 17 },
   { "convert_sInt16_f"         , no_argument, NULL, 18 },
+  { "fft_cc"                   , no_argument, NULL, 19 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -703,7 +705,22 @@ int dspp::tail(int amount) {
   fclose(stdout);
   return 0;
 }
+/* ---------------------------------------------------------------------- */
+/*
+ *      fft_cc.cc -- DSP Pipe - FFT of a complex stream
+ *
+ *      Copyright (C) 2019 
+ *          Mark Broihier
+ *
+ */
 
+/* ---------------------------------------------------------------------- */
+
+int dspp::fft_cc(int numberOfComplexSamples) {
+  DsppFFT transform(numberOfComplexSamples);
+  transform.processSampleSet();
+  return 0;
+}
 /* ---------------------------------------------------------------------- */
 
 int main(int argc, char *argv[]) {
@@ -927,6 +944,16 @@ int main(int argc, char *argv[]) {
       }
       case 18: {
         doneProcessing = !dsppInstance.convert_sInt16_f();
+        break;
+      }
+      case 19: {
+        int numberOfComplexSamples = 0;
+        if (argc == 3) {
+          sscanf(argv[2], "%d", &numberOfComplexSamples);
+          doneProcessing = !dsppInstance.fft_cc(numberOfComplexSamples);
+        } else {
+          fprintf(stderr, "fft_cc parameter error\n");
+        }
         break;
       }
       default:

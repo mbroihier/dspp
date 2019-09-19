@@ -12,6 +12,7 @@
 #include <sys/types.h>
 
 #include "FIRFilter.h"
+#include "DsppFFT.h"
 #include "FMMod.h"
 #include "RTLTCPClient.h"
 #include "RTLTCPServer.h"
@@ -40,6 +41,7 @@ class dspp {
   int head(int amount);
   int tail(int amount);
   int convert_sInt16_f();
+  int fft_cc(int numberOfComplexSamples);
 
   //dspp(void);
 
