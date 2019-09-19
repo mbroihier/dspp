@@ -7,7 +7,7 @@ PARAMS_ARM = $(if $(call cpufeature,BCM2708,dummy-text),$(PARAMS_RASPI),$(PARAMS
 PARAMS_SIMD = $(if $(call cpufeature,sse,dummy-text),$(PARAMS_SSE),$(PARAMS_ARM))
 PARAMS_LOOPVECT = -O3 -ffast-math -fdump-tree-vect-details -dumpbase dumpvect
 #PARAMS_LIBS = -g -lm -lrt -lfftw3f -lstdc++ -DUSE_FFTW -DLIBCSDR_GPL -DUSE_IMA_ADPCM
-PARAMS_LIBS = -g -lm -lstdc++ 
+PARAMS_LIBS = -g -lm -lstdc++ -lfftw3 
 PARAMS_SO = -fpic  
 PARAMS_MISC = -Wno-unused-result
 #DEBUG_ON = 0 #debug is always on by now (anyway it could be compiled with `make DEBUG_ON=1`)
@@ -28,9 +28,11 @@ OBJECTS=$(SOURCES:.cc=.o)
 RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h RTLTCPServer.cc RTLTCPServer.h
 FIRFILTSRC = FIRFilter.cc FIRFilter.h
 MODSRC = FMMod.cc FMMod.h
+FFTSRC = DsppFFT.cc DsppFFT.h
 RTLTCPOBJ = RTLTCPClient.o RTLTCPServer.o
 FIRFILTOBJ = FIRFilter.o
 MODOBJ = FMMod.o
+FFTOBJ = DsppFFT.o
 
 EXECUTABLE=dspp
 
@@ -79,8 +81,8 @@ test:
 	$(CC) $(LDFLAGS) findDiff.o -o findDiff -lm
 
 
-$(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ)
-	$(CC) $(LDFLAGS) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) -o dspp
+$(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ)
+	$(CC) $(LDFLAGS) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) -o dspp
 
 $(RTLTCPOBJ) : $(RTLTCPSRC)
 	$(CC) $(CFLAGS) $*.cc -o $@
