@@ -19,6 +19,8 @@ Installation (Raspberry PI example):
   5)  Update the installation and install build tools
 '''
   sudo apt-get update
+  sudo apt-get upgrade
+  sudo apt-get install libfftw3-dev
 '''
   6)  Install the repository
 '''
