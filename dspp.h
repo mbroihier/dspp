@@ -42,6 +42,7 @@ class dspp {
   int tail(int amount);
   int convert_sInt16_f();
   int fft_cc(int numberOfComplexSamples);
+  int tee(char * otherStream);
 
   //dspp(void);
 

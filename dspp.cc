@@ -48,7 +48,8 @@ static const char USAGE_STR[] = "\n"
         "  head                     : take first n bytes of stream\n"
         "  tail                     : take bytes after n bytes of stream\n"
         "  convert_sInt16_f         : convert a signed short stream to a float(real) stream\n"
-        "  fft_cc                   : convert a complex stream to a complex stream in the frequency domain\n";
+        "  fft_cc                   : convert a complex stream to a complex stream in the frequency domain\n"
+        "  tee                      : tee stream to another stream\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"      , no_argument, NULL, 1 },
@@ -70,6 +71,7 @@ static struct option longOpts[] = {
   { "tail"                     , no_argument, NULL, 17 },
   { "convert_sInt16_f"         , no_argument, NULL, 18 },
   { "fft_cc"                   , no_argument, NULL, 19 },
+  { "tee"                      , no_argument, NULL, 20 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -722,6 +724,42 @@ int dspp::fft_cc(int numberOfComplexSamples) {
   return 0;
 }
 /* ---------------------------------------------------------------------- */
+/*
+ *      tee.cc -- DSP Pipe - tee stream to stream
+ *
+ *      Copyright (C) 2019 
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+
+int dspp::tee(char * otherStream) {
+  const int BUFFER_SIZE = 4096;
+  int count = 0;
+  unsigned char bytes[BUFFER_SIZE];
+  FILE * otherPath;
+  otherPath = popen(otherStream, "w");
+  for (;;) {
+    count = fread(&bytes, sizeof(unsigned char), BUFFER_SIZE, stdin);
+    if(count < BUFFER_SIZE) {
+      if (count == 0) {
+        fprintf(stderr, "Short data stream, tail\n");
+        fwrite(&bytes, sizeof(unsigned char), count, stdout);
+        fwrite(&bytes, sizeof(unsigned char), count, otherPath);
+        fclose(stdout);
+        pclose(otherPath);
+        return 0;
+      }
+    }
+    fwrite(&bytes, sizeof(unsigned char), count, stdout);
+    fwrite(&bytes, sizeof(unsigned char), count, otherPath);
+  }
+  fprintf(stderr, "Internal error path - should not get here, tail\n");
+  fclose(stdout);
+  return 0;
+}
+/* ---------------------------------------------------------------------- */
 
 int main(int argc, char *argv[]) {
 
@@ -953,6 +991,15 @@ int main(int argc, char *argv[]) {
           doneProcessing = !dsppInstance.fft_cc(numberOfComplexSamples);
         } else {
           fprintf(stderr, "fft_cc parameter error\n");
+        }
+        break;
+      }
+      case 20: {
+        if (argc == 3) {
+          fprintf(stderr, "Starting parallel stream: %s\n", argv[2]);
+          doneProcessing = !dsppInstance.tee(argv[2]);
+        } else {
+          fprintf(stderr, "tee parameter error\n");
         }
         break;
       }
