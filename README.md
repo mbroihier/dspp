@@ -65,6 +65,13 @@ Operation:
   * decimate_cc - filter the incoming complex stream and take 1 out of every n samples of complex data
   * decimate_ff - filter the incoming real stream and take 1 out of every n samples
   * fmdemod_cf - use FM demodulation on a complex incoming signal and produce a real signal having the frequency characteristics originally modulated into the RF signal
+  * custom_fir_ff - FIR filter a real stream with custom coefficients
+  * custom_fir_cc - FIR filter a complex stream with custom coefficients
+  * fmmod_fc - modulate a real audio stream to FM modulated quadrature (I/Q) stream
+  * head - take first n bytes of a stream
+  * tail - take bytes after first n bytes of a stream
+  * fft_cc - FFT of a complex real stream
+  * tee - stream to another stream while forwarding down the same pipe
 
 2) So a processing flow could look like this:
 
