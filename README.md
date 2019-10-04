@@ -17,15 +17,15 @@ Installation (Raspberry PI example):
   3)  Change the password.
   4)  Change the node name to whatever you want.
   5)  Update the installation and install build tools
-'''
+```
   sudo apt-get update
   sudo apt-get upgrade
-  sudo apt-get install libfftw3-dev
-'''
+  sudo apt-get install build-essential cmake git libfftw3-dev
+```
   6)  Install the repository
-'''
+```
   git clone https://github.com/mbroihier/dspp.git
-'''
+```
   7)  Build
 
 ```
