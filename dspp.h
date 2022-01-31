@@ -16,6 +16,7 @@
 #include "FMMod.h"
 #include "RTLTCPClient.h"
 #include "RTLTCPServer.h"
+#include "SFIRFilter.h"
 /* ---------------------------------------------------------------------- */
 class dspp {
 

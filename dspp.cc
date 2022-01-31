@@ -43,6 +43,7 @@ static const char USAGE_STR[] = "\n"
         "  convert_byte_tcp         : convert a byte stream to a tcp byte stream\n"
         "  custom_fir_ff            : FIR filter a real stream\n"
         "  custom_fir_cc            : FIR filter a complex stream\n"
+        "  sfir_cc                  : Smooth FIR filter a complex stream\n"
         "  real_to_complex_fc       : real stream to complex stream\n"
         "  fmmod_fc                 : real stream FM modulated quadrature (I/Q) stream\n"
         "  head                     : take first n bytes of stream\n"
@@ -72,6 +73,7 @@ static struct option longOpts[] = {
   { "convert_sInt16_f"         , no_argument, NULL, 18 },
   { "fft_cc"                   , no_argument, NULL, 19 },
   { "tee"                      , no_argument, NULL, 20 },
+  { "sfir_cc"                  , no_argument, NULL, 21 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -1000,6 +1002,31 @@ int main(int argc, char *argv[]) {
           doneProcessing = !dsppInstance.tee(argv[2]);
         } else {
           fprintf(stderr, "tee parameter error\n");
+        }
+        break;
+      }
+      case 21: {
+        float cutoff = 0.3333333;
+        int decimation = 1;
+        if (argc == 3) {
+          sscanf(argv[2], "%f", &cutoff);
+          SFIRFilter sfilter(cutoff);
+          fprintf(stderr, "Low pass smooth filter a complex stream with cutoff at %s of Nyquist:\n", argv[2]);
+          sfilter.filterSignal();
+          doneProcessing = true;
+        } else {
+          if (argc == 4) {
+            sscanf(argv[2], "%f", &cutoff);
+            sscanf(argv[3], "%d", &decimation);
+            SFIRFilter sfilter(cutoff, decimation);
+            fprintf(stderr,
+                    "Low pass smooth filter a complex stream with cutoff at %s of Nyquist - decimation of %s:\n",
+                    argv[2], argv[3]);
+            sfilter.filterSignal();
+            doneProcessing = true;
+          } else {
+            fprintf(stderr, "sfir_cc parameter error\n");
+          }
         }
         break;
       }
