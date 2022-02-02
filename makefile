@@ -26,11 +26,11 @@ SOURCES= dspp.cc
 OBJECTS=$(SOURCES:.cc=.o)
 
 RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h RTLTCPServer.cc RTLTCPServer.h
-FIRFILTSRC = FIRFilter.cc FIRFilter.h
+FIRFILTSRC = FIRFilter.cc FIRFilter.h SFIRFilter.cc SFIRFilter.h
 MODSRC = FMMod.cc FMMod.h
 FFTSRC = DsppFFT.cc DsppFFT.h
 RTLTCPOBJ = RTLTCPClient.o RTLTCPServer.o
-FIRFILTOBJ = FIRFilter.o
+FIRFILTOBJ = FIRFilter.o SFIRFilter.o
 MODOBJ = FMMod.o
 FFTOBJ = DsppFFT.o
 
