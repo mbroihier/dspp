@@ -19,9 +19,9 @@ class Poly {
 
   Poly(float * coefficients, int size);
 
-  Poly *  multiply(Poly * a, Poly * b);
-  Poly *  add(Poly * a, Poly * b);
-  Poly *  power(Poly * a, int n);
+  static Poly *  multiply(Poly * a, Poly * b);
+  static Poly *  add(Poly * a, Poly * b);
+  static Poly *  power(Poly * a, int n);
   float * getCoefficients();
   int getSize();
 
