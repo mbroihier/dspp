@@ -23,14 +23,14 @@ Poly::Poly(float * coefficients, int size) {
     fprintf(stderr, "Polynomials must be of order >= 0\n");
     exit(-1);
   }
-  this->coefficients = (float *) malloc(size * sizeof(float));
+  this->coefficients = reinterpret_cast<float *>(malloc(size * sizeof(float)));
   N = size;
   memcpy(this->coefficients, coefficients, size * sizeof(float));
 }
 /* ---------------------------------------------------------------------- */
 Poly * Poly::multiply(Poly * a, Poly * b) {
   int newN = a->getSize() + b->getSize() - 1;
-  float * newCoefficients = (float *) malloc(newN * sizeof(float));
+  float * newCoefficients = reinterpret_cast<float *>(malloc(newN * sizeof(float)));
   for (int i = 0; i < newN; i++) {
     newCoefficients[i] = 0.0;
   }
@@ -61,7 +61,7 @@ Poly * Poly::add(Poly * a, Poly * b) {
     largestTerm = a->getSize();
     aIsBigger = true;
   }
-  float * newCoefficients = (float *) malloc(largestTerm * sizeof(float));
+  float * newCoefficients = reinterpret_cast<float *>(malloc(largestTerm * sizeof(float)));
   for (int i = 0; i < largestTerm; i++) {
     if (i <= smallestTerm) {
       newCoefficients[i] = (a->getCoefficients())[i] + (b->getCoefficients())[i];
@@ -77,7 +77,7 @@ Poly * Poly::add(Poly * a, Poly * b) {
   fprintf(stderr, "Freeing newCoefficients at location %p in add\n", newCoefficients);
   free(newCoefficients);
   newCoefficients = 0;
-  return(newPoly);  
+  return(newPoly);
 }
 /* ---------------------------------------------------------------------- */
 Poly * Poly::power(Poly * a, int N) {
@@ -86,16 +86,14 @@ Poly * Poly::power(Poly * a, int N) {
     exit(-1);
   }
   Poly * newPoly = 0;
-  Poly * oldPoly = 0;
+  Poly * rPoly = 0;
   float * newCoefficients = 0;
-  newPoly = new Poly(a->getCoefficients(), a->getSize());
   if (N > 1) {
-    oldPoly = newPoly;
-    for (int i = 2; i <= N; i++) {
-      newPoly = a->multiply(oldPoly, a);
-      delete(oldPoly);
-      oldPoly = newPoly;
-    }
+    rPoly = power(a, N - 1);
+    newPoly = a->multiply(rPoly, a);
+    delete(rPoly);
+  } else {
+    newPoly = new Poly(a->getCoefficients(), a->getSize());
   }
   return(newPoly);
 }
@@ -116,5 +114,5 @@ Poly::~Poly(void) {
   } else {
     fprintf(stderr, "Something went wrong - there should be coefficient space\n");
   }
-};
+}
 
