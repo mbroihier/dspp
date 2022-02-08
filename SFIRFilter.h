@@ -12,6 +12,7 @@
 class SFIRFilter {
 
   private:
+  static const bool debug = false;
   float * coefficients;
   int INPUT_BUFFER_SIZE;  // number of bytes to read from the pipe
   int SIGNAL_BUFFER_SIZE; // total size of input buffer including delay portion
@@ -27,6 +28,7 @@ class SFIRFilter {
   int readSignalPipe();
   int writeSignalPipe();
   void doWork(float cuttoff, int decimation);
+  void doWork2(float cuttoff, int decimation);
   public:
 
   SFIRFilter(float cutoff);

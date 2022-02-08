@@ -13,13 +13,19 @@
 /* ---------------------------------------------------------------------- */
 class Poly {
  private:
-  float * coefficients;
+  static const bool debug = false;
+  double * coefficients;
+  float * externalCoefficients;
   int N;
+  double * getInternalCoefficients();
+  Poly(double * coefficients, int size);
 
  public:
   static Poly *  multiply(Poly * a, Poly * b);
   static Poly *  add(Poly * a, Poly * b);
   static Poly *  power(Poly * a, int n);
+  static Poly * integrate(Poly * a, float value, float x);
+  static float evaluate(Poly * a, float x);
   float * getCoefficients();
   int getSize();
   Poly(float * coefficients, int size);

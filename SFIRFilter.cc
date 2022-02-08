@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <string.h>
 
+#include "Poly.h"
 #include "SFIRFilter.h"
 
 /* ---------------------------------------------------------------------- */
@@ -58,84 +59,52 @@ void SFIRFilter::doWork(float cutoff, int decimation) {
   // a/b is approximation of K
   int p = a + b;
   int q = b - a;
-  fprintf(stderr, "input cutoff was %f, K was %f, a/b is %f, p is %d, and q is %d\n", cutoff, K,
+  if (debug) fprintf(stderr, "input cutoff was %f, K was %f, a/b is %f, p is %d, and q is %d\n", cutoff, K,
           float(a)/float(b), p, q);
-  // (1 + t)^p
   int M = p + q; // maximum power of polynomial
-  double *polyCoefficients = (double *) malloc((M + 2) * sizeof(double));
-  double *timesT = (double *) malloc((M + 2) * sizeof(double));
-  for (int coef = 0; coef < M + 2; coef++) {
-    polyCoefficients[coef] = 0.0;
-    timesT[coef] = 0.0;
-  }
-  polyCoefficients[0] = 1.0;
-  polyCoefficients[1] = 1.0;
-  for (int power = 2; power <= p; power++) {
-    // shift current coefficients by "t"
-    fprintf(stderr, "working on power %d\n", power);
-    for (int shift = 0; shift < power+1; shift++) {
-      timesT[1 + shift] = polyCoefficients[shift];
-    }
-    for (int sum = 0; sum <= power; sum++) {
-      polyCoefficients[sum] += timesT[sum];
-      timesT[sum] = 0.0;
-    }
-    fprintf(stderr, "Polynomial coefficients (1+t)^%d:\n", power);
-    for (int index = 0; index < M + 2; index++) {
-      fprintf(stderr, "[%d]: %lf\n", index, polyCoefficients[index]);
-    }
-  }
-  // (1 + t)^p * (1 - t)^q
-  for (int power = p+1; power <= p + q; power++) {
-    // shift current coefficients by "-t" (change sign)
-    for (int shift = 0; shift <= power; shift++) {
-      timesT[1 + shift] = -polyCoefficients[shift];
-    }
-    for (int sum = 0; sum <= power; sum++) {
-      polyCoefficients[sum] += timesT[sum];
-      timesT[sum] = 0.0;
-    }
-    fprintf(stderr, "Polynomial coefficients (1+t)^%d*(1-t)^%d:\n", p, power-p);
-    for (int index = 0; index < M + 2; index++) {
-      fprintf(stderr, "[%d]: %lf\n", index, polyCoefficients[index]);
-    }
-  }
-  free(timesT);
-  // we will now integrate the polynomial
-  int scale = M + 1;
-  int term = M;
-  for (int integral = term; integral > 0; integral--) {
-    for (int coef = 0; coef <= term; coef++) {
-      if (integral == coef) {
-        polyCoefficients[coef] /= float(scale);
+  float *polyCoefficients = (float *) malloc((M + 2) * sizeof(float));
+  // (1 + t)^p
+  {
+    float coef1[] = {1.0, 1.0};
+    float coef2[] = {1.0, -1.0};
+    Poly onePlusT(coef1, 2);
+    Poly * onePlusTPowerP = Poly::power(&onePlusT, p);
+    if (debug) {
+      fprintf(stderr, "(1 + t)^p:\n");
+      for (int index = 0; index < onePlusTPowerP->getSize(); index++) {
+        fprintf(stderr, "[%d]: %f\n", index, onePlusTPowerP->getCoefficients()[index]);
       }
     }
-    scale--;
+    Poly oneMinusT(coef2, 2);
+    Poly * oneMinusTPowerQ = Poly::power(&oneMinusT, q);
+    if (debug) {
+      fprintf(stderr, "(1 - t)^q:\n");
+      for (int index = 0; index < oneMinusTPowerQ->getSize(); index++) {
+        fprintf(stderr, "[%d]: %f\n", index, oneMinusTPowerQ->getCoefficients()[index]);
+      }
+    }
+    Poly * functionOfT = Poly::multiply(onePlusTPowerP, oneMinusTPowerQ);
+    if (debug) {
+      fprintf(stderr, "(1 + t)^p*(1 - t)^q:\n");
+      for (int index = 0; index < functionOfT->getSize(); index++) {
+        fprintf(stderr, "[%d]: %f\n", index, functionOfT->getCoefficients()[index]);
+      }
+    }
+    Poly * integral = Poly::integrate(functionOfT, 0.0, -1.0);
+    memcpy(polyCoefficients, integral->getCoefficients(), sizeof(float) * integral->getSize());
+    if (debug) fprintf(stderr, "Sum of integral coefficients: %f\n", Poly::evaluate(integral, 1.0));
+    if (debug) fprintf(stderr, "Value of integral at -1: %f\n", Poly::evaluate(integral, -1.0));
+    delete(onePlusTPowerP);
+    delete(oneMinusTPowerQ);
+    delete(functionOfT);
+    delete(integral);
   }
-  fprintf(stderr, "Polynomial coefficients after integration:\n");
-  for (int index = 0; index < M + 2; index++) {
-    fprintf(stderr, "[%d]: %lf\n", index, polyCoefficients[index]);
+  if (debug) {
+    fprintf(stderr, "Final polynomial coefficients:\n");
+    for (int index = 0; index < M + 2; index++) {
+      fprintf(stderr, "[%d]: %f\n", index, polyCoefficients[index]);
+    }
   }
-  // Determine the value of the polynomial at t = -1, the inverse of this is the constant of integration
-  float integrationConstant = 0.0;
-  for (int power = 1; power < M + 2; power++) {
-    fprintf(stderr, "Summing %lf into integration constant\n", powf(-1.0, power)*polyCoefficients[power-1]);
-    integrationConstant += powf(-1.0, power)*polyCoefficients[power-1];
-  }
-  for (int shift = M; shift >= 0; shift--) {
-    polyCoefficients[shift + 1] = polyCoefficients[shift];
-  }
-  polyCoefficients[0] = - integrationConstant;
-  fprintf(stderr, "Final polynomial coefficients:\n");
-  for (int index = 0; index < M + 2; index++) {
-    fprintf(stderr, "[%d]: %lf\n", index, polyCoefficients[index]);
-  }
-  fprintf(stderr, "Sum of coefficients:\n");
-  double sumOfCoefficients = 0.0;
-  for (int index = 0; index < M + 2; index++) {
-    sumOfCoefficients += polyCoefficients[index];
-  }
-  fprintf(stderr, "%lf\n", sumOfCoefficients);
 
   // Now convert to Fourier coefficients
 
@@ -156,7 +125,7 @@ void SFIRFilter::doWork(float cutoff, int decimation) {
       if (index == 0) {
         split[1] = accumulator[index];
       } else {
-        fprintf(stderr, "spliting into index %d and %d\n", index - 1, index + 1);
+        if (debug) fprintf(stderr, "spliting into index %d and %d\n", index - 1, index + 1);
         split[index - 1] += accumulator[index] / 2.0;
         split[index + 1] += accumulator[index] / 2.0;
       }
@@ -168,12 +137,14 @@ void SFIRFilter::doWork(float cutoff, int decimation) {
       } else {
         accumulator[index] = 0.0;
       }
-      fprintf(stderr, "accumulating into index %d\n", index);
+      if (debug) fprintf(stderr, "accumulating into index %d\n", index);
       accumulator[index] += split[index];
     }
-    fprintf(stderr, "Accumulator contents:\n");
-    for (int index = 0; index < M + 2; index++) {
-      fprintf(stderr, "[%d]: %lf\n", index, accumulator[index]);
+    if (debug) {
+      fprintf(stderr, "Accumulator contents:\n");
+      for (int index = 0; index < M + 2; index++) {
+        fprintf(stderr, "[%d]: %lf\n", index, accumulator[index]);
+      }
     }
   }
   free(polyCoefficients);
@@ -182,22 +153,25 @@ void SFIRFilter::doWork(float cutoff, int decimation) {
   for (int index = 0; index < M + 2; index++) {
     sumOfFourierCoefficients += accumulator[index];
   }
-  fprintf(stderr, "sumOfCoefficients %lf, sumOfFourierCoefficients %f\n", sumOfCoefficients, sumOfFourierCoefficients);
-  fprintf(stderr, "allocating filterCoefficients buffer of size %d bytes\n", ((2 * (M + 1))) + 1 * sizeof(float)) ;
+;
+  if (debug)
+    fprintf(stderr, "allocating filterCoefficients buffer of size %d bytes\n", ((2 * (M + 1))) + 1 * sizeof(float)) ;
   float * filterCoefficients = (float *) malloc(((2 * (M + 1)) + 1) * sizeof(float));
   for (int delta = 0; delta <= M + 1; delta++) {
     if (delta == 0) {
       filterCoefficients[M+1] = accumulator[0] / sumOfFourierCoefficients ;
     } else {
-      fprintf(stderr, "putting %d into index %d and %d\n", delta, M+delta+1, M-delta+1);
+      if (debug)fprintf(stderr, "putting %d into index %d and %d\n", delta, M+delta+1, M-delta+1);
       filterCoefficients[M + delta + 1] = accumulator[delta] / 2.0 / sumOfFourierCoefficients;
       filterCoefficients[M - delta + 1] = accumulator[delta] / 2.0 / sumOfFourierCoefficients;
     }
   }
   free(accumulator);
-  fprintf(stderr, "Filter Coefficients are:\n");
-  for (int index = 0; index < 2*(M + 1) + 1; index++) {
-    fprintf(stderr, "[%d]: %f\n", index, filterCoefficients[index]);
+  if (debug) {
+    fprintf(stderr, "Filter Coefficients are:\n");
+    for (int index = 0; index < 2*(M + 1) + 1; index++) {
+      fprintf(stderr, "[%d]: %f\n", index, filterCoefficients[index]);
+    }
   }
   this->M = 2 * (M + 1) + 1; // set number of coefficients
   this->coefficients = filterCoefficients;  // free this in destructor
@@ -206,14 +180,14 @@ void SFIRFilter::doWork(float cutoff, int decimation) {
   INPUT_BUFFER_SIZE = (N * decimation) * sizeof(float) * 2;
   SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + (this->M - 1) * sizeof(float) * 2 * decimation; // always delay the last M samples for the next buffer read
   OUTPUT_BUFFER_SIZE = N * 2 * sizeof(float);
-  fprintf(stderr, "allocating signal buffer of size %d bytes\n", SIGNAL_BUFFER_SIZE);
+  if (debug) fprintf(stderr, "allocating signal buffer of size %d bytes\n", SIGNAL_BUFFER_SIZE);
   signalBuffer = (float *) malloc(SIGNAL_BUFFER_SIZE);
-  fprintf(stderr, "allocating output buffer of size %d bytes\n", OUTPUT_BUFFER_SIZE);
+  if (debug) fprintf(stderr, "allocating output buffer of size %d bytes\n", OUTPUT_BUFFER_SIZE);
   outputBuffer = (float *) malloc(OUTPUT_BUFFER_SIZE);
   inputBuffer = signalBuffer + (this->M - 1)*2; // buffer start for read
   int diff = inputBuffer - signalBuffer;
-  fprintf(stderr, "inputBuffer location: %p, signalBuffer location: %p, difference: %d\n",
-          inputBuffer, signalBuffer, diff);
+  if (debug)fprintf(stderr, "inputBuffer location: %p, signalBuffer location: %p, difference: %d\n",
+                    inputBuffer, signalBuffer, diff);
   inputToDelay = inputBuffer + (INPUT_BUFFER_SIZE - (this->M - 1)* sizeof(float) * 2 * decimation) / sizeof(float);
 
 };
