@@ -184,7 +184,7 @@ void SFIRFilter::doWork(float cutoff, int decimation) {
   signalBuffer = (float *) malloc(SIGNAL_BUFFER_SIZE);
   if (debug) fprintf(stderr, "allocating output buffer of size %d bytes\n", OUTPUT_BUFFER_SIZE);
   outputBuffer = (float *) malloc(OUTPUT_BUFFER_SIZE);
-  inputBuffer = signalBuffer + (this->M - 1)*2; // buffer start for read
+  inputBuffer = signalBuffer + (this->M - 1) * 2 * decimation; // buffer start for read
   int diff = inputBuffer - signalBuffer;
   if (debug)fprintf(stderr, "inputBuffer location: %p, signalBuffer location: %p, difference: %d\n",
                     inputBuffer, signalBuffer, diff);
