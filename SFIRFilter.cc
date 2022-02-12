@@ -20,14 +20,18 @@
 
 /* ---------------------------------------------------------------------- */
 SFIRFilter::SFIRFilter(float cutoff) {
-  doWork(cutoff, 1);
+  doWork(cutoff, 1, false);
 }
 /* ---------------------------------------------------------------------- */
 SFIRFilter::SFIRFilter(float cutoff, int decimation) {
-  doWork(cutoff, decimation);
+  doWork(cutoff, decimation, false);
 }
 /* ---------------------------------------------------------------------- */
-void SFIRFilter::doWork(float cutoff, int decimation) {
+SFIRFilter::SFIRFilter(float cutoff, int decimation, bool highPass) {
+  doWork(cutoff, decimation, highPass);
+}
+/* ---------------------------------------------------------------------- */
+void SFIRFilter::doWork(float cutoff, int decimation, bool highPass) {
   // Determine K - K is the ratio between 1.0 and -1.0 where (p-q)/(p+q) will ideally be K.  p is the integer power
   // of the (1 + t) term of Hamming's smooth transfer function.  q is the integer power of the (1 - t) term of
   // Hamming's smooth transfer function => (1 + t)^p * (1 - t)^q = H
@@ -60,9 +64,9 @@ void SFIRFilter::doWork(float cutoff, int decimation) {
   int p = a + b;
   int q = b - a;
   if (debug) fprintf(stderr, "input cutoff was %f, K was %f, a/b is %f, p is %d, and q is %d\n", cutoff, K,
-          float(a)/float(b), p, q);
-  int M = p + q; // maximum power of polynomial
-  float *polyCoefficients = (float *) malloc((M + 2) * sizeof(float));
+                     static_cast<float>(a)/static_cast<float>(b), p, q);
+  int M = p + q;  // maximum power of polynomial
+  float *polyCoefficients = reinterpret_cast<float *>(malloc((M + 2) * sizeof(float)));
   // (1 + t)^p
   {
     float coef1[] = {1.0, 1.0};
@@ -108,8 +112,8 @@ void SFIRFilter::doWork(float cutoff, int decimation) {
 
   // Now convert to Fourier coefficients
 
-  double * accumulator = (double *) malloc((M + 2) * sizeof(double));
-  double * split = (double *) malloc((M + 2) * sizeof(double));
+  double * accumulator = reinterpret_cast<double *>(malloc((M + 2) * sizeof(double)));
+  double * split = reinterpret_cast<double *>(malloc((M + 2) * sizeof(double)));
   for (int index = 0; index < M + 2; index++) {
     accumulator[index] = 0.0;
   }
@@ -153,17 +157,26 @@ void SFIRFilter::doWork(float cutoff, int decimation) {
   for (int index = 0; index < M + 2; index++) {
     sumOfFourierCoefficients += accumulator[index];
   }
-;
+
   if (debug)
-    fprintf(stderr, "allocating filterCoefficients buffer of size %d bytes\n", ((2 * (M + 1))) + 1 * sizeof(float)) ;
-  float * filterCoefficients = (float *) malloc(((2 * (M + 1)) + 1) * sizeof(float));
+    fprintf(stderr, "allocating filterCoefficients buffer of size %d bytes\n", ((2 * (M + 1))) + 1 * sizeof(float));
+  float * filterCoefficients = reinterpret_cast<float *>(malloc(((2 * (M + 1)) + 1) * sizeof(float)));
   for (int delta = 0; delta <= M + 1; delta++) {
     if (delta == 0) {
-      filterCoefficients[M+1] = accumulator[0] / sumOfFourierCoefficients ;
+      if (highPass) {
+        filterCoefficients[M+1] = 1.0 - (accumulator[0] / sumOfFourierCoefficients);
+      } else {
+        filterCoefficients[M+1] = accumulator[0] / sumOfFourierCoefficients;
+      }
     } else {
       if (debug)fprintf(stderr, "putting %d into index %d and %d\n", delta, M+delta+1, M-delta+1);
-      filterCoefficients[M + delta + 1] = accumulator[delta] / 2.0 / sumOfFourierCoefficients;
-      filterCoefficients[M - delta + 1] = accumulator[delta] / 2.0 / sumOfFourierCoefficients;
+      if (highPass) {
+        filterCoefficients[M + delta + 1] = - accumulator[delta] / 2.0 / sumOfFourierCoefficients;
+        filterCoefficients[M - delta + 1] = - accumulator[delta] / 2.0 / sumOfFourierCoefficients;
+      } else {
+        filterCoefficients[M + delta + 1] = accumulator[delta] / 2.0 / sumOfFourierCoefficients;
+        filterCoefficients[M - delta + 1] = accumulator[delta] / 2.0 / sumOfFourierCoefficients;
+      }
     }
   }
   free(accumulator);
@@ -173,24 +186,24 @@ void SFIRFilter::doWork(float cutoff, int decimation) {
       fprintf(stderr, "[%d]: %f\n", index, filterCoefficients[index]);
     }
   }
-  this->M = 2 * (M + 1) + 1; // set number of coefficients
+  this->M = 2 * (M + 1) + 1;  // set number of coefficients
   this->coefficients = filterCoefficients;  // free this in destructor
   this->decimation = decimation;
   N = 1024;  // default to 1K of output sample (I and Q)
   INPUT_BUFFER_SIZE = (N * decimation) * sizeof(float) * 2;
-  SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + (this->M - 1) * sizeof(float) * 2 * decimation; // always delay the last M samples for the next buffer read
+  // always delay the last M samples for the next buffer read
+  SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + (this->M - 1) * sizeof(float) * 2 * decimation;
   OUTPUT_BUFFER_SIZE = N * 2 * sizeof(float);
   if (debug) fprintf(stderr, "allocating signal buffer of size %d bytes\n", SIGNAL_BUFFER_SIZE);
-  signalBuffer = (float *) malloc(SIGNAL_BUFFER_SIZE);
+  signalBuffer = reinterpret_cast<float *>(malloc(SIGNAL_BUFFER_SIZE));
   if (debug) fprintf(stderr, "allocating output buffer of size %d bytes\n", OUTPUT_BUFFER_SIZE);
-  outputBuffer = (float *) malloc(OUTPUT_BUFFER_SIZE);
-  inputBuffer = signalBuffer + (this->M - 1) * 2 * decimation; // buffer start for read
+  outputBuffer = reinterpret_cast<float *>(malloc(OUTPUT_BUFFER_SIZE));
+  inputBuffer = signalBuffer + (this->M - 1) * 2 * decimation;  // buffer start for read
   int diff = inputBuffer - signalBuffer;
   if (debug)fprintf(stderr, "inputBuffer location: %p, signalBuffer location: %p, difference: %d\n",
                     inputBuffer, signalBuffer, diff);
   inputToDelay = inputBuffer + (INPUT_BUFFER_SIZE - (this->M - 1)* sizeof(float) * 2 * decimation) / sizeof(float);
-
-};
+}
 
 /* ---------------------------------------------------------------------- */
 int SFIRFilter::readSignalPipe() {
@@ -205,8 +218,7 @@ int SFIRFilter::writeSignalPipe() {
 }
 
 /* ---------------------------------------------------------------------- */
-void SFIRFilter::filterSignal(){
-
+void SFIRFilter::filterSignal() {
   float * I;
   float * firstI;
   float * Q;
@@ -214,7 +226,6 @@ void SFIRFilter::filterSignal(){
   float * output;
   float sumI;
   float sumQ;
-
 
   for (;;) {
     if (readSignalPipe() != INPUT_BUFFER_SIZE) {
@@ -260,12 +271,12 @@ void SFIRFilter::filterSignal(){
     // after copy, the end of the copied data should match up with the beginning of the input buffer, so
     // look at it after the read
   }
-};
+}
 
 /* ---------------------------------------------------------------------- */
 SFIRFilter::~SFIRFilter(void) {
   if (coefficients) free(coefficients);
   if (signalBuffer) free(signalBuffer);
   if (outputBuffer) free(outputBuffer);
-};
+}
 

@@ -1014,19 +1014,33 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "Low pass smooth filter a complex stream with cutoff at %s of Nyquist:\n", argv[2]);
           sfilter.filterSignal();
           doneProcessing = true;
-        } else {
-          if (argc == 4) {
-            sscanf(argv[2], "%f", &cutoff);
-            sscanf(argv[3], "%d", &decimation);
-            SFIRFilter sfilter(cutoff, decimation);
+        } else if (argc == 4) {
+          sscanf(argv[2], "%f", &cutoff);
+          sscanf(argv[3], "%d", &decimation);
+          SFIRFilter sfilter(cutoff, decimation);
+          fprintf(stderr,
+                  "Low pass smooth filter a complex stream with cutoff at %s of Nyquist - decimation of %s:\n",
+                  argv[2], argv[3]);
+          sfilter.filterSignal();
+          doneProcessing = true;
+        } else if (argc == 5) {
+          sscanf(argv[2], "%f", &cutoff);
+          sscanf(argv[3], "%d", &decimation);
+          bool highPass = strcmp(argv[4], "true") == 0;
+          SFIRFilter sfilter(cutoff, decimation, highPass);
+          if (highPass) {
+            fprintf(stderr,
+                    "High pass smooth filter a complex stream with cutoff at %s of Nyquist - decimation of %s:\n",
+                    argv[2], argv[3]);
+          } else {
             fprintf(stderr,
                     "Low pass smooth filter a complex stream with cutoff at %s of Nyquist - decimation of %s:\n",
                     argv[2], argv[3]);
-            sfilter.filterSignal();
-            doneProcessing = true;
-          } else {
-            fprintf(stderr, "sfir_cc parameter error\n");
           }
+          sfilter.filterSignal();
+          doneProcessing = true;
+        } else {
+          fprintf(stderr, "sfir_cc parameter error\n");
         }
         break;
       }

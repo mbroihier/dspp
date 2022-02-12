@@ -125,7 +125,7 @@ float Poly::evaluate(Poly * a, float x) {
     }
   }
   value += a->getInternalCoefficients()[0];
-  return((float)value);
+  return(static_cast<float>(value));
 }
 /* ---------------------------------------------------------------------- */
 Poly * Poly::integrate(Poly * a, float value, float x) {
@@ -136,7 +136,7 @@ Poly * Poly::integrate(Poly * a, float value, float x) {
     if (i == 0) {
       newCoefficients[i] = 0.0;
     } else {
-      newCoefficients[i] = originalCoefficients[i - 1] / double(i);
+      newCoefficients[i] = originalCoefficients[i - 1] / static_cast<double>(i);
     }
   }
   Poly * unevaluatedPoly = new Poly(newCoefficients, newSize);
