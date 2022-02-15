@@ -20,18 +20,23 @@
 
 /* ---------------------------------------------------------------------- */
 SFIRFilter::SFIRFilter(float cutoff) {
-  doWork(cutoff, 1, false);
+  doWork(cutoff, 1, false, true);
 }
 /* ---------------------------------------------------------------------- */
 SFIRFilter::SFIRFilter(float cutoff, int decimation) {
-  doWork(cutoff, decimation, false);
+  doWork(cutoff, decimation, false, true);
 }
 /* ---------------------------------------------------------------------- */
 SFIRFilter::SFIRFilter(float cutoff, int decimation, bool highPass) {
-  doWork(cutoff, decimation, highPass);
+  doWork(cutoff, decimation, highPass, true);
 }
 /* ---------------------------------------------------------------------- */
-void SFIRFilter::doWork(float cutoff, int decimation, bool highPass) {
+SFIRFilter::SFIRFilter(float cutoff, int decimation, bool highPass, bool complexFilter) {
+  doWork(cutoff, decimation, highPass, complexFilter);
+}
+/* ---------------------------------------------------------------------- */
+void SFIRFilter::doWork(float cutoff, int decimation, bool highPass, bool complexFilter) {
+  this->complexFilter = complexFilter;
   // Determine K - K is the ratio between 1.0 and -1.0 where (p-q)/(p+q) will ideally be K.  p is the integer power
   // of the (1 + t) term of Hamming's smooth transfer function.  q is the integer power of the (1 - t) term of
   // Hamming's smooth transfer function => (1 + t)^p * (1 - t)^q = H
@@ -189,20 +194,36 @@ void SFIRFilter::doWork(float cutoff, int decimation, bool highPass) {
   this->M = 2 * (M + 1) + 1;  // set number of coefficients
   this->coefficients = filterCoefficients;  // free this in destructor
   this->decimation = decimation;
-  N = 1024;  // default to 1K of output sample (I and Q)
-  INPUT_BUFFER_SIZE = (N * decimation) * sizeof(float) * 2;
-  // always delay the last M samples for the next buffer read
-  SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + (this->M - 1) * sizeof(float) * 2 * decimation;
-  OUTPUT_BUFFER_SIZE = N * 2 * sizeof(float);
-  if (debug) fprintf(stderr, "allocating signal buffer of size %d bytes\n", SIGNAL_BUFFER_SIZE);
-  signalBuffer = reinterpret_cast<float *>(malloc(SIGNAL_BUFFER_SIZE));
-  if (debug) fprintf(stderr, "allocating output buffer of size %d bytes\n", OUTPUT_BUFFER_SIZE);
-  outputBuffer = reinterpret_cast<float *>(malloc(OUTPUT_BUFFER_SIZE));
-  inputBuffer = signalBuffer + (this->M - 1) * 2 * decimation;  // buffer start for read
-  int diff = inputBuffer - signalBuffer;
-  if (debug)fprintf(stderr, "inputBuffer location: %p, signalBuffer location: %p, difference: %d\n",
-                    inputBuffer, signalBuffer, diff);
-  inputToDelay = inputBuffer + (INPUT_BUFFER_SIZE - (this->M - 1)* sizeof(float) * 2 * decimation) / sizeof(float);
+  N = 1024;  // default to 1K of output sample (I and Q or real)
+  if (complexFilter) {
+    INPUT_BUFFER_SIZE = (N * decimation) * sizeof(float) * 2;
+    // always delay the last M samples for the next buffer read
+    SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + (this->M - 1) * sizeof(float) * 2 * decimation;
+    OUTPUT_BUFFER_SIZE = N * 2 * sizeof(float);
+    if (debug) fprintf(stderr, "allocating signal buffer of size %d bytes\n", SIGNAL_BUFFER_SIZE);
+    signalBuffer = reinterpret_cast<float *>(malloc(SIGNAL_BUFFER_SIZE));
+    if (debug) fprintf(stderr, "allocating output buffer of size %d bytes\n", OUTPUT_BUFFER_SIZE);
+    outputBuffer = reinterpret_cast<float *>(malloc(OUTPUT_BUFFER_SIZE));
+    inputBuffer = signalBuffer + (this->M - 1) * 2 * decimation;  // buffer start for read
+    int diff = inputBuffer - signalBuffer;
+    if (debug)fprintf(stderr, "inputBuffer location: %p, signalBuffer location: %p, difference: %d\n",
+                      inputBuffer, signalBuffer, diff);
+    inputToDelay = inputBuffer + (INPUT_BUFFER_SIZE - (this->M - 1)* sizeof(float) * 2 * decimation) / sizeof(float);
+  } else {
+    INPUT_BUFFER_SIZE = (N * decimation) * sizeof(float);
+    // always delay the last M samples for the next buffer read
+    SIGNAL_BUFFER_SIZE = INPUT_BUFFER_SIZE + (this->M - 1) * sizeof(float) * decimation;
+    OUTPUT_BUFFER_SIZE = N * sizeof(float);
+    if (debug) fprintf(stderr, "allocating signal buffer of size %d bytes\n", SIGNAL_BUFFER_SIZE);
+    signalBuffer = reinterpret_cast<float *>(malloc(SIGNAL_BUFFER_SIZE));
+    if (debug) fprintf(stderr, "allocating output buffer of size %d bytes\n", OUTPUT_BUFFER_SIZE);
+    outputBuffer = reinterpret_cast<float *>(malloc(OUTPUT_BUFFER_SIZE));
+    inputBuffer = signalBuffer + (this->M - 1) * decimation;  // buffer start for read
+    int diff = inputBuffer - signalBuffer;
+    if (debug)fprintf(stderr, "inputBuffer location: %p, signalBuffer location: %p, difference: %d\n",
+                      inputBuffer, signalBuffer, diff);
+    inputToDelay = inputBuffer + (INPUT_BUFFER_SIZE - (this->M - 1)* sizeof(float) * decimation) / sizeof(float);
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -233,43 +254,77 @@ void SFIRFilter::filterSignal() {
       exit(-1);
     }
 
-    I = signalBuffer;
-                                                  // set I to the first input
-                                                  // that will be processed by
-                                                  // coefficient[0]
-    Q = I + 1;
-    output = outputBuffer;
-    coefficientPtr = coefficients;
-    int increment = 2 * decimation;
-    firstI = I + increment;  // this is the next first I location
-    //
-    // Filter with this current buffer of input
-    //
-    for (int i = 0; i < N; i++) {  // for N outputs
-      sumI = 0.0;
-      sumQ = 0.0;
-      coefficientPtr = coefficients;
-      for (int j = 0; j < M; j++) {
-        sumI += *coefficientPtr * *I;
-        sumQ += *coefficientPtr * *Q;
-        coefficientPtr++;
-        I += increment;
-        Q += increment;
-      }
-      I = firstI;
-      firstI += increment;
+    if (complexFilter) {
+      I = signalBuffer;
+      // set I to the first input
+      // that will be processed by
+      // coefficient[0]
       Q = I + 1;
-      *output++ = sumI;
-      *output++ = sumQ;
+      output = outputBuffer;
+      coefficientPtr = coefficients;
+      int increment = 2 * decimation;
+      firstI = I + increment;  // this is the next first I location
+      //
+      // Filter with this current buffer of input
+      //
+      for (int i = 0; i < N; i++) {  // for N outputs
+        sumI = 0.0;
+        sumQ = 0.0;
+        coefficientPtr = coefficients;
+        for (int j = 0; j < M; j++) {
+          sumI += *coefficientPtr * *I;
+          sumQ += *coefficientPtr * *Q;
+          coefficientPtr++;
+          I += increment;
+          Q += increment;
+        }
+        I = firstI;
+        firstI += increment;
+        Q = I + 1;
+        *output++ = sumI;
+        *output++ = sumQ;
+      }
+      //
+      // Copy the end of the buffer that will be used in the filtering
+      // of the next buffer that arrives
+      //
+      writeSignalPipe();
+      memcpy(signalBuffer, inputToDelay, (M-1) * 8 * decimation);
+      // after copy, the end of the copied data should match up with the beginning of the input buffer, so
+      // look at it after the read
+    } else {
+      I = signalBuffer;
+      // set I to the first input
+      // that will be processed by
+      // coefficient[0]
+      output = outputBuffer;
+      coefficientPtr = coefficients;
+      int increment = decimation;
+      firstI = I + increment;  // this is the next first I location
+      //
+      // Filter with this current buffer of input
+      //
+      for (int i = 0; i < N; i++) {  // for N outputs
+        sumI = 0.0;
+        coefficientPtr = coefficients;
+        for (int j = 0; j < M; j++) {
+          sumI += *coefficientPtr * *I;
+          coefficientPtr++;
+          I += increment;
+        }
+        I = firstI;
+        firstI += increment;
+        *output++ = sumI;
+      }
+      //
+      // Copy the end of the buffer that will be used in the filtering
+      // of the next buffer that arrives
+      //
+      writeSignalPipe();
+      memcpy(signalBuffer, inputToDelay, (M-1) * 4 * decimation);
+      // after copy, the end of the copied data should match up with the beginning of the input buffer, so
+      // look at it after the read
     }
-    //
-    // Copy the end of the buffer that will be used in the filtering
-    // of the next buffer that arrives
-    //
-    writeSignalPipe();
-    memcpy(signalBuffer, inputToDelay, (M-1) * 8 * decimation);
-    // after copy, the end of the copied data should match up with the beginning of the input buffer, so
-    // look at it after the read
   }
 }
 

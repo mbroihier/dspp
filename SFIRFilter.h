@@ -14,6 +14,7 @@
 class SFIRFilter {
  private:
   static const bool debug = false;
+  bool complexFilter;      // defines if the object is a complex or real filter
   float * coefficients;
   int INPUT_BUFFER_SIZE;   // number of bytes to read from the pipe
   int SIGNAL_BUFFER_SIZE;  // total size of input buffer including delay portion
@@ -28,12 +29,13 @@ class SFIRFilter {
 
   int readSignalPipe();
   int writeSignalPipe();
-  void doWork(float cuttoff, int decimation, bool highPass);
+  void doWork(float cuttoff, int decimation, bool highPass, bool complexFilter);
 
  public:
   explicit SFIRFilter(float cutoff);
   SFIRFilter(float cutoff, int decimation);
   SFIRFilter(float cutoff, int decimation, bool highPass);
+  SFIRFilter(float cutoff, int decimation, bool highPass, bool complexFilter);
 
   void filterSignal();
 

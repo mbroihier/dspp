@@ -44,7 +44,9 @@ static const char USAGE_STR[] = "\n"
         "  custom_fir_ff            : FIR filter a real stream\n"
         "  custom_fir_cc            : FIR filter a complex stream\n"
         "  sfir_cc                  : Smooth FIR filter a complex stream\n"
+        "  sfir_ff                  : Smooth FIR filter a real stream\n"
         "  real_to_complex_fc       : real stream to complex stream\n"
+        "  real_of_complex_fc       : real part of complex stream\n"
         "  fmmod_fc                 : real stream FM modulated quadrature (I/Q) stream\n"
         "  head                     : take first n bytes of stream\n"
         "  tail                     : take bytes after n bytes of stream\n"
@@ -74,6 +76,8 @@ static struct option longOpts[] = {
   { "fft_cc"                   , no_argument, NULL, 19 },
   { "tee"                      , no_argument, NULL, 20 },
   { "sfir_cc"                  , no_argument, NULL, 21 },
+  { "sfir_ff"                  , no_argument, NULL, 22 },
+  { "real_of_complex_cf"       , no_argument, NULL, 23 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -629,6 +633,42 @@ int dspp::real_to_complex_fc() {
 
   return 0;
 }
+/* ---------------------------------------------------------------------- */
+/*
+ *      real_of_complex_fc.cc -- DSP Pipe - real part of complex stream
+ *
+ *      Copyright (C) 2019 
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+int dspp::real_of_complex_cf() {
+  const int BUFFER_SIZE = 4096;
+  float signal[BUFFER_SIZE];
+  float complexSignal[BUFFER_SIZE*2];
+  int numberRead = 0;
+
+  float * signalPtr;
+  float * complexSignalPtr;
+  for (;;) {
+    numberRead = fread(&complexSignal, sizeof(float), BUFFER_SIZE*2, stdin);
+    if(numberRead < BUFFER_SIZE*2) {
+      fprintf(stderr, "Short data stream, real_of_complex_cf\n");
+      fclose(stdout);
+      return 0;
+    }
+    signalPtr = signal;
+    complexSignalPtr = complexSignal;
+    for (int i=0; i < BUFFER_SIZE; i++) {
+      *signalPtr++ = *complexSignalPtr++;
+      complexSignalPtr++;
+    }
+    fwrite(&signal, sizeof(float), BUFFER_SIZE, stdout);
+  }
+
+  return 0;
+}
 
 /* ---------------------------------------------------------------------- */
 /*
@@ -1042,6 +1082,56 @@ int main(int argc, char *argv[]) {
         } else {
           fprintf(stderr, "sfir_cc parameter error\n");
         }
+        break;
+      }
+      case 22: {
+        float cutoff = 0.3333333;
+        int decimation = 1;
+        if (argc == 3) {
+          sscanf(argv[2], "%f", &cutoff);
+          SFIRFilter sfilter(cutoff, decimation, false, false);
+          fprintf(stderr, "Low pass smooth filter a real stream with cutoff at %s of Nyquist:\n", argv[2]);
+          sfilter.filterSignal();
+          doneProcessing = true;
+        } else if (argc == 4) {
+          sscanf(argv[2], "%f", &cutoff);
+          sscanf(argv[3], "%d", &decimation);
+          SFIRFilter sfilter(cutoff, decimation, false, false);
+          fprintf(stderr,
+                  "Low pass smooth filter a real stream with cutoff at %s of Nyquist - decimation of %s:\n",
+                  argv[2], argv[3]);
+          sfilter.filterSignal();
+          doneProcessing = true;
+        } else if (argc == 5) {
+          sscanf(argv[2], "%f", &cutoff);
+          sscanf(argv[3], "%d", &decimation);
+          bool highPass = strcmp(argv[4], "true") == 0;
+          SFIRFilter sfilter(cutoff, decimation, highPass, false);
+          if (highPass) {
+            fprintf(stderr,
+                    "High pass smooth filter a real stream with cutoff at %s of Nyquist - decimation of %s:\n",
+                    argv[2], argv[3]);
+          } else {
+            fprintf(stderr,
+                    "Low pass smooth filter a real stream with cutoff at %s of Nyquist - decimation of %s:\n",
+                    argv[2], argv[3]);
+          }
+          sfilter.filterSignal();
+          doneProcessing = true;
+        } else {
+          fprintf(stderr, "sfir_ff parameter error\n");
+        }
+        break;
+      }
+      case 23: {
+	if (argc == 2) {
+          fprintf(stderr, "starting real of complex\n");
+          doneProcessing = !dsppInstance.real_of_complex_cf();
+	} else {
+	  fprintf(stderr, "real_of_complex_fc parameter error\n");
+          fprintf(stderr, "%d\n", argc);
+	  doneProcessing = true;
+	}
         break;
       }
       default:
