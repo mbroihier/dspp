@@ -99,12 +99,17 @@ Poly * Poly::add(Poly * a, Poly * b) {
 }
 /* ---------------------------------------------------------------------- */
 Poly * Poly::power(Poly * a, int N) {
+  Poly * newPoly = 0;
+  Poly * rPoly = 0;
   if (N < 1) {
+    if (N == 0) {
+      float polyConst[] = {1.0};
+      newPoly = new Poly(polyConst, 1.0);
+      return(newPoly);
+    }
     fprintf(stderr, "Only positive powers of polynomials are supported\n");
     exit(-1);
   }
-  Poly * newPoly = 0;
-  Poly * rPoly = 0;
   if (N > 1) {
     rPoly = power(a, N - 1);
     newPoly = a->multiply(rPoly, a);

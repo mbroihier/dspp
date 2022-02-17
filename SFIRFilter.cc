@@ -44,32 +44,18 @@ void SFIRFilter::doWork(float cutoff, int decimation, bool highPass, bool comple
   int b;
   float K = cos(M_PI * cutoff);
   // a/b is approximation of K
-  if (fabs(K) < 0.1) {
+  a = K * 8.0 + 0.5;
+  if (a == 0) {
     a = 0;
-    b = 10;
+    b = 16;
   } else {
-    if (K > 0.90) {
-      a = 9;
-      b = 10;
-    } else {
-      if (K < -0.90) {
-        a = -9;
-        b = 10;
-      } else {
-        a = 10;
-        b = 10.0 / K + 0.5;
-        if (b < 0) {
-          a = -a;
-          b = -b;
-        }
-      }
-    }
+    b = a / K + 0.5;
   }
   // a/b is approximation of K
   int p = a + b;
   int q = b - a;
-  if (debug) fprintf(stderr, "input cutoff was %f, K was %f, a/b is %f, p is %d, and q is %d\n", cutoff, K,
-                     static_cast<float>(a)/static_cast<float>(b), p, q);
+  fprintf(stderr, "input cutoff was %f, K was %f, a/b(%d/%d) is %f, p is %d, and q is %d\n", cutoff, K,
+          a, b, static_cast<float>(a)/static_cast<float>(b), p, q);
   int M = p + q;  // maximum power of polynomial
   float *polyCoefficients = reinterpret_cast<float *>(malloc((M + 2) * sizeof(float)));
   // (1 + t)^p
