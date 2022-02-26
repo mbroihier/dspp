@@ -78,6 +78,7 @@ static struct option longOpts[] = {
   { "sfir_cc"                  , no_argument, NULL, 21 },
   { "sfir_ff"                  , no_argument, NULL, 22 },
   { "real_of_complex_cf"       , no_argument, NULL, 23 },
+  { "direct_to_iq"             , no_argument, NULL, 24 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -802,6 +803,48 @@ int dspp::tee(char * otherStream) {
   return 0;
 }
 /* ---------------------------------------------------------------------- */
+/*
+ *      direct_to_iq.cc -- DSP Pipe - direct sample to IQ sample
+ *
+ *      Copyright (C) 2022
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+
+int dspp::direct_to_iq() {
+  const int BUFFER_SIZE = 4096;
+  int count = 0;
+  signed char bytes[BUFFER_SIZE];
+  float data[BUFFER_SIZE];
+  for (;;) {
+    count = fread(&bytes, sizeof(unsigned char), BUFFER_SIZE, stdin);
+    if(count != BUFFER_SIZE) {
+      fprintf(stderr, "Short data stream, tail\n");
+      fclose(stdout);
+      return 0;
+    }
+    for (int i = 0; i < BUFFER_SIZE; i++) {
+      bytes[i] ^= 0x80;  // fix sign
+    }
+    for (int i = 0; i < BUFFER_SIZE; i += 8) {
+      data[i] = bytes[i];
+      data[i + 1] = bytes[i + 1];
+      data[i + 2] = - bytes[i + 3];
+      data[i + 3] = bytes[i + 2];
+      data[i + 4] = - bytes[i + 4];
+      data[i + 5] = - bytes[i + 5];
+      data[i + 6] = bytes[i + 7];
+      data[i + 7] = - bytes[i + 6];
+    }
+    fwrite(&data, sizeof(float), count, stdout);
+  }
+  fprintf(stderr, "Internal error path - should not get here, direct_to_iq\n");
+  fclose(stdout);
+  return 0;
+}
+/* ---------------------------------------------------------------------- */
 
 int main(int argc, char *argv[]) {
 
@@ -1128,7 +1171,18 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "starting real of complex\n");
           doneProcessing = !dsppInstance.real_of_complex_cf();
 	} else {
-	  fprintf(stderr, "real_of_complex_fc parameter error\n");
+	  fprintf(stderr, "real_of_complex_cf parameter error\n");
+          fprintf(stderr, "%d\n", argc);
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 24: {
+	if (argc == 2) {
+          fprintf(stderr, "direct to complex IQ\n");
+          doneProcessing = !dsppInstance.direct_to_iq();
+	} else {
+	  fprintf(stderr, "direct to comple IQ parameter error\n");
           fprintf(stderr, "%d\n", argc);
 	  doneProcessing = true;
 	}

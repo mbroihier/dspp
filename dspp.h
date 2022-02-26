@@ -45,6 +45,7 @@ class dspp {
   int convert_sInt16_f();
   int fft_cc(int numberOfComplexSamples);
   int tee(char * otherStream);
+  int direct_to_iq();
 
   //dspp(void);
 
