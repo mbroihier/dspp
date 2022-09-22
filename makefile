@@ -26,11 +26,11 @@ SOURCES= dspp.cc
 OBJECTS=$(SOURCES:.cc=.o)
 
 RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h RTLTCPServer.cc RTLTCPServer.h
-FIRFILTSRC = FIRFilter.cc FIRFilter.h SFIRFilter.cc SFIRFilter.h Poly.cc Poly.h
+FIRFILTSRC = FIRFilter.cc FIRFilter.h SFIRFilter.cc SFIRFilter.h CFilter.cc CFilter.h Poly.cc Poly.h
 MODSRC = FMMod.cc FMMod.h
 FFTSRC = DsppFFT.cc DsppFFT.h
 RTLTCPOBJ = RTLTCPClient.o RTLTCPServer.o
-FIRFILTOBJ = FIRFilter.o SFIRFilter.o Poly.o
+FIRFILTOBJ = FIRFilter.o SFIRFilter.o CFilter.o Poly.o
 MODOBJ = FMMod.o
 FFTOBJ = DsppFFT.o
 
@@ -59,6 +59,12 @@ test:
 	$(CC) $(LDFLAGS) testIn5f.o -o testIn5f -lm 
 	$(CC) $(CFLAGS) testIn6.cc -o testIn6.o
 	$(CC) $(LDFLAGS) testIn6.o -o testIn6 -lm
+	$(CC) $(CFLAGS) testIn7.cc -o testIn7.o
+	$(CC) $(LDFLAGS) testIn7.o -o testIn7 -lm
+	$(CC) $(CFLAGS) testIn7a.cc -o testIn7a.o
+	$(CC) $(LDFLAGS) testIn7a.o -o testIn7a -lm
+	$(CC) $(CFLAGS) testIn8.cc -o testIn8.o
+	$(CC) $(LDFLAGS) testIn8.o -o testIn8 -lm
 	$(CC) $(CFLAGS) testIn14.cc -o testIn14.o
 	$(CC) $(LDFLAGS) testIn14.o -o testIn14 -lm
 	$(CC) $(CFLAGS) testIn14a.cc -o testIn14a.o
@@ -79,6 +85,27 @@ test:
 
 	$(CC) $(CFLAGS) findDiff.cc -o findDiff.o
 	$(CC) $(LDFLAGS) findDiff.o -o findDiff -lm
+
+	$(CC) $(CFLAGS) FFTToOctave.cc -o FFTToOctave.o
+	$(CC) $(LDFLAGS) FFTToOctave.o -o FFTToOctave -lm
+
+	$(CC) $(CFLAGS) SignalToOctave.cc -o SignalToOctave.o
+	$(CC) $(LDFLAGS) SignalToOctave.o -o SignalToOctave -lm
+
+	$(CC) $(CFLAGS) 10MHz.cc -o 10MHz.o
+	$(CC) $(LDFLAGS) 10MHz.o -o 10MHz -lm
+
+	$(CC) $(CFLAGS) RFRealDig.cc -o RFRealDig.o
+	$(CC) $(LDFLAGS) RFRealDig.o -o RFRealDig -lm
+
+	$(CC) $(CFLAGS) testSmooth.cc -o testSmooth.o
+	$(CC) $(LDFLAGS) testSmooth.o $(FIRFILTOBJ) -o testSmooth -lm
+
+	$(CC) $(CFLAGS) whiteNoise.cc -o whiteNoise.o
+	$(CC) $(LDFLAGS) whiteNoise.o -o whiteNoise -lm
+
+	$(CC) $(CFLAGS) impulse.cc -o impulse.o
+	$(CC) $(LDFLAGS) impulse.o -o impulse -lm
 
 
 $(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ)

@@ -44,6 +44,7 @@ static const char USAGE_STR[] = "\n"
         "  custom_fir_ff            : FIR filter a real stream\n"
         "  custom_fir_cc            : FIR filter a complex stream\n"
         "  sfir_cc                  : Smooth FIR filter a complex stream\n"
+        "  comb_cc                  : Comb filter a complex stream\n"
         "  sfir_ff                  : Smooth FIR filter a real stream\n"
         "  real_to_complex_fc       : real stream to complex stream\n"
         "  real_of_complex_fc       : real part of complex stream\n"
@@ -79,6 +80,7 @@ static struct option longOpts[] = {
   { "sfir_ff"                  , no_argument, NULL, 22 },
   { "real_of_complex_cf"       , no_argument, NULL, 23 },
   { "direct_to_iq"             , no_argument, NULL, 24 },
+  { "comb_cc"                  , no_argument, NULL, 25 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -817,9 +819,9 @@ int dspp::direct_to_iq() {
   const int BUFFER_SIZE = 4096;
   int count = 0;
   signed char bytes[BUFFER_SIZE];
-  float data[BUFFER_SIZE];
+  signed char data[BUFFER_SIZE];
   for (;;) {
-    count = fread(&bytes, sizeof(unsigned char), BUFFER_SIZE, stdin);
+    count = fread(&bytes, sizeof(signed char), BUFFER_SIZE, stdin);
     if(count != BUFFER_SIZE) {
       fprintf(stderr, "Short data stream, tail\n");
       fclose(stdout);
@@ -838,7 +840,7 @@ int dspp::direct_to_iq() {
       data[i + 6] = bytes[i + 7];
       data[i + 7] = - bytes[i + 6];
     }
-    fwrite(&data, sizeof(float), count, stdout);
+    fwrite(&data, sizeof(signed char), count, stdout);
   }
   fprintf(stderr, "Internal error path - should not get here, direct_to_iq\n");
   fclose(stdout);
@@ -1184,6 +1186,20 @@ int main(int argc, char *argv[]) {
 	} else {
 	  fprintf(stderr, "direct to comple IQ parameter error\n");
           fprintf(stderr, "%d\n", argc);
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 25: {
+        int decimation = 1;
+        if (argc == 3) {
+          sscanf(argv[2], "%d", &decimation);
+          CFilter cfilter(decimation);
+          fprintf(stderr, "Comb filter a complex stream with decimation: %s\n", argv[2]);
+          cfilter.filterSignal();
+          doneProcessing = true;
+	} else {
+	  fprintf(stderr, "Comb filter parameter error\n");
 	  doneProcessing = true;
 	}
         break;

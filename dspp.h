@@ -17,6 +17,7 @@
 #include "RTLTCPClient.h"
 #include "RTLTCPServer.h"
 #include "SFIRFilter.h"
+#include "CFilter.h"
 /* ---------------------------------------------------------------------- */
 class dspp {
 
