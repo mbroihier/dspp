@@ -17,8 +17,6 @@
 class RTLTCPClient {
 
   private:
-  int frequency;          // center frequency to capture
-  int sampleRate;         // rate to sample RF data
 
   int readSignal();
   int writeSignalPipe();
@@ -34,12 +32,12 @@ class RTLTCPClient {
 
   RTLCommand commandPacket;
 
-  void doWork(const char * address, int port, int frequency, int sampleRate);
+  void doWork(const char * address, int port, int frequency, int sampleRate, int mode, int gain);
 
   public:
 
   RTLTCPClient(const char * address, int port);
-  RTLTCPClient(const char * address, int port, int frequency, int sampleRate);
+  RTLTCPClient(const char * address, int port, int frequency, int sampleRate, int mode, int gain);
 
   ~RTLTCPClient(void);
     

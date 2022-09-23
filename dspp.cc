@@ -53,7 +53,12 @@ static const char USAGE_STR[] = "\n"
         "  tail                     : take bytes after n bytes of stream\n"
         "  convert_sInt16_f         : convert a signed short stream to a float(real) stream\n"
         "  fft_cc                   : convert a complex stream to a complex stream in the frequency domain\n"
-        "  tee                      : tee stream to another stream\n";
+        "  tee                      : tee stream to another stream\n"
+        "  sfir_cc                  : smooth fir filter, complex stream to complex stream\n"
+        "  sfir_ff                  : smooth fir filter, float(real) stream to float stream\n"
+        "  real_of_complex_cf       : real(float) part of complex stream to float stream\n"
+        "  direct_to_iq             : direct stream of bytes to iq bytes\n"
+        "  comb_cc                  : comb filter complex stream to complex stream\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"      , no_argument, NULL, 1 },
@@ -541,9 +546,9 @@ int dspp::convert_sInt16_f() {
  */
 
 /* ---------------------------------------------------------------------- */
-int dspp::convert_tcp_byte(const char * IPAddress, int port, int frequency, int sampleRate) {
+int dspp::convert_tcp_byte(const char * IPAddress, int port, int frequency, int sampleRate, int mode, int gain) {
   fprintf(stderr, "Creating a client object\n");
-  RTLTCPClient client(IPAddress, port, frequency, sampleRate);
+  RTLTCPClient client(IPAddress, port, frequency, sampleRate, mode, gain);
   fprintf(stderr, "Client terminated\n");
   return 0;
 }
@@ -966,14 +971,18 @@ int main(int argc, char *argv[]) {
         int port;
         int frequency = 0;
         int sampleRate = 0;
-	if (argc == 6 || argc == 4) {
+        int mode = 0;
+        int gain = 0;
+	if (argc == 8 || argc == 4) {
           sscanf(argv[3], "%d", &port);
-	  if (argc == 6) {
+	  if (argc == 8) {
             sscanf(argv[4], "%d", &frequency);
 	    sscanf(argv[5], "%d", &sampleRate);
+            sscanf(argv[6], "%d", &mode);
+            sscanf(argv[7], "%d", &gain);
 	  }
           fprintf(stderr, "calling tcp client\n");
-          doneProcessing = !dsppInstance.convert_tcp_byte(argv[2], port, frequency, sampleRate);
+          doneProcessing = !dsppInstance.convert_tcp_byte(argv[2], port, frequency, sampleRate, mode, gain);
 	} else {
 	  fprintf(stderr, "convert_tcp_byte parameter error\n");
 	  doneProcessing = true;

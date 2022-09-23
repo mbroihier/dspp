@@ -34,7 +34,7 @@ class dspp {
   int decimate_ff(float cutOffFrequency, int M, int amount, int N, const char * window);
   int convert_f_uInt16();
   int convert_f_sInt16();
-  int convert_tcp_byte(const char * IPAddress, int port, int frequency, int sampleRate);
+  int convert_tcp_byte(const char * IPAddress, int port, int frequency, int sampleRate, int mode, int gain);
   int convert_byte_tcp(const char * IPAddress, int port);
   int custom_fir_ff(const char * filePath, int M, int N, FIRFilter::WindowType window);
   int custom_fir_cc(const char * filePath, int M, int N, FIRFilter::WindowType window);

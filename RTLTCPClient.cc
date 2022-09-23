@@ -20,14 +20,14 @@
 
 /* ---------------------------------------------------------------------- */
 RTLTCPClient::RTLTCPClient(const char * address, int port) {
-  doWork(address, port, 0, 0);
+  doWork(address, port, 0, 0, 0, 0);
 }
 
-RTLTCPClient::RTLTCPClient(const char * address, int port, int frequency, int sampleRate) {
-  doWork(address, port, frequency, sampleRate);
+RTLTCPClient::RTLTCPClient(const char * address, int port, int frequency, int sampleRate, int mode, int gain) {
+  doWork(address, port, frequency, sampleRate, mode, gain);
 }
 
-void RTLTCPClient::doWork(const char * address, int port, int frequency, int sampleRate) {
+void RTLTCPClient::doWork(const char * address, int port, int frequency, int sampleRate, int mode, int gain) {
   fprintf(stderr, "Making a client connection to %s, port: %d\n", address, port);
   memset(&RTLServerSocketAddr, 0, sizeof(RTLServerSocketAddr));
   RTLServerSocketAddr.sin_family = AF_INET;
@@ -77,6 +77,35 @@ void RTLTCPClient::doWork(const char * address, int port, int frequency, int sam
         commandPacket.bytes[2] = (sampleRate >> 16) & 0xff;
         commandPacket.bytes[3] = (sampleRate >> 8) & 0xff;
         commandPacket.bytes[4] = sampleRate & 0xff;
+        send(mySocket, commandPacket.bytes, 5, 0);
+
+        commandPacket.cmd = 0x09; // set direct sampling mode
+        commandPacket.bytes[1] = (mode >> 24) & 0xff;
+        commandPacket.bytes[2] = (mode >> 16) & 0xff;
+        commandPacket.bytes[3] = (mode >> 8) & 0xff;
+        commandPacket.bytes[4] = mode & 0xff;
+        send(mySocket, commandPacket.bytes, 5, 0);
+
+        if (gain > 0) {
+          commandPacket.cmd = 0x03;    // set gain mode
+          commandPacket.bytes[1] = 0;
+          commandPacket.bytes[2] = 0;
+          commandPacket.bytes[3] = 0;
+          commandPacket.bytes[4] = 1;  // manual
+          send(mySocket, commandPacket.bytes, 5, 0);
+        } else {
+          commandPacket.cmd = 0x03;    // set gain mode
+          commandPacket.bytes[1] = 0;
+          commandPacket.bytes[2] = 0;
+          commandPacket.bytes[3] = 0;
+          commandPacket.bytes[4] = 0;  //  automatic
+          send(mySocket, commandPacket.bytes, 5, 0);
+        }
+        commandPacket.cmd = 0x04;      // set gain value
+        commandPacket.bytes[1] = 0;
+        commandPacket.bytes[2] = 0;
+        commandPacket.bytes[3] = 0;
+        commandPacket.bytes[4] = gain & 0xff; 
         send(mySocket, commandPacket.bytes, 5, 0);
         continue;
       }
