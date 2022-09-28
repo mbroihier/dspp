@@ -65,6 +65,13 @@ void RTLTCPClient::doWork(const char * address, int port, int frequency, int sam
         if (frequency <= 0) {
           continue;
         }
+        commandPacket.cmd = 0x09; // set direct sampling mode
+        commandPacket.bytes[1] = (mode >> 24) & 0xff;
+        commandPacket.bytes[2] = (mode >> 16) & 0xff;
+        commandPacket.bytes[3] = (mode >> 8) & 0xff;
+        commandPacket.bytes[4] = mode & 0xff;
+        send(mySocket, commandPacket.bytes, 5, 0);
+
         commandPacket.cmd = 0x01; // set frequency
         commandPacket.bytes[1] = (frequency >> 24) & 0xff;
         commandPacket.bytes[2] = (frequency >> 16) & 0xff;
@@ -77,13 +84,6 @@ void RTLTCPClient::doWork(const char * address, int port, int frequency, int sam
         commandPacket.bytes[2] = (sampleRate >> 16) & 0xff;
         commandPacket.bytes[3] = (sampleRate >> 8) & 0xff;
         commandPacket.bytes[4] = sampleRate & 0xff;
-        send(mySocket, commandPacket.bytes, 5, 0);
-
-        commandPacket.cmd = 0x09; // set direct sampling mode
-        commandPacket.bytes[1] = (mode >> 24) & 0xff;
-        commandPacket.bytes[2] = (mode >> 16) & 0xff;
-        commandPacket.bytes[3] = (mode >> 8) & 0xff;
-        commandPacket.bytes[4] = mode & 0xff;
         send(mySocket, commandPacket.bytes, 5, 0);
 
         if (gain > 0) {
