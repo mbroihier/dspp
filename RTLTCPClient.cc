@@ -58,7 +58,7 @@ void RTLTCPClient::doWork(const char * address, int port, int frequency, int sam
       continue;
     }
     if (count != sizeof(buffer)) {
-      fprintf(stderr, "Short buffer - RTLTCPClient: %d\n", count);
+      //fprintf(stderr, "Short buffer - RTLTCPClient: %d\n", count);
       if (count % 8) fprintf(stderr, "not on floating point I/Q boundary!!\n");
       if ((count == 12) && firstMessage) {
 	firstMessage = false;
@@ -93,12 +93,23 @@ void RTLTCPClient::doWork(const char * address, int port, int frequency, int sam
           commandPacket.bytes[3] = 0;
           commandPacket.bytes[4] = 1;  // manual
           send(mySocket, commandPacket.bytes, 5, 0);
+          commandPacket.cmd = 0x08;    // set agc mode
+          commandPacket.bytes[1] = 0;
+          commandPacket.bytes[2] = 0;
+          commandPacket.bytes[3] = 0;
+          commandPacket.bytes[4] = 0;  // manual
+          send(mySocket, commandPacket.bytes, 5, 0);
         } else {
           commandPacket.cmd = 0x03;    // set gain mode
           commandPacket.bytes[1] = 0;
           commandPacket.bytes[2] = 0;
           commandPacket.bytes[3] = 0;
           commandPacket.bytes[4] = 0;  //  automatic
+          commandPacket.cmd = 0x08;    // set agc mode
+          commandPacket.bytes[1] = 0;
+          commandPacket.bytes[2] = 0;
+          commandPacket.bytes[3] = 0;
+          commandPacket.bytes[4] = 1;  //  automatic
           send(mySocket, commandPacket.bytes, 5, 0);
         }
         commandPacket.cmd = 0x04;      // set gain value
