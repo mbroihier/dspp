@@ -58,7 +58,11 @@ static const char USAGE_STR[] = "\n"
         "  sfir_ff                  : smooth fir filter, float(real) stream to float stream\n"
         "  real_of_complex_cf       : real(float) part of complex stream to float stream\n"
         "  direct_to_iq             : direct stream of bytes to iq bytes\n"
-        "  comb_cc                  : comb filter complex stream to complex stream\n";
+        "  comb_cc                  : comb filter complex stream to complex stream\n"
+        "  mag_cf                   : magnitude of complex number\n"
+        "  gain                     : multiply float/complex by scalar\n"
+        "  limit_real_stream        : limit a floating point stream between -1.0 and 1.0\n"
+        "  dc_removal               : remove average value of the stream\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"      , no_argument, NULL, 1 },
@@ -86,6 +90,10 @@ static struct option longOpts[] = {
   { "real_of_complex_cf"       , no_argument, NULL, 23 },
   { "direct_to_iq"             , no_argument, NULL, 24 },
   { "comb_cc"                  , no_argument, NULL, 25 },
+  { "mag_cf"                   , no_argument, NULL, 26 },
+  { "gain"                     , no_argument, NULL, 27 },
+  { "limit_real_stream"        , no_argument, NULL, 28 },
+  { "dc_removal"               , no_argument, NULL, 29 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -680,6 +688,170 @@ int dspp::real_of_complex_cf() {
 
 /* ---------------------------------------------------------------------- */
 /*
+ *      mag_cf.cc -- DSP Pipe - magnitude of complex stream
+ *
+ *      Copyright (C) 2022
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+int dspp::mag_cf() {
+  const int BUFFER_SIZE = 4096;
+  float signal[BUFFER_SIZE*2];
+  float mag[BUFFER_SIZE];
+  int numberRead = 0;
+
+  float * magPtr;
+  float  * complexSignalPtr;
+  for (;;) {
+    numberRead = fread(&signal, sizeof(float), BUFFER_SIZE*2, stdin);
+    if(numberRead < BUFFER_SIZE) {
+      fprintf(stderr, "Short data stream, mag_cf\n");
+      fclose(stdout);
+      return 0;
+    }
+    magPtr = mag;
+    complexSignalPtr = signal;
+    for (int i=0; i < BUFFER_SIZE; i++) {
+      float r = *complexSignalPtr++;
+      float j = *complexSignalPtr++;
+      *magPtr++ = sqrt(r * r + j * j);
+    }
+    fwrite(&mag, sizeof(float), BUFFER_SIZE, stdout);
+  }
+
+  return 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/*
+ *      gain.cc -- DSP Pipe - multiply float/complex stream by scalar
+ *
+ *      Copyright (C) 2022
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+int dspp::gain(float gain) {
+  const int BUFFER_SIZE = 4096;
+  float signal[BUFFER_SIZE];
+  float amplifiedSignal[BUFFER_SIZE];
+  int numberRead = 0;
+
+  float * amplifiedSignalPtr;
+  float  * signalPtr;
+  for (;;) {
+    numberRead = fread(&signal, sizeof(float), BUFFER_SIZE, stdin);
+    if(numberRead < BUFFER_SIZE) {
+      fprintf(stderr, "Short data stream, signal\n");
+      fclose(stdout);
+      return 0;
+    }
+    signalPtr = signal;
+    amplifiedSignalPtr = amplifiedSignal;
+    for (int i=0; i < BUFFER_SIZE; i++) {
+      *amplifiedSignalPtr++ = *signalPtr++ * gain;
+    }
+    fwrite(&amplifiedSignal, sizeof(float), BUFFER_SIZE, stdout);
+  }
+
+  return 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/*
+ *      limit_real_stream.cc -- DSP Pipe - limit floating point values to
+ *                              -1.0 to 1.0 range
+ *
+ *      Copyright (C) 2022
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+int dspp::limit_real_stream() {
+  const int BUFFER_SIZE = 4096;
+  float signal[BUFFER_SIZE];
+  float output[BUFFER_SIZE];
+  int numberRead = 0;
+
+  float * outputPtr;
+  float  * signalPtr;
+  for (;;) {
+    numberRead = fread(&signal, sizeof(float), BUFFER_SIZE, stdin);
+    if(numberRead < BUFFER_SIZE) {
+      fprintf(stderr, "Short data stream, signal\n");
+      fclose(stdout);
+      return 0;
+    }
+    signalPtr = signal;
+    outputPtr = output;
+    for (int i=0; i < BUFFER_SIZE; i++) {
+      float r = *signalPtr++;
+      if (r > 1.0) {
+        r = 1.0;
+      } else {
+        if (r < -1.0) {
+          r = -1.0;
+        }
+      }
+      *outputPtr++ = r;
+    }
+    fwrite(&output, sizeof(float), BUFFER_SIZE, stdout);
+  }
+
+  return 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/*
+ *      dc_removal.cc -- DSP Pipe - remove the average value from the signal
+ *
+ *      Copyright (C) 2022
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+int dspp::dc_removal(float * buffer, int size) {
+  float * signal = reinterpret_cast<float *>(malloc(sizeof(float)* size));
+  float * output = reinterpret_cast<float *>(malloc(sizeof(float)* size));
+  float accumulator = 0.0;
+  int numberRead = 0;
+
+  float * signalPtr;
+  float * outputPtr;
+  float * bufferPtr;
+  float scale = 1.0 / size;
+  for (;;) {
+    numberRead = fread(signal, sizeof(float), size, stdin);
+    if(numberRead < size) {
+      fprintf(stderr, "Short data stream, dc_removal\n");
+      fclose(stdout);
+      free(signal);
+      free(output);
+      return 0;
+    }
+    signalPtr = signal;
+    bufferPtr = buffer;
+    outputPtr = output;
+    for (int i=0; i < size; i++) {
+      accumulator -= *bufferPtr;  // remove old value
+      accumulator += *signalPtr;  // add new value
+      *outputPtr++ = *signalPtr - accumulator * scale;  // remove average
+      *bufferPtr++ = *signalPtr++;
+    }
+    fwrite(output, sizeof(float), size, stdout);
+    //fprintf(stderr, "bias = %f\n", accumulator * scale);
+  }
+
+  return 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/*
  *      head.cc -- DSP Pipe - take the first n bytes of a stream
  *
  *      Copyright (C) 2019 
@@ -832,18 +1004,15 @@ int dspp::direct_to_iq() {
       fclose(stdout);
       return 0;
     }
-    for (int i = 0; i < BUFFER_SIZE; i++) {
-      bytes[i] ^= 0x80;  // fix sign
-    }
     for (int i = 0; i < BUFFER_SIZE; i += 8) {
-      data[i] = bytes[i];
+      data[i + 0] = 0;
       data[i + 1] = bytes[i + 1];
-      data[i + 2] = - bytes[i + 3];
-      data[i + 3] = bytes[i + 2];
-      data[i + 4] = - bytes[i + 4];
+      data[i + 2] = bytes[i + 2];
+      data[i + 3] = 0;
+      data[i + 4] = 0;
       data[i + 5] = - bytes[i + 5];
-      data[i + 6] = bytes[i + 7];
-      data[i + 7] = - bytes[i + 6];
+      data[i + 6] = - bytes[i + 6];
+      data[i + 7] = 0;
     }
     fwrite(&data, sizeof(signed char), count, stdout);
   }
@@ -1209,6 +1378,51 @@ int main(int argc, char *argv[]) {
           doneProcessing = true;
 	} else {
 	  fprintf(stderr, "Comb filter parameter error\n");
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 26: {
+        if (argc == 2) {
+	  fprintf(stderr, "starting mag\n");
+          doneProcessing = !dsppInstance.mag_cf();
+	} else {
+	  fprintf(stderr, "mag should have no parameters - error\n");
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 27: {
+        if (argc == 3) {
+	  fprintf(stderr, "starting gain\n");
+          float gain = 0.0;
+          sscanf(argv[2], "%f", &gain);
+          doneProcessing = !dsppInstance.gain(gain);
+	} else {
+	  fprintf(stderr, "gain should have one floating point parameter - error\n");
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 28: {
+        if (argc == 2) {
+	  fprintf(stderr, "starting limit_real_stream\n");
+          doneProcessing = !dsppInstance.limit_real_stream();
+	} else {
+	  fprintf(stderr, "limit_real_stream should have no parameters - error\n");
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 29: {
+        if (argc == 2) {
+          const int BUFFER_SIZE = 4096;
+	  fprintf(stderr, "starting dc_removal\n");
+          float buffer[BUFFER_SIZE];
+          for (int i = 0; i < BUFFER_SIZE; i++) buffer[i] = 0.0;
+          doneProcessing = !dsppInstance.dc_removal(buffer, BUFFER_SIZE);
+	} else {
+	  fprintf(stderr, "dc_removal should have no parameters - error\n");
 	  doneProcessing = true;
 	}
         break;

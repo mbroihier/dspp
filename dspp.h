@@ -40,6 +40,8 @@ class dspp {
   int custom_fir_cc(const char * filePath, int M, int N, FIRFilter::WindowType window);
   int real_to_complex_fc();
   int real_of_complex_cf();
+  int mag_cf();
+  int gain(float gain);
   int fmmod_fc(float sampleRate);
   int head(int amount);
   int tail(int amount);
@@ -47,6 +49,8 @@ class dspp {
   int fft_cc(int numberOfComplexSamples);
   int tee(char * otherStream);
   int direct_to_iq();
+  int limit_real_stream();
+  int dc_removal(float * buffer, int size);
 
   //dspp(void);
 
