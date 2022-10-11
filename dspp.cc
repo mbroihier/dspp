@@ -62,7 +62,8 @@ static const char USAGE_STR[] = "\n"
         "  mag_cf                   : magnitude of complex number\n"
         "  gain                     : multiply float/complex by scalar\n"
         "  limit_real_stream        : limit a floating point stream between -1.0 and 1.0\n"
-        "  dc_removal               : remove average value of the stream\n";
+        "  dc_removal               : remove average value of the stream\n"
+        "  agc                      : automatic gain control, sustain a fixed average level\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"      , no_argument, NULL, 1 },
@@ -94,6 +95,7 @@ static struct option longOpts[] = {
   { "gain"                     , no_argument, NULL, 27 },
   { "limit_real_stream"        , no_argument, NULL, 28 },
   { "dc_removal"               , no_argument, NULL, 29 },
+  { "agc"                      , no_argument, NULL, 30 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -852,6 +854,64 @@ int dspp::dc_removal(float * buffer, int size) {
 
 /* ---------------------------------------------------------------------- */
 /*
+ *      agc.cc -- DSP Pipe - automatic gain control
+ *
+ *      Copyright (C) 2022
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+int dspp::agc() {
+  const int BUFFER_SIZE = 4096;
+  float signal[BUFFER_SIZE];
+  float output[BUFFER_SIZE];
+  float absoluteSum = 0.0;
+  float scale = 1.0 / BUFFER_SIZE;
+  float gain = 100.0;   // gain to apply to signal
+  float error = 0.0;  // filtered
+  float average = 0.0;
+  //const float target = 0.19;
+  const float target = 0.10;
+  const float alpha = 0.1;
+  const float beta = 1.0 - alpha;
+  int numberRead = 0;
+
+  float * signalPtr;
+  float * outputPtr;
+  for (;;) {
+    numberRead = fread(&signal, sizeof(float), BUFFER_SIZE, stdin);
+    if(numberRead < BUFFER_SIZE) {
+      fprintf(stderr, "Short data stream, agc\n");
+      fclose(stdout);
+      return 0;
+    }
+    signalPtr = signal;
+    outputPtr = output;
+    absoluteSum = 0.0;
+    for (int i=0; i < BUFFER_SIZE; i++) {
+      float s = *signalPtr++ * gain;
+      absoluteSum += fabsf(s);
+      *outputPtr++ = s;
+    }
+    fwrite(&output, sizeof(float), BUFFER_SIZE, stdout);
+    average = absoluteSum * scale;
+    error = alpha * (target / average - 1.0) +  beta * error;  // if + we want gain to go up
+    if (error > 0.01) {
+      gain *= 1.01;
+    } else if (error < -0.01) {
+      gain *= 0.99;
+    } else {
+      gain += error;
+    }
+    fprintf(stderr, "average: %f, error: %f, gain: %f\n", average, error, gain);
+  }
+
+  return 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/*
  *      head.cc -- DSP Pipe - take the first n bytes of a stream
  *
  *      Copyright (C) 2019 
@@ -1423,6 +1483,16 @@ int main(int argc, char *argv[]) {
           doneProcessing = !dsppInstance.dc_removal(buffer, BUFFER_SIZE);
 	} else {
 	  fprintf(stderr, "dc_removal should have no parameters - error\n");
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 30: {
+        if (argc == 2) {
+	  fprintf(stderr, "starting agc\n");
+          doneProcessing = !dsppInstance.agc();
+	} else {
+	  fprintf(stderr, "agc should have no parameters - error\n");
 	  doneProcessing = true;
 	}
         break;

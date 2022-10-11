@@ -51,6 +51,7 @@ class dspp {
   int direct_to_iq();
   int limit_real_stream();
   int dc_removal(float * buffer, int size);
+  int agc();
 
   //dspp(void);
 
