@@ -25,10 +25,12 @@ LDFLAGS= $(PARAMS_LIBS)
 SOURCES= dspp.cc 
 OBJECTS=$(SOURCES:.cc=.o)
 
+AGCSRC = AGC.cc AGC.h
 RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h RTLTCPServer.cc RTLTCPServer.h
 FIRFILTSRC = FIRFilter.cc FIRFilter.h SFIRFilter.cc SFIRFilter.h CFilter.cc CFilter.h Poly.cc Poly.h
 MODSRC = FMMod.cc FMMod.h
 FFTSRC = DsppFFT.cc DsppFFT.h
+AGCOBJ = AGC.o
 RTLTCPOBJ = RTLTCPClient.o RTLTCPServer.o
 FIRFILTOBJ = FIRFilter.o SFIRFilter.o CFilter.o Poly.o
 MODOBJ = FMMod.o
@@ -69,6 +71,8 @@ test:
 	$(CC) $(LDFLAGS) testIn14.o -o testIn14 -lm
 	$(CC) $(CFLAGS) testIn14a.cc -o testIn14a.o
 	$(CC) $(LDFLAGS) testIn14a.o -o testIn14a -lm
+	$(CC) $(CFLAGS) testIn15.cc -o testIn15.o
+	$(CC) $(LDFLAGS) testIn15.o -o testIn15 -lm
 
 	$(CC) $(CFLAGS) testOut1.cc -o testOut1.o
 	$(CC) $(LDFLAGS) testOut1.o -o testOut1 -lm
@@ -89,6 +93,9 @@ test:
 	$(CC) $(CFLAGS) FFTToOctave.cc -o FFTToOctave.o
 	$(CC) $(LDFLAGS) FFTToOctave.o -o FFTToOctave -lm
 
+	$(CC) $(CFLAGS) FFTToOctavePipe.cc -o FFTToOctavePipe.o
+	$(CC) $(LDFLAGS) FFTToOctavePipe.o -o FFTToOctavePipe -lm
+
 	$(CC) $(CFLAGS) SignalToOctave.cc -o SignalToOctave.o
 	$(CC) $(LDFLAGS) SignalToOctave.o -o SignalToOctave -lm
 
@@ -108,9 +115,11 @@ test:
 	$(CC) $(LDFLAGS) impulse.o -o impulse -lm
 
 
-$(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ)
-	$(CC) $(LDFLAGS) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) -o dspp
+$(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ)
+	$(CC) $(LDFLAGS) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) -o dspp
 
+$(AGCOBJ) : $(AGCSRC)
+	$(CC) $(CFLAGS) $*.cc -o $@
 $(RTLTCPOBJ) : $(RTLTCPSRC)
 	$(CC) $(CFLAGS) $*.cc -o $@
 $(FIRFILTOBJ) : $(FIRFILTSRC)

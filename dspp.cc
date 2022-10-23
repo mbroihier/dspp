@@ -862,51 +862,14 @@ int dspp::dc_removal(float * buffer, int size) {
  */
 
 /* ---------------------------------------------------------------------- */
-int dspp::agc() {
-  const int BUFFER_SIZE = 4096;
-  float signal[BUFFER_SIZE];
-  float output[BUFFER_SIZE];
-  float absoluteSum = 0.0;
-  float scale = 1.0 / BUFFER_SIZE;
-  float gain = 100.0;   // gain to apply to signal
-  float error = 0.0;  // filtered
-  float average = 0.0;
-  //const float target = 0.19;
-  const float target = 0.10;
-  const float alpha = 0.1;
-  const float beta = 1.0 - alpha;
-  int numberRead = 0;
-
-  float * signalPtr;
-  float * outputPtr;
-  for (;;) {
-    numberRead = fread(&signal, sizeof(float), BUFFER_SIZE, stdin);
-    if(numberRead < BUFFER_SIZE) {
-      fprintf(stderr, "Short data stream, agc\n");
-      fclose(stdout);
-      return 0;
-    }
-    signalPtr = signal;
-    outputPtr = output;
-    absoluteSum = 0.0;
-    for (int i=0; i < BUFFER_SIZE; i++) {
-      float s = *signalPtr++ * gain;
-      absoluteSum += fabsf(s);
-      *outputPtr++ = s;
-    }
-    fwrite(&output, sizeof(float), BUFFER_SIZE, stdout);
-    average = absoluteSum * scale;
-    error = alpha * (target / average - 1.0) +  beta * error;  // if + we want gain to go up
-    if (error > 0.01) {
-      gain *= 1.01;
-    } else if (error < -0.01) {
-      gain *= 0.99;
-    } else {
-      gain += error;
-    }
-    fprintf(stderr, "average: %f, error: %f, gain: %f\n", average, error, gain);
+int dspp::agc(float target) {
+  AGC * agcObject;
+  agcObject = new AGC(target);
+  if (! agcObject) {
+    fprintf(stderr, "AGC object creation failed\n");
+  } else {
+    agcObject->doWork();
   }
-
   return 0;
 }
 
@@ -1488,11 +1451,13 @@ int main(int argc, char *argv[]) {
         break;
       }
       case 30: {
-        if (argc == 2) {
+        float target = 0.0;
+        if (argc == 3) {
 	  fprintf(stderr, "starting agc\n");
-          doneProcessing = !dsppInstance.agc();
+          sscanf(argv[2], "%f", &target);
+          doneProcessing = !dsppInstance.agc(target);
 	} else {
-	  fprintf(stderr, "agc should have no parameters - error\n");
+	  fprintf(stderr, "agc should have only a target level parameter - error\n");
 	  doneProcessing = true;
 	}
         break;

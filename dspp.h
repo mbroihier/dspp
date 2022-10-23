@@ -18,6 +18,7 @@
 #include "RTLTCPServer.h"
 #include "SFIRFilter.h"
 #include "CFilter.h"
+#include "AGC.h"
 /* ---------------------------------------------------------------------- */
 class dspp {
 
@@ -51,7 +52,7 @@ class dspp {
   int direct_to_iq();
   int limit_real_stream();
   int dc_removal(float * buffer, int size);
-  int agc();
+  int agc(float target);
 
   //dspp(void);
 
