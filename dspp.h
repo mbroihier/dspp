@@ -29,7 +29,10 @@ class dspp {
   int convert_byte_sInt16();
   int convert_byte_f();
   int convert_uByte_f();
+  int convert_uByte_byte();
   int shift_frequency_cc(float cyclesPerSample);
+  int shift_frequency_uByteuByte(float cyclesPerSample);
+  int fsSlash4_byte_byte();
   int decimate_cc(float cutOffFrequency, int M, int amount, int N, const char * window);
   int fmdemod_cf();
   int decimate_ff(float cutOffFrequency, int M, int amount, int N, const char * window);
