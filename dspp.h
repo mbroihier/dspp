@@ -19,6 +19,7 @@
 #include "SFIRFilter.h"
 #include "CFilter.h"
 #include "AGC.h"
+#include "FindNLargestF.h"
 /* ---------------------------------------------------------------------- */
 class dspp {
 
@@ -56,6 +57,7 @@ class dspp {
   int limit_real_stream();
   int dc_removal(float * buffer, int size);
   int agc(float target);
+  int fnlf(int size, int count);
 
   //dspp(void);
 

@@ -66,7 +66,8 @@ static const char USAGE_STR[] = "\n"
         "  gain                       : multiply float/complex by scalar\n"
         "  limit_real_stream          : limit a floating point stream between -1.0 and 1.0\n"
         "  dc_removal                 : remove average value of the stream\n"
-        "  agc                        : automatic gain control, sustain a fixed average level\n";
+        "  agc                        : automatic gain control, sustain a fixed average level\n"
+        "  find_n_largest_freq        : find N largest magnitude frequencies in a FFT\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"       , no_argument, NULL, 1 },
@@ -102,6 +103,7 @@ static struct option longOpts[] = {
   { "shift_frequency_uByteuByte", no_argument, NULL, 31 },
   { "convert_uByte_byte"        , no_argument, NULL, 32 },
   { "fsSlash4_byte_byte"        , no_argument, NULL, 33 },
+  { "find_n_largest_freq"       , no_argument, NULL, 34 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -1032,6 +1034,27 @@ int dspp::agc(float target) {
 
 /* ---------------------------------------------------------------------- */
 /*
+ *      fnlf.cc -- DSP Pipe - find N largest frequencies in an FFT
+ *
+ *      Copyright (C) 2022
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+int dspp::fnlf(int size, int count) {
+  FindNLargestF * fnlfObject;
+  fnlfObject = new FindNLargestF(size, count);
+  if (! fnlfObject) {
+    fprintf(stderr, "FindNLargestF object creation failed\n");
+  } else {
+    fnlfObject->doWork();
+  }
+  return 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/*
  *      head.cc -- DSP Pipe - take the first n bytes of a stream
  *
  *      Copyright (C) 2019 
@@ -1643,6 +1666,20 @@ int main(int argc, char *argv[]) {
 	    doneProcessing = true;
 	  }
           break;
+      }
+      case 34: {
+        int size = 0;
+        int count = 0;
+        if (argc == 4) {
+	  fprintf(stderr, "starting find_n_largest_freq\n");
+          sscanf(argv[2], "%d", &size);
+          sscanf(argv[3], "%d", &count);
+          doneProcessing = !dsppInstance.fnlf(size, count);
+	} else {
+	  fprintf(stderr, "find_n_largest_frea should have 2 parameters - error\n");
+	  doneProcessing = true;
+	}
+        break;
       }
       default:
         return -2;
