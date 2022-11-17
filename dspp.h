@@ -58,6 +58,7 @@ class dspp {
   int dc_removal(float * buffer, int size);
   int agc(float target);
   int fnlf(int size, int count);
+  int overlap_samples_n_2(int size);
 
   //dspp(void);
 

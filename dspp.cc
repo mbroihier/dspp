@@ -36,7 +36,7 @@ static const char USAGE_STR[] = "\n"
         "  convert_uByte_byte         : convert a unsigned byte stream to a signed byte stream\n"
         "  shift_frequency_cc         : recenter a signal by x cycles per sample\n"
         "  shift_frequency_uByteuByte : recenter a signal (raw RTL) by x cycles per sample\n"
-        "  fsSlash4_byte_byte         : mix / shift frequency by fs/4"
+        "  fsSlash4_byte_byte         : mix / shift frequency by fs/4\n"
         "  decimate_cc                : replace every n samples with 1 (complex)\n"
         "  fmdemod_cf                 : demodulate FM signal\n"
         "  decimate_ff                : replace every n samples with 1 (real)\n"
@@ -67,7 +67,8 @@ static const char USAGE_STR[] = "\n"
         "  limit_real_stream          : limit a floating point stream between -1.0 and 1.0\n"
         "  dc_removal                 : remove average value of the stream\n"
         "  agc                        : automatic gain control, sustain a fixed average level\n"
-        "  find_n_largest_freq        : find N largest magnitude frequencies in a FFT\n";
+        "  find_n_largest_freq        : find N largest magnitude frequencies in a FFT\n"
+        "  overlap_samples_n_2        : overlap samples N by 2\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"       , no_argument, NULL, 1 },
@@ -104,6 +105,7 @@ static struct option longOpts[] = {
   { "convert_uByte_byte"        , no_argument, NULL, 32 },
   { "fsSlash4_byte_byte"        , no_argument, NULL, 33 },
   { "find_n_largest_freq"       , no_argument, NULL, 34 },
+  { "overlap_samples_n_2"       , no_argument, NULL, 35 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -1186,6 +1188,45 @@ int dspp::tee(char * otherStream) {
 }
 /* ---------------------------------------------------------------------- */
 /*
+ *      overlap_sample_n_2.cc -- DSP Pipe - overlap samples n by 2
+ *
+ *      Copyright (C) 2022
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+
+int dspp::overlap_samples_n_2(int size) {
+  int count = 0;
+  bool firstPass = true;
+  float * buffer = reinterpret_cast<float *>(malloc(size * sizeof(float) * 2));
+  const int HALF = size * sizeof(float);
+  const int FULL = HALF * 2;
+  for (;;) {
+    if (firstPass) {
+      firstPass = false;
+      count = fread(buffer, sizeof(char), FULL, stdin);
+      if (count < FULL) {
+        free(buffer);
+        return 0;
+      }
+    } else {
+      memcpy(buffer, buffer+HALF, HALF);
+      count = fread(buffer, sizeof(char), HALF, stdin);
+      if (count < HALF) {
+        free(buffer);
+        return 0;
+      }
+    }
+    fwrite(buffer, sizeof(unsigned char), count, stdout);
+  }
+  fprintf(stderr, "Internal error path - should not get here, tail\n");
+  fclose(stdout);
+  return 0;
+}
+/* ---------------------------------------------------------------------- */
+/*
  *      direct_to_iq.cc -- DSP Pipe - direct sample to IQ sample
  *
  *      Copyright (C) 2022
@@ -1677,6 +1718,18 @@ int main(int argc, char *argv[]) {
           doneProcessing = !dsppInstance.fnlf(size, count);
 	} else {
 	  fprintf(stderr, "find_n_largest_frea should have 2 parameters - error\n");
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 35: {
+        int size = 0;
+        if (argc == 3) {
+	  fprintf(stderr, "starting overlap_samples_n_2\n");
+          sscanf(argv[2], "%d", &size);
+          doneProcessing = !dsppInstance.overlap_samples_n_2(size);
+	} else {
+	  fprintf(stderr, "overlap_samples_n_2 should have 1 parameter - error\n");
 	  doneProcessing = true;
 	}
         break;
