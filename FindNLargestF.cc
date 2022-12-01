@@ -12,7 +12,6 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <list>
-#include <map>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -23,14 +22,65 @@
 void FindNLargestF::init(int size, int number) {
   this->size = size;
   this->number = number;
+  fprintf(stderr, "allocating bitArray memory\n");
   binArray = reinterpret_cast<int *>(malloc(number * sizeof(int)));
+  fprintf(stderr, "allocating samples memory\n");
   samples = reinterpret_cast<float *>(malloc(size * sizeof(float) * 2));
+  fprintf(stderr, "allocating mag memory\n");
   mag = reinterpret_cast<float *>(malloc(size * sizeof(float)));
   sampleBufferSize = size * 2;
 }
 
 FindNLargestF::FindNLargestF(int size, int number) {
+  fprintf(stderr, "creating FindNLargestF object\n");
   init(size, number);
+  fprintf(stderr, "done creating FindNLargestF object\n");
+}
+
+void FindNLargestF::adjustThresholds(float centroid, int candidate) {
+  bool adjust = false;
+  int limit = 0;
+  if (thresholds.end() == thresholds.find(candidate)) {
+    thresholds[candidate] = new std::map<int, float>;
+    (*thresholds[candidate])[FIRST] = centroid;
+    (*thresholds[candidate])[SECOND] = centroid;
+    (*thresholds[candidate])[THIRD] = centroid;
+    (*thresholds[candidate])[REF1] = centroid;
+    (*thresholds[candidate])[REF2] = centroid;
+  } else {
+    if (centroid < (*thresholds[candidate])[REF1]) {
+      (*thresholds[candidate])[REF1] = centroid;
+      adjust = true;
+      limit = REF2;
+    } else if (centroid > (*thresholds[candidate])[REF2]) {
+      (*thresholds[candidate])[REF2] = centroid;
+      adjust = true;
+      limit = REF1;
+    }
+  }
+  if (adjust) {
+    if ((*thresholds[candidate])[REF2] - (*thresholds[candidate])[REF1] > BW) {
+      if (limit == REF1) {
+        (*thresholds[candidate])[REF1] = (*thresholds[candidate])[REF2] - BW;
+      } else {
+        (*thresholds[candidate])[REF2] = (*thresholds[candidate])[REF1] + BW;
+      }
+      (*thresholds[candidate])[FIRST] = (*thresholds[candidate])[REF1] + BW1;
+      (*thresholds[candidate])[SECOND] = (*thresholds[candidate])[REF1] + BW2;
+      (*thresholds[candidate])[THIRD] = (*thresholds[candidate])[REF1] + BW3;
+      fprintf(stderr, "adjusting thresholds for candidate %d: %f, %f, %f - %f\n", candidate,
+              (*thresholds[candidate])[FIRST], (*thresholds[candidate])[SECOND], (*thresholds[candidate])[THIRD],
+              centroid);
+    } else {
+      fprintf(stderr, "not adjusting thresholds for candidate %d: %f, %f, %f - %f\n", candidate,
+              (*thresholds[candidate])[FIRST], (*thresholds[candidate])[SECOND], (*thresholds[candidate])[THIRD],
+              centroid);
+    }
+  } else {
+      fprintf(stderr, "not adjusting thresholds for candidate %d: %f, %f, %f - %f\n", candidate,
+              (*thresholds[candidate])[FIRST], (*thresholds[candidate])[SECOND], (*thresholds[candidate])[THIRD],
+              centroid);
+  }
 }
 
 void FindNLargestF::doWork() {
@@ -238,12 +288,14 @@ void FindNLargestF::doWork() {
         }
         if (alreadyUpdated[candidateIndex]) {
           fprintf(fh, ", %s, %5.2f\n", peaks, candidates[candidateIndex]);
+          adjustThresholds(candidates[candidateIndex], candidateIndex);
         } else {
           fprintf(fh, ", %s, %5.2f, not updated in this pass\n", peaks, candidates[candidateIndex]);
         }
       } else {
         if (alreadyUpdated[candidateIndex]) {
           fprintf(fh, "%5.2f\n", candidates[candidateIndex]);
+          adjustThresholds(candidates[candidateIndex], candidateIndex);
         } else {
           fprintf(fh, "%5.2f, not updated in this pass\n", candidates[candidateIndex]);
         }
