@@ -11,7 +11,6 @@
 #include <algorithm>
 #include <assert.h>
 #include <fcntl.h>
-#include <list>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -29,6 +28,7 @@ void FindNLargestF::init(int size, int number) {
   fprintf(stderr, "allocating mag memory\n");
   mag = reinterpret_cast<float *>(malloc(size * sizeof(float)));
   sampleBufferSize = size * 2;
+  tic = 0;
 }
 
 FindNLargestF::FindNLargestF(int size, int number) {
@@ -65,9 +65,12 @@ void FindNLargestF::adjustThresholds(float centroid, int candidate) {
       } else {
         (*thresholds[candidate])[REF2] = (*thresholds[candidate])[REF1] + BW;
       }
-      (*thresholds[candidate])[FIRST] = (*thresholds[candidate])[REF1] + BW1;
-      (*thresholds[candidate])[SECOND] = (*thresholds[candidate])[REF1] + BW2;
-      (*thresholds[candidate])[THIRD] = (*thresholds[candidate])[REF1] + BW3;
+      //(*thresholds[candidate])[FIRST] = (*thresholds[candidate])[REF1] + BW1;
+      //(*thresholds[candidate])[SECOND] = (*thresholds[candidate])[REF1] + BW2;
+      //(*thresholds[candidate])[THIRD] = (*thresholds[candidate])[REF1] + BW3;
+      (*thresholds[candidate])[FIRST] = (*thresholds[candidate])[REF1] + LOWER;
+      (*thresholds[candidate])[SECOND] = (*thresholds[candidate])[REF1] + CF;
+      (*thresholds[candidate])[THIRD] = (*thresholds[candidate])[REF1] + HIGHER;
       fprintf(stderr, "adjusting thresholds for candidate %d: %f, %f, %f - %f\n", candidate,
               (*thresholds[candidate])[FIRST], (*thresholds[candidate])[SECOND], (*thresholds[candidate])[THIRD],
               centroid);
@@ -82,6 +85,114 @@ void FindNLargestF::adjustThresholds(float centroid, int candidate) {
               centroid);
   }
 }
+void FindNLargestF::adjustTargets(float centroid, int candidate) {
+  bool adjust = false;
+  int limit = 0;
+  if (targets.end() == targets.find(candidate)) {
+    targets[candidate] = new std::map<int, float>;
+    (*targets[candidate])[TARGET0] = centroid;
+    (*targets[candidate])[TARGET1] = centroid;
+    (*targets[candidate])[TARGET2] = centroid;
+    (*targets[candidate])[TARGET3] = centroid;
+    (*targets[candidate])[REF1] = centroid;
+    (*targets[candidate])[REF2] = centroid;
+  } else {
+    if (centroid < (*targets[candidate])[REF1]) {
+      (*targets[candidate])[REF1] = centroid;
+      adjust = true;
+      limit = REF2;
+    } else if (centroid > (*targets[candidate])[REF2]) {
+      (*targets[candidate])[REF2] = centroid;
+      adjust = true;
+      limit = REF1;
+    }
+  }
+  if (adjust) {
+    if ((*targets[candidate])[REF2] - (*targets[candidate])[REF1] > BW) {
+      if (limit == REF1) {
+        (*targets[candidate])[REF1] = (*targets[candidate])[REF2] - BW;
+      } else {
+        (*targets[candidate])[REF2] = (*targets[candidate])[REF1] + BW;
+      }
+      (*targets[candidate])[TARGET0] = (*targets[candidate])[REF1];
+      (*targets[candidate])[TARGET3] = (*targets[candidate])[REF2];
+      (*targets[candidate])[TARGET1] = (*targets[candidate])[TARGET0] + BW_DELTA;
+      (*targets[candidate])[TARGET2] = (*targets[candidate])[TARGET3] - BW_DELTA;
+      fprintf(stderr, "adjusting targets for candidate %d: %f, %f, %f, %f - %f\n", candidate,
+              (*targets[candidate])[TARGET0], (*targets[candidate])[TARGET1], (*targets[candidate])[TARGET2],
+              (*targets[candidate])[TARGET3], centroid);
+    } else {
+      fprintf(stderr, "not adjusting targets for candidate %d: %f, %f, %f, %f - %f\n", candidate,
+              (*targets[candidate])[TARGET0], (*targets[candidate])[TARGET1], (*targets[candidate])[TARGET2],
+              (*targets[candidate])[TARGET3], centroid);
+    }
+  } else {
+      fprintf(stderr, "not adjusting targets for candidate %d: %f, %f, %f, %f - %f\n", candidate,
+              (*targets[candidate])[TARGET0], (*targets[candidate])[TARGET1], (*targets[candidate])[TARGET2],
+              (*targets[candidate])[TARGET3], centroid);
+  }
+  if ((*targets[candidate])[TARGET0] != (*targets[candidate])[TARGET3]) {
+    logBase((*targets[candidate])[TARGET0], candidate);
+  }
+}
+int FindNLargestF::findClosestTarget(float centroid, int candidate) {
+  float shortestDistance = BW;
+  int closest = TARGET0;
+  for (int i = 0; i < 4; i++) {
+    float delta = fabs(centroid - (*targets[candidate])[i]);
+    if (delta < shortestDistance) {
+      shortestDistance = delta;
+      closest = i;
+    }
+  }
+  return closest;
+}
+
+void FindNLargestF::logCentroid(float centroid, int candidate) {
+  if (centroidHistory.end() == centroidHistory.find(candidate)) {  // this is the first time logging this candidate
+    centroidHistory[candidate] = new std::list<SampleRecord>;
+  }
+  SampleRecord sr;
+  sr.centroid = centroid;
+  sr.timeStamp = tic;
+  centroidHistory[candidate]->push_back(sr);
+}
+
+void FindNLargestF::logBase(float baseValue, int candidate) {
+  if (centroidHistory.end() == centroidHistory.find(candidate)) {
+    fprintf(stderr, "Internal error - attempting to log a base value prior to having a history of centroids\n");
+    return;
+  }
+  if (baseHistory.end() == baseHistory.find(candidate)) {  // this is the first time logging this candidate
+    baseHistory[candidate] = new std::list<BaseRecord>;
+    BaseRecord br;
+    br.base = baseValue;
+    br.timeStamp = tic;
+    for (int i = 0; i < centroidHistory[candidate]->size(); i++) {
+      baseHistory[candidate]->push_back(br);
+    }
+  } else {
+    BaseRecord br;
+    br.base = baseValue;
+    br.timeStamp = tic;
+    baseHistory[candidate]->push_back(br);
+  }
+}
+
+void FindNLargestF::reportHistory(int numberOfCandidates) {
+  fprintf(stderr, "Number of candidates: %3d\n", numberOfCandidates);
+  for (int i = 0; i < numberOfCandidates; i++) {
+    fprintf(stderr, "History Report for Candidate: %d\n", i);
+    int j = 0;
+    std::list<BaseRecord>::iterator iter2 = baseHistory[i]->begin();
+    for (std::list<SampleRecord>::iterator iter1 = centroidHistory[i]->begin();
+         iter1 != centroidHistory[i]->end(); iter1++, iter2++, j++) {
+      fprintf(stderr, "Sample %3d: %f, %f, %d, %d, %d\n", j, (*iter1).centroid, (*iter2).base,
+              (int) floor((*iter1).centroid - (*iter2).base +0.5), (*iter1).timeStamp, (*iter2).timeStamp);
+    }
+  }
+}
+
 
 void FindNLargestF::doWork() {
   std::map<int, float> candidates;    // list of cadidates mapped to their centroid location
@@ -287,27 +398,41 @@ void FindNLargestF::doWork() {
           }
         }
         if (alreadyUpdated[candidateIndex]) {
-          fprintf(fh, ", %s, %5.2f\n", peaks, candidates[candidateIndex]);
+          logCentroid(candidates[candidateIndex], candidateIndex);
           adjustThresholds(candidates[candidateIndex], candidateIndex);
+          adjustTargets(candidates[candidateIndex], candidateIndex);
+          fprintf(fh, ", %s, %5.2f, %d\n", peaks, candidates[candidateIndex],
+                  findClosestTarget(candidates[candidateIndex], candidateIndex));
         } else {
-          fprintf(fh, ", %s, %5.2f, not updated in this pass\n", peaks, candidates[candidateIndex]);
+          fprintf(fh, ", %s, %5.2f, %d, not updated on this pass\n", peaks, candidates[candidateIndex],
+                  findClosestTarget(candidates[candidateIndex], candidateIndex));
         }
       } else {
         if (alreadyUpdated[candidateIndex]) {
-          fprintf(fh, "%5.2f\n", candidates[candidateIndex]);
+          logCentroid(candidates[candidateIndex], candidateIndex);
           adjustThresholds(candidates[candidateIndex], candidateIndex);
+          adjustTargets(candidates[candidateIndex], candidateIndex);
+          fprintf(fh, "%5.2f, %d\n", candidates[candidateIndex],
+                  findClosestTarget(candidates[candidateIndex], candidateIndex));
         } else {
-          fprintf(fh, "%5.2f, not updated in this pass\n", candidates[candidateIndex]);
+          fprintf(fh, "%5.2f, %d, not updated on this pass\n", candidates[candidateIndex],
+                  findClosestTarget(candidates[candidateIndex], candidateIndex));
         }
       }
       fclose(fh);
     }
+    tic++;
   }
+  reportHistory(numberOfCandidates);
   fprintf(stderr, "leaving doWork within FindNLargestF\n");
 }
 
 FindNLargestF::~FindNLargestF(void) {
   fprintf(stderr, "destructing FindNLargestF\n");
+  for (std::map<int, std::map<int, float>*>::iterator iter = thresholds.begin(); iter != thresholds.end(); iter++) {
+    delete ((*iter).second);
+  }
+  thresholds.clear();
   if (mag) free(mag);
   if (binArray) free(binArray);
   if (samples) free(samples);

@@ -1052,6 +1052,7 @@ int dspp::fnlf(int size, int count) {
   } else {
     fnlfObject->doWork();
   }
+  delete fnlfObject;
   return 0;
 }
 
