@@ -13,12 +13,14 @@
 #include <math.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
 #include <getopt.h>
 
 #include <sys/ioctl.h>
@@ -68,7 +70,8 @@ static const char USAGE_STR[] = "\n"
         "  dc_removal                 : remove average value of the stream\n"
         "  agc                        : automatic gain control, sustain a fixed average level\n"
         "  find_n_largest_freq        : find N largest magnitude frequencies in a FFT\n"
-        "  overlap_samples_n_2        : overlap samples N by 2\n";
+        "  overlap_samples_n_2        : overlap samples N by 2\n"
+        "  split_stream               : split input stream into multiple streams\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"       , no_argument, NULL, 1 },
@@ -106,6 +109,7 @@ static struct option longOpts[] = {
   { "fsSlash4_byte_byte"        , no_argument, NULL, 33 },
   { "find_n_largest_freq"       , no_argument, NULL, 34 },
   { "overlap_samples_n_2"       , no_argument, NULL, 35 },
+  { "split_stream"              , no_argument, NULL, 36 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -1121,9 +1125,10 @@ int dspp::tail(int amount) {
     }
     if (skipPhase) {
       amount -= count;
-      if (amount < 1) {
-        offset = abs(amount);
+      if (amount <= 1) {
+        offset = count + amount;
         count -= offset;
+        //fprintf(stderr, "writing %d bytes from bytes[%d]\n", count, offset);
         fwrite(&bytes[offset], sizeof(unsigned char), count, stdout);
         skipPhase = false;
       }
@@ -1262,6 +1267,107 @@ int dspp::direct_to_iq() {
     fwrite(&data, sizeof(signed char), count, stdout);
   }
   fprintf(stderr, "Internal error path - should not get here, direct_to_iq\n");
+  fclose(stdout);
+  return 0;
+}
+/* ---------------------------------------------------------------------- */
+/*
+ *      split_stream.cc -- DSP Pipe - copy input stream to multiple output
+ *                         streams
+ *
+ *      Copyright (C) 2022
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+
+int dspp::split_stream(char ** paths) {
+  struct node { int p[2]; node * link; };
+  node * descriptors = 0;
+  node * head = 0;
+  const int BUFFER_SIZE = 4096;
+  int pathIndex = 2;
+  int numberOfChildren = 1;
+  unsigned char bytes[BUFFER_SIZE];
+  const char * thisPath;
+  int p[2];
+  pipe(p);
+  while (paths[pathIndex] != 0) {
+    thisPath = paths[pathIndex++];
+    if (descriptors) {
+      while (descriptors->link) descriptors = descriptors->link;
+      descriptors->link = (node *) malloc(sizeof(node));
+      descriptors = descriptors->link;
+      descriptors->link = 0;
+      pipe(descriptors->p);
+    } else {
+      descriptors = (node *) malloc(sizeof(node));
+      descriptors->link = 0;
+      pipe(descriptors->p);
+      head = descriptors;
+    }
+    pid_t id = fork();
+    if (id == 0) {
+      p[0] = descriptors->p[0];
+      p[1] = descriptors->p[1];
+      int count = 0;
+      fprintf(stderr, "Child %d has started\n", numberOfChildren);
+      FILE * fd = popen(thisPath, "w");
+      perror(" popen status ");
+      int numberOfWrites = 1;
+      for (;;) {
+        count = read(p[0], &bytes, BUFFER_SIZE);
+        perror(" read status ");
+        fprintf(stderr, "%d read count was: %d\n", numberOfChildren, count);
+        if(count != BUFFER_SIZE) {
+          fwrite(&bytes, sizeof(unsigned char), count, fd);  // write last bit of data
+          fprintf(stderr, "number of writes by %d is %d\n", numberOfChildren, numberOfWrites++);
+          fprintf(stderr, "Short data stream in child, split pipe\n");
+          pclose(fd);
+          return 0;
+        }
+        fwrite(&bytes, sizeof(unsigned char), count, fd);
+        fprintf(stderr, "number of writes by %d is %d\n", numberOfChildren, numberOfWrites++);
+        perror(" write status ");
+      }
+    }
+    numberOfChildren++;
+  }
+  numberOfChildren--;
+  fprintf(stderr, "spawned %d children\n", numberOfChildren);
+  int status = 0;
+  int count = 0;
+  int numberOfWrites = 1;
+  for (;;) {
+    count = fread(&bytes, sizeof(unsigned char), BUFFER_SIZE, stdin);
+    fprintf(stderr, "parent read count was: %d\n", count);
+    if(count == 0) {
+      fprintf(stderr, "split_stream data stream input has closed\n");
+      break;
+    }
+    descriptors = head;
+    for (int child = 0; child < numberOfChildren; child++) {
+      if (count != write(descriptors->p[1], &bytes, count)) {
+        fprintf(stderr, "write to pipe failed in parent\n");
+      } else {
+        perror(" write to pipe successful in parent ");
+      }
+      descriptors = descriptors->link;
+    }
+    fprintf(stderr, "number of writes by parent is %d\n", numberOfWrites++);
+  }
+  while (true) {
+    fprintf(stderr, "waiting for children\n");
+    pid_t id = wait(&status);
+    fprintf(stderr, "Got as status for id: %d\n", id);
+    if (id < 0) {
+      break;  // done
+    }
+  }
+  fprintf(stderr, "all children have terminated\n");
+  fprintf(stderr, "Closing IPC pipe\n");
+  close(p[1]);
   fclose(stdout);
   return 0;
 }
@@ -1731,6 +1837,16 @@ int main(int argc, char *argv[]) {
           doneProcessing = !dsppInstance.overlap_samples_n_2(size);
 	} else {
 	  fprintf(stderr, "overlap_samples_n_2 should have 1 parameter - error\n");
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 36: {
+        if (argc >= 3) {
+	  fprintf(stderr, "starting split_stream\n");
+          doneProcessing = !dsppInstance.split_stream(argv);
+	} else {
+	  fprintf(stderr, "split_stream needs at least two pipes - error\n");
 	  doneProcessing = true;
 	}
         break;

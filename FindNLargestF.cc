@@ -23,12 +23,17 @@ void FindNLargestF::init(int size, int number) {
   this->number = number;
   fprintf(stderr, "allocating bitArray memory\n");
   binArray = reinterpret_cast<int *>(malloc(number * sizeof(int)));
+  used = reinterpret_cast<bool *>(malloc(number * sizeof(bool)));
   fprintf(stderr, "allocating samples memory\n");
   samples = reinterpret_cast<float *>(malloc(size * sizeof(float) * 2));
   fprintf(stderr, "allocating mag memory\n");
   mag = reinterpret_cast<float *>(malloc(size * sizeof(float)));
   sampleBufferSize = size * 2;
+  histogram = reinterpret_cast<int *>(malloc(size * sizeof(int)));
   tic = 0;
+  for (int i = 0; i < size; i++) {
+    histogram[i] = 0;
+  }
 }
 
 FindNLargestF::FindNLargestF(int size, int number) {
@@ -156,6 +161,7 @@ void FindNLargestF::logCentroid(float centroid, int candidate) {
   sr.centroid = centroid;
   sr.timeStamp = tic;
   centroidHistory[candidate]->push_back(sr);
+  fprintf(stderr, "recording history for candidate %d\n", candidate);
 }
 
 void FindNLargestF::logBase(float baseValue, int candidate) {
@@ -177,25 +183,61 @@ void FindNLargestF::logBase(float baseValue, int candidate) {
     br.timeStamp = tic;
     baseHistory[candidate]->push_back(br);
   }
+  fprintf(stderr, "recording base for candidate %d size is now: %d\n", candidate, baseHistory[candidate]->size());
 }
 
 void FindNLargestF::reportHistory(int numberOfCandidates) {
   fprintf(stderr, "Number of candidates: %3d\n", numberOfCandidates);
   for (int i = 0; i < numberOfCandidates; i++) {
-    fprintf(stderr, "History Report for Candidate: %d\n", i);
-    int j = 0;
-    std::list<BaseRecord>::iterator iter2 = baseHistory[i]->begin();
-    for (std::list<SampleRecord>::iterator iter1 = centroidHistory[i]->begin();
-         iter1 != centroidHistory[i]->end(); iter1++, iter2++, j++) {
-      fprintf(stderr, "Sample %3d: %f, %f, %d, %d, %d\n", j, (*iter1).centroid, (*iter2).base,
-              (int) floor((*iter1).centroid - (*iter2).base +0.5), (*iter1).timeStamp, (*iter2).timeStamp);
+    if (baseHistory.end() == baseHistory.find(i) || centroidHistory.end() == centroidHistory.find(i)) {
+      fprintf(stderr, "Candidate %d is not valid - it was a constant frequency: %f\n", i, candidates[i]);
+    } else {
+      fprintf(stderr, "History Report for Candidate: %d\n", i);
+      int j = 0;
+      if (centroidHistory[i]->size() < 162) {
+        fprintf(stderr, "Candidate %d can not be valid - it does not have enough samples (%d), %f\n", i, centroidHistory[i]->size(), candidates[i]);
+      } else {
+        int lastTimeStamp = 0;
+        int sequentialSamples = 1;
+        bool enoughSequentialSamples = false;
+        std::list<BaseRecord>::iterator iter2 = baseHistory[i]->begin();
+        for (std::list<SampleRecord>::iterator iter1 = centroidHistory[i]->begin();
+             iter1 != centroidHistory[i]->end(); iter1++, iter2++, j++) {
+          if ((*iter1).timeStamp == lastTimeStamp + 1) {
+            sequentialSamples++;
+            fprintf(stderr, "Sample %3d: %f, %f, %d, %d, %d * %d\n", j, (*iter1).centroid, (*iter2).base,
+                    (int) floor((*iter1).centroid - (*iter2).base +0.5), (*iter1).timeStamp,
+                    (*iter2).timeStamp, sequentialSamples);
+            if (sequentialSamples > 161) enoughSequentialSamples = true;
+          } else {
+            sequentialSamples = 1;
+            fprintf(stderr, "Sample %3d: %f, %f, %d, %d, %d\n", j, (*iter1).centroid, (*iter2).base,
+                    (int) floor((*iter1).centroid - (*iter2).base +0.5), (*iter1).timeStamp, (*iter2).timeStamp);
+          }
+          lastTimeStamp = (*iter1).timeStamp;
+        }
+        if (enoughSequentialSamples) {
+          fprintf(stderr, "This candidate has enough sequential samples to be submitted to FANO\n");
+        }
+      }
     }
+  }
+  fprintf(stderr, "Histogram\n");
+  int sum = 0;
+  int bins[6];
+  for (int i = 0; i < 6; i++) {
+    bins[i] = 0;
+  }
+  for (int i = 0; i < size; i++) {
+    sum -= bins[i % 6];
+    sum += histogram[i];
+    bins[i % 6] = histogram[i];
+    fprintf(stderr, "histogram[%3d]: %4d %5d\n", i, histogram[i], sum);
   }
 }
 
 
 void FindNLargestF::doWork() {
-  std::map<int, float> candidates;    // list of cadidates mapped to their centroid location
   std::map<int, int> candidateToGroup;  // mapping of candidate to group for this cycle
   int numberOfCandidates = 0;
   std::map<int, float> groupCentroids;  // mapped by group ID
@@ -211,10 +253,13 @@ void FindNLargestF::doWork() {
     // get an FFT's worth of bins
     fprintf(stderr, "done with set of data\n");
     count = fread(samples, sizeof(float), sampleBufferSize, stdin);
-    fprintf(stderr, "done with read\n");
+    fprintf(stderr, "done with read for tic %d\n", tic);
     if (count < sampleBufferSize) {
       done = true;
       continue;
+    }
+    for (int i = 0; i < number; i++) {
+      used[i] = false;
     }
     samplePtr = samples;
     magPtr = mag;
@@ -265,31 +310,43 @@ void FindNLargestF::doWork() {
     std::map <int, int> binToGroup;
     std::map <int, std::list<int> *> groupToBins;
     int groupNumber = 0;
-    int numberOfGroups = 1;
-    binToGroup[binArray[0]] = groupNumber;
-    groupToBins[groupNumber] = new std::list<int>;
-    groupToBins[groupNumber]->push_back(binArray[0]);
-    bool escape = false;
-    for (int binIndex = 1; binIndex < number; binIndex++) {
-      // does this bin belong in an existing group
-      for (int groupIndex = 0; groupIndex < numberOfGroups; groupIndex++) {
-        escape = false;
-        for (std::list<int>::iterator iter = groupToBins[groupIndex]->begin(); iter != groupToBins[groupIndex]->end(); iter++) {
-          if (abs(binArray[binIndex] - *iter) <= 2) { // this bin belongs to this group
-            groupToBins[groupIndex]->push_back(binArray[binIndex]);
-            binToGroup[binArray[binIndex]] = groupIndex;
-            escape = true;
-            break;  // done with this group, done with is bin
-          }
+    int numberOfGroups = 0;
+    int rememberedBinIndex = 0;
+    //binToGroup[binArray[0]] = groupNumber;
+    //used[0] = true;
+    //groupToBins[groupNumber] = new std::list<int>;
+    //groupToBins[groupNumber]->push_back(binArray[0]);
+    for (int bin = 0; bin < size; bin++) {  // walk through all the bins
+      bool inBinArray = false;
+      for (int binIndex = 0; binIndex < number; binIndex++) {
+        if (binArray[binIndex] == bin) {
+          inBinArray = true;
+          rememberedBinIndex = binIndex;
         }
-        if (escape) break;
       }
-      if (! escape) {
-        groupNumber++;
-        numberOfGroups++;
-        binToGroup[binArray[binIndex]] = groupNumber;
-        groupToBins[groupNumber] = new std::list<int>;
-        groupToBins[groupNumber]->push_back(binArray[binIndex]);
+      bool escape = false;
+      if (inBinArray) {
+        for (int groupIndex = 0; groupIndex < numberOfGroups; groupIndex++) {
+          for (std::list<int>::iterator iter = groupToBins[groupIndex]->begin(); iter != groupToBins[groupIndex]->end(); iter++) {
+            if (abs(bin - *iter) <= 2 && !used[rememberedBinIndex]) { // this bin belongs to this group
+              groupToBins[groupIndex]->push_back(bin);
+              binToGroup[bin] = groupIndex;
+              used[rememberedBinIndex] = true;
+              escape = true;
+              break;  // done with is bin
+            }
+          }
+          if (escape) break;
+        }
+        if (!escape && !used[rememberedBinIndex]) {  // this bin is in the bin array, and not part of any of the groups we last looked at
+          // make a new group
+          used[rememberedBinIndex] = true;
+          binToGroup[bin] = groupNumber;
+          groupToBins[groupNumber] = new std::list<int>;
+          groupToBins[groupNumber]->push_back(bin);
+          groupNumber++;
+          numberOfGroups++;
+        }
       }
     }
     // find the centroids of each group
@@ -306,6 +363,7 @@ void FindNLargestF::doWork() {
       weightedCentroid = weightedCentroid / accumulator;
       fprintf(stderr," --- weighted centroid: %f\n\n",weightedCentroid);
       groupCentroids[groupIndex] = weightedCentroid;  // indexed by groupIndex
+      histogram[(int) weightedCentroid]++;
     }
     std::map<int, bool> alreadyUpdated;
     for (int canID = 0; canID < numberOfCandidates; canID++) {
@@ -315,24 +373,41 @@ void FindNLargestF::doWork() {
     for (int groupIndex = 0; groupIndex < numberOfGroups; groupIndex++) {
       bool newCandidate = true;
       int currentCandidateID = 0;
+      float canRangeLow = 0.0;
+      float canRangeHigh = 0.0;
       for (int canID = 0; canID < numberOfCandidates; canID++) {
-        if (fabs(groupCentroids[groupIndex] - candidates[canID]) < 5.0) {
+        if (targets.end() != targets.find(canID)) {
+          if ((*targets[canID])[TARGET0] == (*targets[canID])[TARGET3]) {
+            canRangeLow = (*targets[canID])[TARGET0] - 4.0;
+            canRangeHigh = (*targets[canID])[TARGET0] + 4.0;
+          } else {
+            canRangeLow = (*targets[canID])[TARGET0] - 0.6;
+            canRangeHigh = (*targets[canID])[TARGET3] + 0.6;
+          }
+        } else {
+            canRangeLow = candidates[canID] - 6.0;
+            canRangeHigh = candidates[canID] + 6.0;
+        }
+        fprintf(stderr, "Candidate %d has a range of %f to %f\n", canID, canRangeLow, canRangeHigh);
+        if ((canRangeLow <=  groupCentroids[groupIndex]) && (canRangeHigh >= groupCentroids[groupIndex])) {
+          newCandidate = false;  // this is too close to another candidate to add another candidate
           if (alreadyUpdated[canID]) {
             fprintf(stderr, "suppressing update of candidate %d with group %d info\n",
                     canID, groupIndex);
+            //break;
+          } else {
+            candidateToGroup[canID] = groupIndex;
+            currentCandidateID = canID;
+            candidates[currentCandidateID] = groupCentroids[groupIndex];
+            fprintf(stderr, "updating candidate centroid for candidate %d with %f from group %d\n",
+                    currentCandidateID, groupCentroids[groupIndex], groupIndex);
+            alreadyUpdated[canID] = true;
             break;
           }
-          newCandidate = false;
-          candidateToGroup[canID] = groupIndex;
-          currentCandidateID = canID;
-          candidates[currentCandidateID] = groupCentroids[groupIndex];
-          fprintf(stderr, "updating candidate centroid for candidate %d with %f from group %d\n",
-                  currentCandidateID, groupCentroids[groupIndex], groupIndex);
-          alreadyUpdated[canID] = true;
-          break;
         }
       }
       if (newCandidate) {
+        fprintf(stderr, "making a new candidate, %d with centroid %f\n", numberOfCandidates, groupCentroids[groupIndex]);
         candidates[numberOfCandidates] = groupCentroids[groupIndex];
         candidateToGroup[numberOfCandidates] = groupIndex;
         alreadyUpdated[numberOfCandidates] = true;
@@ -341,9 +416,7 @@ void FindNLargestF::doWork() {
         sprintf(fileName, "cand%d.txt", numberOfCandidates); 
         fh = fopen(fileName, "w");  // empty file if it exists
         fclose(fh);
-        if (numberOfCandidates <= number) {
-          numberOfCandidates++;
-        }
+        numberOfCandidates++;
         fprintf(stderr, "New candidate list\n");
         for (std::map<int, float>::iterator iter = candidates.begin(); iter != candidates.end(); iter++) {
           fprintf(stderr, "candidates[%d]: %f\n", (*iter).first, (*iter).second);
@@ -356,7 +429,8 @@ void FindNLargestF::doWork() {
       char fileName[50];
       sprintf(fileName, "cand%d.txt", candidateIndex);
       fh = fopen(fileName, "a");
-      if (candidateIndex == 0 && alreadyUpdated[candidateIndex]) {
+      //if (candidateIndex == 0 && alreadyUpdated[candidateIndex]) {
+      if (false) {
         char peaks[22];
         peaks[0] = 0;
         bool windowOK = false;
@@ -372,10 +446,10 @@ void FindNLargestF::doWork() {
           windowS = (groupToBins[candidateToGroup[candidateIndex]]->front() +
                      groupToBins[candidateToGroup[candidateIndex]]->back())/2 - 10;
           windowE = windowS + 21;
-          assert(windowS >=0 && windowE < size);
           fprintf(fh, "------- window alignment change - candidate 0 found in group %d - windowS %d, windowE %d\n",
                   candidateToGroup[candidateIndex],
                   windowS, windowE);
+          assert(windowS >=0 && windowE < size);
         }
         for (int i = windowS; i < windowE; i++) {
           if (i == windowS) {
@@ -412,11 +486,11 @@ void FindNLargestF::doWork() {
           logCentroid(candidates[candidateIndex], candidateIndex);
           adjustThresholds(candidates[candidateIndex], candidateIndex);
           adjustTargets(candidates[candidateIndex], candidateIndex);
-          fprintf(fh, "%5.2f, %d\n", candidates[candidateIndex],
-                  findClosestTarget(candidates[candidateIndex], candidateIndex));
+          fprintf(fh, "%5.2f, %d, %d\n", candidates[candidateIndex],
+                  findClosestTarget(candidates[candidateIndex], candidateIndex), tic);
         } else {
-          fprintf(fh, "%5.2f, %d, not updated on this pass\n", candidates[candidateIndex],
-                  findClosestTarget(candidates[candidateIndex], candidateIndex));
+          fprintf(fh, "%5.2f, %d, %d, not updated on this pass\n", candidates[candidateIndex],
+                  findClosestTarget(candidates[candidateIndex], candidateIndex), tic);
         }
       }
       fclose(fh);
@@ -433,6 +507,8 @@ FindNLargestF::~FindNLargestF(void) {
     delete ((*iter).second);
   }
   thresholds.clear();
+  if (histogram) free(histogram);
+  if (used) free(used);
   if (mag) free(mag);
   if (binArray) free(binArray);
   if (samples) free(samples);

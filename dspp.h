@@ -59,6 +59,7 @@ class dspp {
   int agc(float target);
   int fnlf(int size, int count);
   int overlap_samples_n_2(int size);
+  int split_stream(char ** paths);
 
   //dspp(void);
 

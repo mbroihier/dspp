@@ -24,8 +24,10 @@ class FindNLargestF {
   void logBase(float baseValue, int candidate);
   void reportHistory(int numberOfCandidates);
   int * binArray;
+  bool * used;
   float * samples;
   float * mag;
+  int * histogram;
   int sampleBufferSize;
   int size;
   int number;
@@ -57,6 +59,7 @@ class FindNLargestF {
 
   struct SampleRecord { float centroid; int timeStamp; };
   struct BaseRecord { float base; int timeStamp; };
+  std::map<int, float> candidates;    // list of cadidates mapped to their centroid location
   std::map<int, std::list<SampleRecord> *> centroidHistory;
   std::map<int, std::list<BaseRecord> *> baseHistory;
   
