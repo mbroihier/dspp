@@ -174,7 +174,7 @@ void FindNLargestF::logBase(float baseValue, int candidate) {
     BaseRecord br;
     br.base = baseValue;
     br.timeStamp = tic;
-    for (int i = 0; i < centroidHistory[candidate]->size(); i++) {
+    for (unsigned int i = 0; i < centroidHistory[candidate]->size(); i++) {
       baseHistory[candidate]->push_back(br);
     }
   } else {
@@ -232,7 +232,7 @@ void FindNLargestF::reportHistory(int numberOfCandidates) {
     sum -= bins[i % 6];
     sum += histogram[i];
     bins[i % 6] = histogram[i];
-    fprintf(stderr, "histogram[%3d]: %4d %5d\n", i, histogram[i], sum);
+    fprintf(stderr, "histogram[%3d]: %4d, %5d\n", i, histogram[i], sum);
   }
 }
 
@@ -312,10 +312,6 @@ void FindNLargestF::doWork() {
     int groupNumber = 0;
     int numberOfGroups = 0;
     int rememberedBinIndex = 0;
-    //binToGroup[binArray[0]] = groupNumber;
-    //used[0] = true;
-    //groupToBins[groupNumber] = new std::list<int>;
-    //groupToBins[groupNumber]->push_back(binArray[0]);
     for (int bin = 0; bin < size; bin++) {  // walk through all the bins
       bool inBinArray = false;
       for (int binIndex = 0; binIndex < number; binIndex++) {
@@ -338,8 +334,8 @@ void FindNLargestF::doWork() {
           }
           if (escape) break;
         }
-        if (!escape && !used[rememberedBinIndex]) {  // this bin is in the bin array, and not part of any of the groups we last looked at
-          // make a new group
+        if (!escape && !used[rememberedBinIndex]) {  // this bin is in the bin array, and not part of any of the
+          // groups we last looked at, so make a new group
           used[rememberedBinIndex] = true;
           binToGroup[bin] = groupNumber;
           groupToBins[groupNumber] = new std::list<int>;
@@ -376,18 +372,46 @@ void FindNLargestF::doWork() {
       float canRangeLow = 0.0;
       float canRangeHigh = 0.0;
       for (int canID = 0; canID < numberOfCandidates; canID++) {
-        if (targets.end() != targets.find(canID)) {
-          if ((*targets[canID])[TARGET0] == (*targets[canID])[TARGET3]) {
-            canRangeLow = (*targets[canID])[TARGET0] - 4.0;
-            canRangeHigh = (*targets[canID])[TARGET0] + 4.0;
-          } else {
-            canRangeLow = (*targets[canID])[TARGET0] - 0.6;
-            canRangeHigh = (*targets[canID])[TARGET3] + 0.6;
+        //if (targets.end() != targets.find(canID)) {
+        //  if ((*targets[canID])[TARGET0] == (*targets[canID])[TARGET3]) {
+        //    canRangeLow = (*targets[canID])[TARGET0] - 4.0;
+        //    canRangeHigh = (*targets[canID])[TARGET0] + 4.0;
+        //  } else {
+        //    canRangeLow = (*targets[canID])[TARGET0] - 0.6;
+        //    canRangeHigh = (*targets[canID])[TARGET3] + 0.6;
+        //  }
+        //} else {
+        //    canRangeLow = candidates[canID] - 6.0;
+        //    canRangeHigh = candidates[canID] + 6.0;
+        //}
+        
+        // look at existing candidates and, based on the histogram, determine a range that would be reasonable
+        // for a group centroid to be this candidate
+        canRangeLow = candidates[canID] - 6.0;
+        canRangeHigh = candidates[canID] + 6.0;
+        if (tic > 20) {
+          if (canRangeLow < 6.0) canRangeLow = 6.0;
+          if (canRangeHigh > 249.0) canRangeHigh = 249.0;
+          int start = (int) canRangeLow;
+          int stop = (int) canRangeHigh;
+          int half = (start + stop) / 2;
+          int atLeast = tic / 4;
+          for (int lookat = start; lookat <= stop;  lookat++) {
+            if (lookat < half) {
+              if (histogram[lookat] < atLeast) {
+                canRangeLow += 1.0;
+              }
+            } else {
+              if (histogram[lookat] < atLeast) {
+                canRangeHigh -= 1.0;
+              }
+            }
           }
         } else {
-            canRangeLow = candidates[canID] - 6.0;
-            canRangeHigh = candidates[canID] + 6.0;
-        }
+          if (canRangeLow < 0.0) canRangeLow = 0.0;
+          if (canRangeHigh > 255.0) canRangeHigh = 255.0;
+        }          
+          
         fprintf(stderr, "Candidate %d has a range of %f to %f\n", canID, canRangeLow, canRangeHigh);
         if ((canRangeLow <=  groupCentroids[groupIndex]) && (canRangeHigh >= groupCentroids[groupIndex])) {
           newCandidate = false;  // this is too close to another candidate to add another candidate
@@ -473,7 +497,7 @@ void FindNLargestF::doWork() {
         }
         if (alreadyUpdated[candidateIndex]) {
           logCentroid(candidates[candidateIndex], candidateIndex);
-          adjustThresholds(candidates[candidateIndex], candidateIndex);
+          //adjustThresholds(candidates[candidateIndex], candidateIndex);
           adjustTargets(candidates[candidateIndex], candidateIndex);
           fprintf(fh, ", %s, %5.2f, %d\n", peaks, candidates[candidateIndex],
                   findClosestTarget(candidates[candidateIndex], candidateIndex));
@@ -484,7 +508,7 @@ void FindNLargestF::doWork() {
       } else {
         if (alreadyUpdated[candidateIndex]) {
           logCentroid(candidates[candidateIndex], candidateIndex);
-          adjustThresholds(candidates[candidateIndex], candidateIndex);
+          //adjustThresholds(candidates[candidateIndex], candidateIndex);
           adjustTargets(candidates[candidateIndex], candidateIndex);
           fprintf(fh, "%5.2f, %d, %d\n", candidates[candidateIndex],
                   findClosestTarget(candidates[candidateIndex], candidateIndex), tic);

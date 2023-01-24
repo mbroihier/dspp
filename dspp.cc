@@ -71,7 +71,9 @@ static const char USAGE_STR[] = "\n"
         "  agc                        : automatic gain control, sustain a fixed average level\n"
         "  find_n_largest_freq        : find N largest magnitude frequencies in a FFT\n"
         "  overlap_samples_n_2        : overlap samples N by 2\n"
-        "  split_stream               : split input stream into multiple streams\n";
+        "  split_stream               : split input stream into multiple streams\n"
+        "  WSPR_symbols               : find WSPR symbols by candidate\n"
+        "  WSPR_Pass1                 : find potential WSPR signal\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"       , no_argument, NULL, 1 },
@@ -110,6 +112,8 @@ static struct option longOpts[] = {
   { "find_n_largest_freq"       , no_argument, NULL, 34 },
   { "overlap_samples_n_2"       , no_argument, NULL, 35 },
   { "split_stream"              , no_argument, NULL, 36 },
+  { "WSPR_symbols"              , no_argument, NULL, 37 },
+  { "WSPR_Pass1"                , no_argument, NULL, 38 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -257,6 +261,7 @@ int dspp::convert_uByte_byte() {
   for (;;) {
     count = fread(&c, sizeof(char), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {
+      fwrite(&b, sizeof(char), count, stdout);
       fprintf(stderr, "Short data stream, convert_uByte_byte\n");
       fclose(stdout);
       return 0;
@@ -1062,6 +1067,50 @@ int dspp::fnlf(int size, int count) {
 
 /* ---------------------------------------------------------------------- */
 /*
+ *      fwspr_sym.cc -- DSP Pipe - find WSPR symbols
+ *
+ *      Copyright (C) 2022
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+int dspp::fwspr_sym(int size, int count, char * prefix) {
+  WSPRSymbols * wsprObject;
+  wsprObject = new WSPRSymbols(size, count, prefix);
+  if (! wsprObject) {
+    fprintf(stderr, "WSPRSymbols object creation failed\n");
+  } else {
+    wsprObject->doWork();
+  }
+  delete wsprObject;
+  return 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/*
+ *      fwspr.cc -- DSP Pipe - find potential WSPR signals
+ *
+ *      Copyright (C) 2023
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+int dspp::fwspr(int size, int count, char * prefix) {
+  WSPRPass1 * wsprPass1Object;
+  wsprPass1Object = new WSPRPass1(size, count, prefix);
+  if (! wsprPass1Object) {
+    fprintf(stderr, "WSPR Pass 1 object creation failed\n");
+  } else {
+    wsprPass1Object->doWork();
+  }
+  delete wsprPass1Object;
+  return 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/*
  *      head.cc -- DSP Pipe - take the first n bytes of a stream
  *
  *      Copyright (C) 2019 
@@ -1847,6 +1896,34 @@ int main(int argc, char *argv[]) {
           doneProcessing = !dsppInstance.split_stream(argv);
 	} else {
 	  fprintf(stderr, "split_stream needs at least two pipes - error\n");
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 37: {
+        int size = 0;
+        int count = 0;
+        if (argc == 5) {
+	  fprintf(stderr, "starting WSPR_symbols\n");
+          sscanf(argv[2], "%d", &size);
+          sscanf(argv[3], "%d", &count);
+          doneProcessing = !dsppInstance.fwspr_sym(size, count, argv[4]);
+	} else {
+	  fprintf(stderr, "WSPR_symbols should have 3 parameters - error\n");
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 38: {
+        int size = 0;
+        int count = 0;
+        if (argc == 5) {
+	  fprintf(stderr, "starting WSPR_Pass1\n");
+          sscanf(argv[2], "%d", &size);
+          sscanf(argv[3], "%d", &count);
+          doneProcessing = !dsppInstance.fwspr(size, count, argv[4]);
+	} else {
+	  fprintf(stderr, "WSPR_Pass1 should have 3 parameters - error\n");
 	  doneProcessing = true;
 	}
         break;

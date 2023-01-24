@@ -1,9 +1,9 @@
-#ifndef WSPRSYMBOLS_H_
-#define WSPRSYMBOLS_H_
+#ifndef WSPRPASS1_H_
+#define WSPRPASS1_H_
 /*
- *      WSPRSymbols.h - Find WSPR symbols in an FFT stream
+ *      WSPRPass1.h - Find WSPR potential WSPR signal
  *
- *      Copyright (C) 2022 
+ *      Copyright (C) 2023
  *          Mark Broihier
  *
  */
@@ -14,7 +14,7 @@
 #include <math.h>
 #include <sys/types.h>
 /* ---------------------------------------------------------------------- */
-class WSPRSymbols {
+class WSPRPass1 {
  private:
   void init(int size, int number, char * prefix);
   void adjustTargets(float centroid, int candidate);
@@ -35,6 +35,7 @@ class WSPRSymbols {
   int size;
   int number;
   int tic;
+  float freq;
   char * prefix;
 
   const int FIRST = 0;
@@ -74,7 +75,7 @@ class WSPRSymbols {
   bool * alreadyUpdated;
  public:
   void doWork();
-  WSPRSymbols(int size, int number, char * prefix);
-  ~WSPRSymbols(void);
+  WSPRPass1(int size, int number, char * prefix);
+  ~WSPRPass1(void);
 };
-#endif  // WSPRSYMBOLS_H_
+#endif  // WSPRPASS1_H_

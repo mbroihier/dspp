@@ -20,6 +20,8 @@
 #include "CFilter.h"
 #include "AGC.h"
 #include "FindNLargestF.h"
+#include "WSPRSymbols.h"
+#include "WSPRPass1.h"
 /* ---------------------------------------------------------------------- */
 class dspp {
 
@@ -58,6 +60,8 @@ class dspp {
   int dc_removal(float * buffer, int size);
   int agc(float target);
   int fnlf(int size, int count);
+  int fwspr_sym(int size, int count, char * prefix);
+  int fwspr(int size, int count, char * prefix);
   int overlap_samples_n_2(int size);
   int split_stream(char ** paths);
 

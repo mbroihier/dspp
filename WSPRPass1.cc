@@ -1,7 +1,7 @@
 /*
- *      WSPRSymbols.cc - find the WSPR Symbols by candidate
+ *      WSPRPass1.cc - find potential WSPR signals
  *
- *      Copyright (C) 2022
+ *      Copyright (C) 2023
  *          Mark Broihier
  *
  */
@@ -15,13 +15,15 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include "WSPRSymbols.h"
+#include "WSPRPass1.h"
+#include "SpotCandidate.h"
 
 /* ---------------------------------------------------------------------- */
-void WSPRSymbols::init(int size, int number, char * prefix) {
+void WSPRPass1::init(int size, int number, char * prefix) {
   this->size = size;
   this->number = number;
   this->prefix = prefix;
+  freq = 375.0;
   fprintf(stderr, "allocating binArray memory\n");
   binArray = reinterpret_cast<int *>(malloc(number * sizeof(int)));
   used = reinterpret_cast<bool *>(malloc(number * sizeof(bool)));
@@ -47,13 +49,13 @@ void WSPRSymbols::init(int size, int number, char * prefix) {
   alreadyUpdated = reinterpret_cast<bool *>(malloc((size/4) * sizeof(bool)));
 }
 
-WSPRSymbols::WSPRSymbols(int size, int number, char * prefix) {
-  fprintf(stderr, "creating WSPRSymbols object\n");
+WSPRPass1::WSPRPass1(int size, int number, char * prefix) {
+  fprintf(stderr, "creating WSPRPass1 object\n");
   init(size, number, prefix);
-  fprintf(stderr, "done creating WSPRSymbols object\n");
+  fprintf(stderr, "done creating WSPRPass1 object\n");
 }
 
-void WSPRSymbols::adjustTargets(float centroid, int candidate) {
+void WSPRPass1::adjustTargets(float centroid, int candidate) {
   bool adjust = false;
   int limit = 0;
   if (targets.end() == targets.find(candidate)) {
@@ -103,7 +105,7 @@ void WSPRSymbols::adjustTargets(float centroid, int candidate) {
     logBase((*targets[candidate])[TARGET0], candidate);
   }
 }
-int WSPRSymbols::findClosestTarget(float centroid, int candidate) {
+int WSPRPass1::findClosestTarget(float centroid, int candidate) {
   float shortestDistance = BW;
   int closest = TARGET0;
   for (int i = 0; i < 4; i++) {
@@ -116,7 +118,7 @@ int WSPRSymbols::findClosestTarget(float centroid, int candidate) {
   return closest;
 }
 
-void WSPRSymbols::logCentroid(float centroid, int candidate) {
+void WSPRPass1::logCentroid(float centroid, int candidate) {
   if (centroidHistory.end() == centroidHistory.find(candidate)) {  // this is the first time logging this candidate
     centroidHistory[candidate] = new std::list<SampleRecord>;
   }
@@ -127,7 +129,7 @@ void WSPRSymbols::logCentroid(float centroid, int candidate) {
   fprintf(stderr, "recording history for candidate %d\n", candidate);
 }
 
-void WSPRSymbols::logBase(float baseValue, int candidate) {
+void WSPRPass1::logBase(float baseValue, int candidate) {
   if (centroidHistory.end() == centroidHistory.find(candidate)) {
     fprintf(stderr, "Internal error - attempting to log a base value prior to having a history of centroids\n");
     return;
@@ -148,7 +150,7 @@ void WSPRSymbols::logBase(float baseValue, int candidate) {
   }
   fprintf(stderr, "recording base for candidate %d size is now: %d\n", candidate, baseHistory[candidate]->size());
 }
-void WSPRSymbols::regressionFit(std::list<float> centroidList) {
+void WSPRPass1::regressionFit(std::list<float> centroidList) {
   float sumX = 0.0;
   float sumY = 0.0;
   float sumXY = 0.0;
@@ -167,7 +169,7 @@ void WSPRSymbols::regressionFit(std::list<float> centroidList) {
   fprintf(stderr, "linear fit of centroid data - slope: %7.2f, y-intercept: %7.2f\n", slope, yIntercept);
 }
 
-void WSPRSymbols::convertToSymbols(std::list<float> centroidList) {
+void WSPRPass1::convertToSymbols(std::list<float> centroidList) {
   const unsigned char sync[162] = {
      1,1,0,0,0,0,0,0,1,0,0,0,1,1,1,0,0,0,1,0,0,1,0,1,1,1,1,0,0,0,0,0,
      0,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,1,1,0,0,1,1,0,1,0,0,0,1,1,0,1,0,
@@ -302,7 +304,7 @@ void WSPRSymbols::convertToSymbols(std::list<float> centroidList) {
     fprintf(stderr, "there is not enough frequency range to tokenize this list\n");
   }
 }
-void WSPRSymbols::reportHistory(int numberOfCandidates) {
+void WSPRPass1::reportHistory(int numberOfCandidates) {
   fprintf(stderr, "Number of candidates: %3d\n", numberOfCandidates);
   for (int i = 0; i < numberOfCandidates; i++) {
     if (baseHistory.end() == baseHistory.find(i) || centroidHistory.end() == centroidHistory.find(i)) {
@@ -394,20 +396,23 @@ void WSPRSymbols::reportHistory(int numberOfCandidates) {
 }
 
 
-void WSPRSymbols::doWork() {
+void WSPRPass1::doWork() {
   int numberOfCandidates = 0;
   std::map<int, float> groupCentroids;  // mapped by group ID
+  std::map<int, SpotCandidate *> candidatesPass1;
   int frame = 0;
   int count = 0;
   float * samplePtr;
   float * magPtr;
-  fprintf(stderr, "Find WSPR symbols\n", number);
+  fprintf(stderr, "Find WSPR signals pass 1\n", number);
   bool done = false;
+  float wallClock = 0.0;
+  float deltaTime = 1.0 / freq * size;
   while (!done) {
     // get an FFT's worth of bins
     fprintf(stderr, "done with set of data\n");
     count = fread(samples, sizeof(float), sampleBufferSize, stdin);
-    fprintf(stderr, "done with read for tic %d\n", tic);
+    fprintf(stderr, "done with read for tic %d, wall clock %7.2f\n", tic, wallClock += deltaTime);
     if (count < sampleBufferSize) {
       done = true;
       continue;
@@ -503,7 +508,8 @@ void WSPRSymbols::doWork() {
     for (int groupIndex = 0; groupIndex < numberOfGroups; groupIndex++) {
       fprintf(stderr, "bins in group %d:", groupIndex);
       groupToBins[groupIndex]->sort();
-      float minMag = mag[binArray[number-1]];
+      //float minMag = mag[binArray[number-1]];
+      float minMag = mag[size/2];
       float maxMag = minMag;
       for (std::list<int>::iterator iter = groupToBins[groupIndex]->begin(); iter != groupToBins[groupIndex]->end(); iter++) {
         if (mag[*iter] < minMag) {
@@ -513,7 +519,7 @@ void WSPRSymbols::doWork() {
           maxMag = mag[*iter];
         }
       }
-      float clip = (maxMag + minMag) / 2.0;
+      float clip = (maxMag - minMag) / 3.0 + minMag;
       float weightedCentroid = 0.0;
       float accumulator = 0.0;
       for (std::list<int>::iterator iter = groupToBins[groupIndex]->begin(); iter != groupToBins[groupIndex]->end(); iter++) {
@@ -525,7 +531,17 @@ void WSPRSymbols::doWork() {
       }
       if (accumulator > 1.0) {
         weightedCentroid = weightedCentroid / accumulator;
-        fprintf(stderr," --- weighted centroid: %f\n\n",weightedCentroid);
+        float observedFreq = weightedCentroid * (freq/size);
+        if (observedFreq > freq / 2.0) {
+          observedFreq = -freq + observedFreq;
+        }
+        fprintf(stderr," --- weighted centroid: %7.2f, freq: %7.2f\n\n",weightedCentroid, observedFreq);
+        int id = (int) (weightedCentroid + 0.5);
+        if (candidatesPass1.end() == candidatesPass1.find(id)) {
+          candidatesPass1[id] = new SpotCandidate(id);
+        }
+        candidatesPass1[id]->
+          logSample(observedFreq, mag[id], tic, wallClock);
       } else {
         weightedCentroid = 0.0;
         fprintf(stderr, " -- weighted centroid forced to zero\n\n");
@@ -546,6 +562,7 @@ void WSPRSymbols::doWork() {
     for (int canID = 0; canID < size/4; canID++) {
       alreadyUpdated[canID] = false;
     }
+    /*
     // Now track floating candidates through the fixed candidates
     for (std::map<int, float>::iterator iter = candidates.begin(); iter != candidates.end(); iter++) {
       // using the last centroid,  see if it has been used in assigning a candidate and see if this candidate
@@ -719,14 +736,18 @@ void WSPRSymbols::doWork() {
       }
       fclose(fh);
     }
+    */
     tic++;
   }
   reportHistory(numberOfCandidates);
-  fprintf(stderr, "leaving doWork within WSPRSymbols\n");
+  for (std::map<int, SpotCandidate *>::iterator iter = candidatesPass1.begin(); iter != candidatesPass1.end(); iter++) {
+    (*iter).second->printReport();
+  }
+  fprintf(stderr, "leaving doWork within WSPRPass1\n");
 }
 
-WSPRSymbols::~WSPRSymbols(void) {
-  fprintf(stderr, "destructing WSPRSymbols\n");
+WSPRPass1::~WSPRPass1(void) {
+  fprintf(stderr, "destructing WSPRPass1\n");
   if (histogram) free(histogram);
   if (used) free(used);
   if (mag) free(mag);

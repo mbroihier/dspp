@@ -25,18 +25,20 @@ LDFLAGS= $(PARAMS_LIBS)
 SOURCES= dspp.cc 
 OBJECTS=$(SOURCES:.cc=.o)
 
-FNLFSRC = FindNLargestF.cc FindNLargestF.h
+FNLFSRC = FindNLargestF.cc FindNLargestF.h WSPRSymbols.cc WSPRSymbols.h WSPRPass1.cc WSPRPass1.h SpotCandidate.cc SpotCandidate.h
 AGCSRC = AGC.cc AGC.h
 RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h RTLTCPServer.cc RTLTCPServer.h
 FIRFILTSRC = FIRFilter.cc FIRFilter.h SFIRFilter.cc SFIRFilter.h CFilter.cc CFilter.h Poly.cc Poly.h
 MODSRC = FMMod.cc FMMod.h
 FFTSRC = DsppFFT.cc DsppFFT.h
-FNLFOBJ = FindNLargestF.o
+BASICSRC = Regression.cc Regression.h
+FNLFOBJ = FindNLargestF.o WSPRSymbols.o WSPRPass1.o SpotCandidate.o
 AGCOBJ = AGC.o
 RTLTCPOBJ = RTLTCPClient.o RTLTCPServer.o
 FIRFILTOBJ = FIRFilter.o SFIRFilter.o CFilter.o Poly.o
 MODOBJ = FMMod.o
 FFTOBJ = DsppFFT.o
+BASICOBJ = Regression.o
 
 EXECUTABLE=dspp
 
@@ -101,6 +103,9 @@ test:
 	$(CC) $(CFLAGS) FFTOverTimeToOctave.cc -o FFTOverTimeToOctave.o
 	$(CC) $(LDFLAGS) FFTOverTimeToOctave.o -o FFTOverTimeToOctave -lm
 
+	$(CC) $(CFLAGS) FFTOverTimeToOctavePipe.cc -o FFTOverTimeToOctavePipe.o
+	$(CC) $(LDFLAGS) FFTOverTimeToOctavePipe.o -o FFTOverTimeToOctavePipe -lm
+
 	$(CC) $(CFLAGS) SignalToOctave.cc -o SignalToOctave.o
 	$(CC) $(LDFLAGS) SignalToOctave.o -o SignalToOctave -lm
 
@@ -119,10 +124,15 @@ test:
 	$(CC) $(CFLAGS) impulse.cc -o impulse.o
 	$(CC) $(LDFLAGS) impulse.o -o impulse -lm
 
+	$(CC) $(CFLAGS) CountBytes.cc -o CountBytes.o
+	$(CC) $(LDFLAGS) CountBytes.o -o CountBytes -lm
 
-$(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(FNLFOBJ)
-	$(CC) $(LDFLAGS) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(FNLFOBJ) -o dspp
 
+$(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(FNLFOBJ) $(BASICOBJ)
+	$(CC) $(LDFLAGS) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(FNLFOBJ) $(BASICOBJ) -o dspp
+
+$(BASICOBJ) : $(BASICSRC)
+	$(CC) $(CFLAGS) $*.cc -o $@
 $(FNLFOBJ) : $(FNLFSRC)
 	$(CC) $(CFLAGS) $*.cc -o $@
 $(AGCOBJ) : $(AGCSRC)
