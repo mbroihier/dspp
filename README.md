@@ -1,5 +1,6 @@
 # Digital Signal Processing Pipes 
 
+Overhaul in progress!
 
 This repository contains C/C++ programs that read and write streams of data. My primary use is processing of RF I/Q data from a RTL-SDR dongle (see rtl-sdr.com).  This project was inspired by the CSDR github repository published by Simonyi Károly who acknowledges major contributions by Andras Retzler, Péter Horváth, PhD, and János Selmeczi, PhD. I encourage you to look at his github repository which is loaded with references that were useful to me.
 
