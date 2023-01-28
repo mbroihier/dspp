@@ -55,101 +55,6 @@ WSPRPass1::WSPRPass1(int size, int number, char * prefix) {
   fprintf(stderr, "done creating WSPRPass1 object\n");
 }
 
-void WSPRPass1::adjustTargets(float centroid, int candidate) {
-  bool adjust = false;
-  int limit = 0;
-  if (targets.end() == targets.find(candidate)) {
-    targets[candidate] = new std::map<int, float>;
-    (*targets[candidate])[TARGET0] = centroid;
-    (*targets[candidate])[TARGET1] = centroid;
-    (*targets[candidate])[TARGET2] = centroid;
-    (*targets[candidate])[TARGET3] = centroid;
-    (*targets[candidate])[REF1] = centroid;
-    (*targets[candidate])[REF2] = centroid;
-  } else {
-    if (centroid < (*targets[candidate])[REF1]) {
-      (*targets[candidate])[REF1] = centroid;
-      adjust = true;
-      limit = REF2;
-    } else if (centroid > (*targets[candidate])[REF2]) {
-      (*targets[candidate])[REF2] = centroid;
-      adjust = true;
-      limit = REF1;
-    }
-  }
-  if (adjust) {
-    if ((*targets[candidate])[REF2] - (*targets[candidate])[REF1] > BW) {
-      if (limit == REF1) {
-        (*targets[candidate])[REF1] = (*targets[candidate])[REF2] - BW;
-      } else {
-        (*targets[candidate])[REF2] = (*targets[candidate])[REF1] + BW;
-      }
-      (*targets[candidate])[TARGET0] = (*targets[candidate])[REF1];
-      (*targets[candidate])[TARGET3] = (*targets[candidate])[REF2];
-      (*targets[candidate])[TARGET1] = (*targets[candidate])[TARGET0] + BW_DELTA;
-      (*targets[candidate])[TARGET2] = (*targets[candidate])[TARGET3] - BW_DELTA;
-      fprintf(stderr, "adjusting targets for candidate %d: %f, %f, %f, %f - %f\n", candidate,
-              (*targets[candidate])[TARGET0], (*targets[candidate])[TARGET1], (*targets[candidate])[TARGET2],
-              (*targets[candidate])[TARGET3], centroid);
-    } else {
-      fprintf(stderr, "not adjusting targets for candidate %d: %f, %f, %f, %f - %f\n", candidate,
-              (*targets[candidate])[TARGET0], (*targets[candidate])[TARGET1], (*targets[candidate])[TARGET2],
-              (*targets[candidate])[TARGET3], centroid);
-    }
-  } else {
-      fprintf(stderr, "not adjusting targets for candidate %d: %f, %f, %f, %f - %f\n", candidate,
-              (*targets[candidate])[TARGET0], (*targets[candidate])[TARGET1], (*targets[candidate])[TARGET2],
-              (*targets[candidate])[TARGET3], centroid);
-  }
-  if ((*targets[candidate])[TARGET0] != (*targets[candidate])[TARGET3]) {
-    logBase((*targets[candidate])[TARGET0], candidate);
-  }
-}
-int WSPRPass1::findClosestTarget(float centroid, int candidate) {
-  float shortestDistance = BW;
-  int closest = TARGET0;
-  for (int i = 0; i < 4; i++) {
-    float delta = fabs(centroid - (*targets[candidate])[i]);
-    if (delta < shortestDistance) {
-      shortestDistance = delta;
-      closest = i;
-    }
-  }
-  return closest;
-}
-
-void WSPRPass1::logCentroid(float centroid, int candidate) {
-  if (centroidHistory.end() == centroidHistory.find(candidate)) {  // this is the first time logging this candidate
-    centroidHistory[candidate] = new std::list<SampleRecord>;
-  }
-  SampleRecord sr;
-  sr.centroid = centroid;
-  sr.timeStamp = tic;
-  centroidHistory[candidate]->push_back(sr);
-  fprintf(stderr, "recording history for candidate %d\n", candidate);
-}
-
-void WSPRPass1::logBase(float baseValue, int candidate) {
-  if (centroidHistory.end() == centroidHistory.find(candidate)) {
-    fprintf(stderr, "Internal error - attempting to log a base value prior to having a history of centroids\n");
-    return;
-  }
-  if (baseHistory.end() == baseHistory.find(candidate)) {  // this is the first time logging this candidate
-    baseHistory[candidate] = new std::list<BaseRecord>;
-    BaseRecord br;
-    br.base = baseValue;
-    br.timeStamp = tic;
-    for (unsigned int i = 0; i < centroidHistory[candidate]->size(); i++) {
-      baseHistory[candidate]->push_back(br);
-    }
-  } else {
-    BaseRecord br;
-    br.base = baseValue;
-    br.timeStamp = tic;
-    baseHistory[candidate]->push_back(br);
-  }
-  fprintf(stderr, "recording base for candidate %d size is now: %d\n", candidate, baseHistory[candidate]->size());
-}
 void WSPRPass1::regressionFit(std::list<float> centroidList) {
   float sumX = 0.0;
   float sumY = 0.0;
@@ -304,100 +209,7 @@ void WSPRPass1::convertToSymbols(std::list<float> centroidList) {
     fprintf(stderr, "there is not enough frequency range to tokenize this list\n");
   }
 }
-void WSPRPass1::reportHistory(int numberOfCandidates) {
-  fprintf(stderr, "Number of candidates: %3d\n", numberOfCandidates);
-  for (int i = 0; i < numberOfCandidates; i++) {
-    if (baseHistory.end() == baseHistory.find(i) || centroidHistory.end() == centroidHistory.find(i)) {
-      fprintf(stderr, "Candidate %d is not valid - it was a constant frequency: %f\n", i, candidates[i]);
-    } else {
-      fprintf(stderr, "History Report for Candidate: %d\n", i);
-      int j = 0;
-      if (centroidHistory[i]->size() < 162) {
-        fprintf(stderr, "Candidate %d can not be valid - it does not have enough samples (%d), %f\n", i,
-                centroidHistory[i]->size(), candidates[i]);
-      } else {
-        int lastTimeStamp = 0;
-        int sequentialSamples = 1;
-        bool enoughSequentialSamples = false;
-        std::list<float> demodedCandidateCentroid;
-        std::list<BaseRecord>::iterator iter2 = baseHistory[i]->begin();
-        for (std::list<SampleRecord>::iterator iter1 = centroidHistory[i]->begin();
-             iter1 != centroidHistory[i]->end(); iter1++, iter2++, j++) {
-          if ((*iter1).timeStamp == lastTimeStamp + 1) {
-            sequentialSamples++;
-            fprintf(stderr, "Sample %3d: %5.2f, %5.2f, %5d, %5d, %5d, *, %5d\n", j, (*iter1).centroid, (*iter2).base,
-                    (int) floor((*iter1).centroid - (*iter2).base +0.5), (*iter1).timeStamp,
-                    (*iter2).timeStamp, sequentialSamples);
-            demodedCandidateCentroid.push_back((*iter1).centroid);
-            if (sequentialSamples > 161) enoughSequentialSamples = true;
-          } else {
-            if (enoughSequentialSamples) {
-              fprintf(stderr, "A demodulated list of centroids to process\n");
-              int ctr = 0;
-              for (std::list<float>::iterator diter = demodedCandidateCentroid.begin(); diter != demodedCandidateCentroid.end(); diter++) {
-                fprintf(stderr, " %3d: %7.2f\n", ctr++, *diter);
-              }
-              convertToSymbols(demodedCandidateCentroid);
-              enoughSequentialSamples = false;
-            }
-            sequentialSamples = 1;
-            demodedCandidateCentroid.clear();
-            demodedCandidateCentroid.push_back((*iter1).centroid);
-            fprintf(stderr, "Sample %3d: %5.2f, %5.2f, %5d, %5d, %5d\n", j, (*iter1).centroid, (*iter2).base,
-                    (int) floor((*iter1).centroid - (*iter2).base +0.5), (*iter1).timeStamp, (*iter2).timeStamp);
-          }
-          lastTimeStamp = (*iter1).timeStamp;
-        }
-        if (enoughSequentialSamples) {
-          fprintf(stderr, "This candidate has enough sequential samples to be submitted to FANO\n");
-        }
-      }
-    }
-  }
-  fprintf(stderr, "Histogram\n");
-  int sum = 0;
-  int bins[6];
-  for (int i = 0; i < 6; i++) {
-    bins[i] = 0;
-  }
-  for (int i = 0; i < size; i++) {
-    sum -= bins[i % 6];
-    sum += histogram[i];
-    bins[i % 6] = histogram[i];
-    fprintf(stderr, "histogram[%3d]: %4d, %5d\n", i, histogram[i], sum);
-  }
-  fprintf(stderr, "Fixed Candidate History Records\n");
-  for (int i = 0; i < size / 4; i++) {
-    fprintf(stderr, "Fixed Candidate %d, associated floating candidate ID: %d\n", i,
-            allCandidates[i].floatingCandidateID);
-    if (allCandidates[i].history->size() > 0) {
-      if (allCandidates[i].floatingCandidateID == -1) {
-        fprintf(stderr, "used - but not assigned to a floating candidate, history size = %d\n",
-                allCandidates[i].history->size());
-        int j = 0;
-        for (std::list<SampleRecord>::iterator iter = allCandidates[i].history->begin();
-             iter != allCandidates[i].history->end(); iter++, j++) {
-          fprintf(stderr, "history[%3d]: %5.2f, %15.2f, ???, %4d\n", j, (*iter).centroid, (*iter).magnitude,
-                  (*iter).timeStamp);
-        }
-      } else {
-        int j = 0;
-        for (std::list<SampleRecord>::iterator iter = allCandidates[i].history->begin();
-             iter != allCandidates[i].history->end(); iter++, j++) {
-          fprintf(stderr, "history[%3d]: %5.2f, %15.2f, %2d, %4d\n", j, (*iter).centroid, (*iter).magnitude,
-                  findClosestTarget((*iter).centroid, allCandidates[i].floatingCandidateID),
-                  (*iter).timeStamp);
-        }
-      }
-    } else {
-      fprintf(stderr, "not used\n");
-    }
-  }
-}
-
-
 void WSPRPass1::doWork() {
-  int numberOfCandidates = 0;
   std::map<int, float> groupCentroids;  // mapped by group ID
   std::map<int, SpotCandidate *> candidatesPass1;
   int frame = 0;
@@ -562,188 +374,76 @@ void WSPRPass1::doWork() {
     for (int canID = 0; canID < size/4; canID++) {
       alreadyUpdated[canID] = false;
     }
-    /*
-    // Now track floating candidates through the fixed candidates
-    for (std::map<int, float>::iterator iter = candidates.begin(); iter != candidates.end(); iter++) {
-      // using the last centroid,  see if it has been used in assigning a candidate and see if this candidate
-      // previously was assigned to this fixed candidate
-      floatingCandidateUpdated[(*iter).first] = false;
-      int lastFixedIndex = ((int) (*iter).second + 0.5) / 4;
-      fprintf(stderr, "Looking at old floating candidate: %d, that has a last fixed candidate of: %d\n",
-              (*iter).first, lastFixedIndex);
-      if ((! alreadyUpdated[lastFixedIndex]) && (tic == allCandidates[lastFixedIndex].timeStamp)) {
-        // has this candidate been updated this cycle and used?
-        if ((allCandidates[lastFixedIndex].floatingCandidateID == (*iter).first) ||
-            allCandidates[lastFixedIndex].floatingCandidateID == -1) {
-          // this has been used before by this candidate or never used
-          assert(allCandidates[lastFixedIndex].floatingCandidateID != -1);  // ? shouldn't happen
-          candidates[(*iter).first] = allCandidates[lastFixedIndex].history->back().centroid;
-          floatingCandidateUpdated[(*iter).first] = true;
-          alreadyUpdated[lastFixedIndex] = true;
-          allCandidates[lastFixedIndex].groupIndexUsed = true;  // suppress creation of floating
-          allCandidates[lastFixedIndex].floatingCandidateID = (*iter).first;  // should be necessary
-          fprintf(stderr, "updated fixed candidate %d info with floating candidate %d, centroid %f\n", lastFixedIndex,
-                  allCandidates[lastFixedIndex].floatingCandidateID, candidates[(*iter).first]);
-        } else {
-          // The previous test is the simple case, but it may be that this was previously assigned a
-          // different floating candidate ID.  At the moment, we will just discard this sample
-          alreadyUpdated[lastFixedIndex] = true;
-          fprintf(stderr, "We are dropping this group centroid %f this cycle\n",
-                  allCandidates[lastFixedIndex].history->back().centroid);
-        }
-      } else {  // this centroid didn't fall into a fixed candiate that was updated this round, check a neighbor
-        int otherNeighbor = lastFixedIndex;
-        // look at lower neighbor
-        fprintf(stderr, "looking at lower fixed neighbor\n");
-        otherNeighbor--;
-        if (otherNeighbor < 0) otherNeighbor = size/4 - 1;
-        if ((! alreadyUpdated[otherNeighbor]) && (tic == allCandidates[otherNeighbor].timeStamp)) {
-          // has this candidate been updated this cycle and used?
-          if ((allCandidates[otherNeighbor].floatingCandidateID == (*iter).first) ||
-              allCandidates[otherNeighbor].floatingCandidateID == -1) {
-            // this has been used before by this candidate or never used
-            candidates[(*iter).first] = allCandidates[otherNeighbor].history->back().centroid;
-            floatingCandidateUpdated[(*iter).first] = true;
-            alreadyUpdated[otherNeighbor] = true;
-            allCandidates[otherNeighbor].groupIndexUsed = true;  // suppress creation of floating
-            allCandidates[otherNeighbor].floatingCandidateID = (*iter).first;
-            fprintf(stderr, "updated fixed candidate %d info with floating candidate %d (other)\n", otherNeighbor,
-                    allCandidates[otherNeighbor].floatingCandidateID);
-          } else {
-            // The previous test is the simple case, but it may be that this was previously assigned a
-            // different floating candidate ID.  At the moment, we will just discard this sample
-            // alreadyUpdated[otherNeighbor] = true;
-            fprintf(stderr, "We are deferring this group centroid %f this cycle (other neighbor path), value: %d\n",
-                    allCandidates[otherNeighbor].history->back().centroid, otherNeighbor);
-            fprintf(stderr, "Other information: original Fixed Candidate: %d, floating candidate ID for it: %d\n"
-                    " other Fixed Candidate floating candidate ID: %d\n"
-                    " this centriod: %f\n", lastFixedIndex,
-                    allCandidates[lastFixedIndex].floatingCandidateID,
-                    allCandidates[otherNeighbor].floatingCandidateID,
-                    allCandidates[otherNeighbor].history->back().centroid);
-          }
-        } else {  // this centroid didn't fall into a fixed candiate neighbor that was updated this round
-          fprintf(stderr, "floating cand %d (fixed %d) is not being updated - alreadyUpdated is %d or tic %d"
-                  " is not %d\n", (*iter).first, lastFixedIndex, alreadyUpdated[lastFixedIndex],
-                  tic, allCandidates[lastFixedIndex].timeStamp);
-          fprintf(stderr, "floating cand %d (fixed %d) is not being updated - alreadyUpdated is %d or tic %d"
-                  " is not %d\n", (*iter).first, otherNeighbor, alreadyUpdated[otherNeighbor],
-                  tic, allCandidates[otherNeighbor].timeStamp);
-        }
-        // look at upper neighbor
-        fprintf(stderr, "looking at the upper fixed neighbor\n");
-        otherNeighbor = lastFixedIndex + 1;
-        if (otherNeighbor >= size/4) otherNeighbor = 0;
-        if ((! alreadyUpdated[otherNeighbor]) && (tic == allCandidates[otherNeighbor].timeStamp)) {
-          // has this candidate been updated this cycle and used?
-          if ((allCandidates[otherNeighbor].floatingCandidateID == (*iter).first) ||
-              allCandidates[otherNeighbor].floatingCandidateID == -1) {
-            // this has been used before by this candidate or never used
-            candidates[(*iter).first] = allCandidates[otherNeighbor].history->back().centroid;
-            floatingCandidateUpdated[(*iter).first] = true;
-            alreadyUpdated[otherNeighbor] = true;
-            allCandidates[otherNeighbor].groupIndexUsed = true;  // suppress creation of floating
-            allCandidates[otherNeighbor].floatingCandidateID = (*iter).first;
-            fprintf(stderr, "updated fixed candidate %d info with floating candidate %d (other)\n", otherNeighbor,
-                    allCandidates[otherNeighbor].floatingCandidateID);
-          } else {
-            // The previous test is the simple case, but it may be that this was previously assigned a
-            // different floating candidate ID.  At the moment, we will just discard this sample
-            // Discarding the group centroid did not work, will try keeping it 
-            //alreadyUpdated[otherNeighbor] = true;
-            fprintf(stderr, "We are deferring this group centroid %f this cycle (other neighbor path), value: %d\n",
-                    allCandidates[otherNeighbor].history->back().centroid, otherNeighbor);
-            fprintf(stderr, "Other information: original Fixed Candidate: %d, floating candidate ID for it: %d\n"
-                    " other Fixed Candidate floating candidate ID: %d\n"
-                    " this centriod: %f\n", lastFixedIndex,
-                    allCandidates[lastFixedIndex].floatingCandidateID,
-                    allCandidates[otherNeighbor].floatingCandidateID,
-                    allCandidates[otherNeighbor].history->back().centroid);
-          }
-        } else {  // this centroid didn't fall into a fixed candiate neighbor that was updated this round
-          fprintf(stderr, "floating cand %d (fixed %d) is not being updated - alreadyUpdated is %d or tic %d"
-                  " is not %d\n", (*iter).first, lastFixedIndex, alreadyUpdated[lastFixedIndex],
-                  tic, allCandidates[lastFixedIndex].timeStamp);
-          fprintf(stderr, "floating cand %d (fixed %d) is not being updated - alreadyUpdated is %d or tic %d"
-                  " is not %d\n", (*iter).first, otherNeighbor, alreadyUpdated[otherNeighbor],
-                  tic, allCandidates[otherNeighbor].timeStamp);
-        }
-      }
-    }
-    // create new floating candidates if there are any left over group centroids, but stop if number of candidates
-    // is equal to the number of bin levels being looked at
-    if (numberOfCandidates < number) {
-      for (int candID = 0; candID < size/4; candID++) {
-        if (! alreadyUpdated[candID]) { // fixed candidate wasn't used yet, so lets see if was updated this pass
-          if (allCandidates[candID].history->size() > 0) {  // there is a history of use
-            if (allCandidates[candID].history->back().timeStamp == tic) { // was it updated this time
-              if (allCandidates[candID].groupIndexUsed == false) {  // make a new floating candidate
-                candidates[numberOfCandidates] = allCandidates[candID].history->back().centroid;
-                floatingCandidateUpdated[numberOfCandidates] = true;
-                alreadyUpdated[numberOfCandidates] = true;
-                allCandidates[candID].floatingCandidateID = numberOfCandidates;
-                fprintf(stderr, "made a new floating cand, %d, for fixed candidate %d\n",
-                        numberOfCandidates, candID);
-                FILE * fh;
-                char fileName[50];
-                sprintf(fileName, "%s%d.txt", prefix, numberOfCandidates); 
-                fh = fopen(fileName, "w");  // empty file if it exists
-                fclose(fh);
-                numberOfCandidates++;
-                fprintf(stderr, "New candidate list\n");
-                for (std::map<int, float>::iterator iter = candidates.begin(); iter != candidates.end(); iter++) {
-                  fprintf(stderr, "candidates[%d]: %f\n", (*iter).first, (*iter).second);
-                }
-                if (numberOfCandidates == number) break;
-              } else {
-                fprintf(stderr, "not making a floating cand for fixed candidate %d, because group index was used: %d\n",
-                        candID, allCandidates[candID].groupIndexUsed);
-              }
-            } else {
-              fprintf(stderr, "not making a floating cand for fixed candidate %d, because time stamp was old: %d\n",
-                      candID, allCandidates[candID].history->back().timeStamp);
-            }
-          } else {
-            fprintf(stderr, "not making a floating cand for fixed candidate %d, because no history\n", candID);
-          }
-        } else {
-          fprintf(stderr, "not making a floating cand for fixed candidate %d, because fixed was already used/updated\n",
-                  candID);
-        }
-      }
-    }
-              
-    // within this FFT, output the centroids of candidates  
-    fprintf(stderr, "Snapshot of floating candiates\n");
-    for (int candidateIndex = 0; candidateIndex < numberOfCandidates; candidateIndex++) {
-      FILE * fh;
-      char fileName[50];
-      sprintf(fileName, "%s%d.txt", prefix, candidateIndex);
-      fh = fopen(fileName, "a");
-      if (floatingCandidateUpdated[candidateIndex]) {
-        logCentroid(candidates[candidateIndex], candidateIndex);
-        fprintf(stderr, "on tic %d, ", tic);
-        adjustTargets(candidates[candidateIndex], candidateIndex);
-        fprintf(fh, "%5.2f, %d, %d\n", candidates[candidateIndex],
-                findClosestTarget(candidates[candidateIndex], candidateIndex), tic);
-        fprintf(stderr, "%3d: %5.2f, %d, %d\n", candidateIndex, candidates[candidateIndex],
-                findClosestTarget(candidates[candidateIndex], candidateIndex), tic);
-      } else {
-        fprintf(fh, "%5.2f, %d, %d, not updated on this pass\n", candidates[candidateIndex],
-                findClosestTarget(candidates[candidateIndex], candidateIndex), tic);
-        fprintf(stderr, "%3d: %5.2f, %d, %d, not updated on this pass\n", candidateIndex, candidates[candidateIndex],
-                findClosestTarget(candidates[candidateIndex], candidateIndex), tic);
-      }
-      fclose(fh);
-    }
-    */
     tic++;
   }
-  reportHistory(numberOfCandidates);
   for (std::map<int, SpotCandidate *>::iterator iter = candidatesPass1.begin(); iter != candidatesPass1.end(); iter++) {
     (*iter).second->printReport();
   }
+  int mostLikelyCandidate = -1;
+  int freqBin = -1;
+  for (std::map<int, SpotCandidate *>::iterator iter = candidatesPass1.begin(); iter != candidatesPass1.end(); iter++) {
+    if ((*iter).second->getCount() > mostLikelyCandidate) {
+      mostLikelyCandidate = (*iter).second->getCount();
+      freqBin = (*iter).first;
+    }
+  }
+  fprintf(stderr, "The most likely candidate with count %d was found at frequency bin %d\n", mostLikelyCandidate,
+          freqBin);
+  int mergeLowerBin = freqBin - 1;
+  int mergeUpperBin = freqBin + 1;
+  if (mergeLowerBin < 0) mergeLowerBin = size - 1;
+  if (mergeUpperBin > size - 1) mergeUpperBin = 0;
+  fprintf(stderr, "Will attempt to merge bins around %d, which are %d and %d\n", freqBin, mergeLowerBin, mergeUpperBin);
+  int firstMergeBin = -1;
+  int secondMergeBin = -1;
+  if ((candidatesPass1.end() != candidatesPass1.find(mergeLowerBin)) && (candidatesPass1.end() != candidatesPass1.find(mergeUpperBin))) {
+    if (candidatesPass1[mergeLowerBin]->getCount() > candidatesPass1[mergeUpperBin]->getCount()) {
+      firstMergeBin = mergeLowerBin;
+      secondMergeBin = mergeUpperBin;
+    } else {
+      firstMergeBin = mergeUpperBin;
+      secondMergeBin = mergeLowerBin;
+    }
+  } else {
+    if (candidatesPass1.end() != candidatesPass1.find(mergeLowerBin)) {  // lower bin exists, upper doesn't
+      firstMergeBin = mergeLowerBin;
+    } else {
+      firstMergeBin = mergeUpperBin;
+    }
+  }
+  if (firstMergeBin >= 0) {
+    fprintf(stderr, "Merging list %d with list %d\n", freqBin, firstMergeBin);
+    candidatesPass1[freqBin]->mergeList(candidatesPass1[firstMergeBin]->getList());
+  }
+  if (secondMergeBin >= 0) {
+    fprintf(stderr, "Merging list %d with list %d\n", freqBin, secondMergeBin);
+    candidatesPass1[freqBin]->mergeList(candidatesPass1[secondMergeBin]->getList());
+  }
+  candidatesPass1[freqBin]->printReport();
+  int nextBin = 0;
+  if ((firstMergeBin != -1) && firstMergeBin < freqBin) {
+    nextBin = firstMergeBin - 1;
+    if (nextBin < 0) nextBin = size - 1;
+  } else {
+    nextBin = firstMergeBin + 1;
+    if (nextBin >= size) nextBin = 0;
+  }
+  fprintf(stderr, "Merging list %d with list %d\n", freqBin, nextBin);
+  candidatesPass1[freqBin]-> mergeList(candidatesPass1[nextBin]->getList());
+  candidatesPass1[freqBin]->printReport();
+  const std::list<SpotCandidate::SampleRecord> bestList1 = candidatesPass1[freqBin]->getValidSublist(1);
+  SpotCandidate * best1 = new SpotCandidate(999, bestList1);
+  best1->printReport();
+  const std::list<SpotCandidate::SampleRecord> bestList2 = candidatesPass1[freqBin]->getValidSublist(2);
+  SpotCandidate * best2 = new SpotCandidate(998, bestList2);
+  best2->printReport();
+  const std::list<SpotCandidate::SampleRecord> bestList3 = candidatesPass1[freqBin]->getValidSublist(3);
+  SpotCandidate * best3 = new SpotCandidate(997, bestList3);
+  best3->printReport();
   fprintf(stderr, "leaving doWork within WSPRPass1\n");
+  delete(best1);
+  delete(best2);
+  delete(best3);
 }
 
 WSPRPass1::~WSPRPass1(void) {

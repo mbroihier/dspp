@@ -13,6 +13,9 @@
 #include "Regression.h"
 /* ---------------------------------------------------------------------- */
 class SpotCandidate {
+ public:
+  struct StartEnd { int start; int end; };
+  struct SampleRecord { float centroid; float magnitude; int timeStamp; float timeSeconds; };
  private:
   int ID;
   int count;
@@ -20,16 +23,23 @@ class SpotCandidate {
   bool valid;
   float slope;
   float yIntercept;
+  int longestSequence;
+  int currentSequence;
   Regression * fitInfo;
-  struct SampleRecord { float centroid; float magnitude; int timeStamp; float timeSeconds; };
   std::list<SampleRecord> candidateList;
+  std::list<StartEnd> sequenceDelimiters;
  public:
   bool logSample(float centroid, float magnitude, int timeStamp, float timeSeconds);
   std::list<float> getCentroidList(void);
   std::list<float> getMagnitudeList(void);
+  int getCount(void) { return count; }; 
+  const std::list<SampleRecord> getList(void);
+  const std::list<SampleRecord> getValidSublist(int listNumber);
   bool isValid(void);
   void printReport(void);
+  bool  mergeList(const std::list<SampleRecord> other);
   SpotCandidate(int ID);
+  SpotCandidate(int ID, const std::list<SampleRecord> input);
   ~SpotCandidate(void);
 };
 #endif  // SPOTCANDIDATE_H_

@@ -16,12 +16,8 @@
 /* ---------------------------------------------------------------------- */
 class WSPRPass1 {
  private:
+  const int NOMINAL_NUMBER_OF_SYMBOLS = 162;
   void init(int size, int number, char * prefix);
-  void adjustTargets(float centroid, int candidate);
-  int findClosestTarget (float centroid, int candidate);
-  void logCentroid(float centroid, int candidate);
-  void logBase(float baseValue, int candidate);
-  void reportHistory(int numberOfCandidates);
   void convertToSymbols(std::list<float> centroidList);
   void regressionFit(std::list<float> centroidList);
   int * binArray;
@@ -38,27 +34,6 @@ class WSPRPass1 {
   float freq;
   char * prefix;
 
-  const int FIRST = 0;
-  const int SECOND = 1;
-  const int THIRD = 2;
-  const int REF1 = 4;
-  const int REF2 = 5;
-
-  const float BW = 3.0;
-  const float BW_DELTA = BW / 3.0;
-  const float BW1 = BW / 6.0;
-  const float BW2 = BW1 + BW_DELTA;
-  const float BW3 = BW2 + BW_DELTA;
-
-  const float CF = BW / 2.0;
-  const float LOWER = CF - BW1;
-  const float HIGHER = CF + BW1;
-
-  const int TARGET0 = 0;
-  const int TARGET1 = 1;
-  const int TARGET2 = 2;
-  const int TARGET3 = 3;
-  
   std::map<int, std::map<int, float> *>  targets;
 
   struct SampleRecord { float centroid; float magnitude; int timeStamp; };
@@ -74,7 +49,7 @@ class WSPRPass1 {
   CandidateRecord * allCandidates;
   bool * alreadyUpdated;
  public:
-  void doWork();
+  void doWork(void);
   WSPRPass1(int size, int number, char * prefix);
   ~WSPRPass1(void);
 };
