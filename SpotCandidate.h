@@ -38,6 +38,9 @@ class SpotCandidate {
   bool isValid(void);
   void printReport(void);
   bool  mergeList(const std::list<SampleRecord> other);
+  static const std::list<int> tokenize(const std::list<SampleRecord> validList);
+  float getSlope() { return slope; };
+  float getYIntercept() { return yIntercept; };
   SpotCandidate(int ID);
   SpotCandidate(int ID, const std::list<SampleRecord> input);
   ~SpotCandidate(void);

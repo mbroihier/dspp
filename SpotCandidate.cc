@@ -209,6 +209,35 @@ const std::list<SpotCandidate::SampleRecord> SpotCandidate::getValidSublist(int 
   return aSublist;
 }
 /* ---------------------------------------------------------------------- */
+const std::list<int> SpotCandidate::tokenize(const std::list<SampleRecord> validList) {
+  SpotCandidate candidate(1000, validList);
+  std::list<float> centroidList = candidate.getCentroidList();
+  float slope = candidate.getSlope();
+  float yIntercept = candidate.getYIntercept();
+  std::list<int> tokens;
+  float x = 0.0;
+  float minExpected = 0.0;
+  float maxExpected = 0.0;
+  if (slope < 0.0) {  // The maximum value of the signal should occur near zero, the minimum value near count
+    minExpected = yIntercept + slope * validList.size() - 1.5;
+    maxExpected = yIntercept + 1.5;
+  } else {
+    minExpected = yIntercept - 1.5;
+    maxExpected = yIntercept + slope * validList.size() + 1.5;
+  }
+  fprintf(stderr, "expected bounds are: %7.2f and %7.2f\n", minExpected, maxExpected);
+  for (std::list<float>::iterator iter = centroidList.begin(); iter != centroidList.end(); iter++) {
+    float expectedY = yIntercept + slope * x;
+    float base = expectedY - 1.5;
+    int token = std::min(std::max((int)(*iter - base + 0.5),0),3);
+    tokens.push_back(token);
+    fprintf(stderr, "sample %3d - expected: %7.2f, actual: %7.2f, error: %7.2f, token: %d\n",
+            (int) x, expectedY, *iter, expectedY - *iter, token);
+    x += 1.0;
+  }
+  return tokens;
+}
+/* ---------------------------------------------------------------------- */
 std::list<float> SpotCandidate::getCentroidList(void) {
   std::list<float> centroids;
   for (std::list<SampleRecord>::iterator iter = candidateList.begin(); iter != candidateList.end(); iter++) {

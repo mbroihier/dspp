@@ -375,6 +375,7 @@ void WSPRPass1::doWork() {
       alreadyUpdated[canID] = false;
     }
     tic++;
+    if (wallClock > 240.0) done = true;
   }
   for (std::map<int, SpotCandidate *>::iterator iter = candidatesPass1.begin(); iter != candidatesPass1.end(); iter++) {
     (*iter).second->printReport();
@@ -440,6 +441,8 @@ void WSPRPass1::doWork() {
   const std::list<SpotCandidate::SampleRecord> bestList3 = candidatesPass1[freqBin]->getValidSublist(3);
   SpotCandidate * best3 = new SpotCandidate(997, bestList3);
   best3->printReport();
+  best1->tokenize(bestList1);
+  best2->tokenize(bestList2);
   fprintf(stderr, "leaving doWork within WSPRPass1\n");
   delete(best1);
   delete(best2);
