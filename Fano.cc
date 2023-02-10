@@ -1,7 +1,7 @@
 /*
  This file is part of dspp.  It was taken from rtlsdr_wsprd
 
- File name: fano.cc
+ File name: Fano.cc
 
  Description: Soft decision Fano sequential decoder for K=32 r=1/2
  convolutional code.
@@ -13,7 +13,7 @@
 
 #define	LL 1	                // Select Layland-Lushbaugh code
 
-#include "fano.h"
+#include "Fano.h"
 
 struct node {
     unsigned long encstate;	// Encoder state of next node

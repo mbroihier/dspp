@@ -17,7 +17,7 @@
 #include <string.h>
 #include "WSPRPass1.h"
 #include "SpotCandidate.h"
-#include "fano.h"
+#include "Fano.h"
 
 /* ---------------------------------------------------------------------- */
 void WSPRPass1::init(int size, int number, char * prefix) {
