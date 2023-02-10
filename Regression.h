@@ -9,17 +9,21 @@
  */
 
 /* ---------------------------------------------------------------------- */
-#include <list>
+#include <vector>
 /* ---------------------------------------------------------------------- */
 class Regression {
  private:
-  std::list<float> listCopy;
+  std::vector<float> listCopy;
   float slope;
   float yIntercept;
+  float minCentroid;
+  float maxCentroid;
  public:
   float getSlope(void){ return slope; };
   float getYIntercept(void){ return yIntercept; };
-  Regression(std::list<float> input);
+  float getMinCentroid(void){ return minCentroid; };
+  float getMaxCentroid(void){ return maxCentroid; };
+  Regression(std::vector<float> input);
   ~Regression(void);
 };
 #endif  // REGRESSION_H_

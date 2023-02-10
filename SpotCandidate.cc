@@ -24,7 +24,7 @@ SpotCandidate::SpotCandidate(int ID) {
   yIntercept = 0.0;
 }
 /* ---------------------------------------------------------------------- */
-SpotCandidate::SpotCandidate(int ID, const std::list<SampleRecord> input) {
+SpotCandidate::SpotCandidate(int ID, const std::vector<SampleRecord> input) {
   this->ID = ID;
   count = 0;
   longestSequence = 0;
@@ -35,9 +35,8 @@ SpotCandidate::SpotCandidate(int ID, const std::list<SampleRecord> input) {
   slope = 0.0;
   yIntercept = 0.0;
   StartEnd se = { 0, 0 };
-  for (std::list<SampleRecord>::const_iterator iter = input.begin(); iter != input.end(); iter++) {
-    SampleRecord sr = *iter;
-    candidateList.push_back(sr);
+  for (auto sr : input) {
+    candidateVector.push_back(sr);
     if (lastTimeStamp < 0) {
       se.start = sr.timeStamp;
     } else {
@@ -51,9 +50,11 @@ SpotCandidate::SpotCandidate(int ID, const std::list<SampleRecord> input) {
   count = currentSequence;
   if (longestSequence > 161) {
     valid = true;
-    fitInfo = new Regression(getCentroidList());
+    fitInfo = new Regression(getCentroidVector());
     slope = fitInfo->getSlope();
     yIntercept = fitInfo->getYIntercept();
+    minCentroid = fitInfo->getMinCentroid();
+    maxCentroid = fitInfo->getMaxCentroid();
   }
 }
 /* ---------------------------------------------------------------------- */
@@ -63,7 +64,7 @@ bool SpotCandidate::logSample(float centroid, float magnitude, int timeStamp, fl
   } else {
     if ((lastTimeStamp + 1) == timeStamp) {
       currentSequence++;
-      std::list<StartEnd>::iterator current = sequenceDelimiters.end();
+      std::vector<StartEnd>::iterator current = sequenceDelimiters.end();
       current--;
       StartEnd se = *current;
       se.end = timeStamp;
@@ -83,12 +84,12 @@ bool SpotCandidate::logSample(float centroid, float magnitude, int timeStamp, fl
     sr.magnitude = magnitude;
     sr.timeStamp = timeStamp;
     sr.timeSeconds = timeSeconds;
-    candidateList.push_back(sr);
+    candidateVector.push_back(sr);
     count++;
     lastTimeStamp = timeStamp;
     if (longestSequence > 161) {
       if (fitInfo) delete(fitInfo);
-      fitInfo = new Regression(getCentroidList());
+      fitInfo = new Regression(getCentroidVector());
       slope = fitInfo->getSlope();
       yIntercept = fitInfo->getYIntercept();
       valid = true;
@@ -97,10 +98,10 @@ bool SpotCandidate::logSample(float centroid, float magnitude, int timeStamp, fl
   return true;
 }
 /* ---------------------------------------------------------------------- */
-bool SpotCandidate::mergeList(const std::list<SampleRecord> other) {
-  std::list<SampleRecord> newList;
+bool SpotCandidate::mergeVector(const std::vector<SampleRecord> other) {
+  std::vector<SampleRecord> newVector;
   if (other.size() == 0) return false;
-  if (candidateList.size() == 0) return false;
+  if (candidateVector.size() == 0) return false;
   int workingTime = 0;
   int lastWorkingTime = -2;
   int longestSequence = 0;
@@ -108,41 +109,84 @@ bool SpotCandidate::mergeList(const std::list<SampleRecord> other) {
   int count = 0;
   bool done = false;
   int merged = 0;
-  std::list<SampleRecord>::iterator iter1 = candidateList.begin();
-  std::list<SampleRecord>::const_iterator iter2 = other.begin();
+  std::vector<SampleRecord>::iterator iter1 = candidateVector.begin();
+  std::vector<SampleRecord>::const_iterator iter2 = other.begin();
   sequenceDelimiters.clear();
+  if (iter1 == candidateVector.end()) {
+    fprintf(stderr, "Can't merge into empty vector\n");
+    return false;
+  }
+  if (iter2 == other.end()) {
+    fprintf(stderr, "Merging an empty vector does nothing\n");
+    return false;
+  }
+  SampleRecord one = *iter1;
+  SampleRecord two = *iter2;
+  bool finishUsingTargetVector = false;
+  bool finishUsingOtherVector = false;
   while (! done) {
-    SampleRecord one = *iter1;
-    SampleRecord two = *iter2;
-    workingTime = one.timeStamp;
-    if (workingTime > two.timeStamp) {
-      workingTime = two.timeStamp;
-    }
-    if (workingTime == one.timeStamp) {
-      newList.push_back(one);
-      count++;
-      iter1++;
-      if (workingTime >= two.timeStamp) {  // we skip this record of the other list
-        while (iter2 != other.end() && workingTime >= (*iter2).timeStamp) {
-          iter2++;
-        }
-      }
+    if (iter1 != candidateVector.end()) {  // don't go past last entry
+      one = *iter1;
     } else {
-      fprintf(stderr, "Stitching at working time %d, two.timeStamp %d\n", workingTime, two.timeStamp);
-      if (workingTime == two.timeStamp) {
-        newList.push_back(two);
+      finishUsingOtherVector = true;
+      fprintf(stderr, "The end of the target list has been reached\n");
+    }
+    if (iter2 != other.end()) {  // don't go past last entry
+      two = *iter2;
+    } else {
+      fprintf(stderr, "The end of the list being merged has been reached\n");
+      finishUsingTargetVector = true;
+    }
+    if (finishUsingTargetVector || finishUsingOtherVector) {
+      if (finishUsingTargetVector) {
+        workingTime = one.timeStamp;
+        newVector.push_back(one);
+        fprintf(stderr, "recorded an element from the target list and advancing\n");
+        count++;
+        iter1++;
+      } else {
+        workingTime = two.timeStamp;
+        newVector.push_back(two);
+        fprintf(stderr, "recorded an element from the list to merge in and advancing\n");
         merged++;
         count++;
         iter2++;
-        if (workingTime >= one.timeStamp) {  // we skip this record of candidate list
-          while (iter1 != candidateList.end() && workingTime >= (*iter1).timeStamp) {
-            iter1++;
+      }
+    } else {
+      workingTime = one.timeStamp;
+      if (workingTime > two.timeStamp) {
+        workingTime = two.timeStamp;
+      }
+      if (workingTime == one.timeStamp) {
+        newVector.push_back(one);
+        fprintf(stderr, "recorded an element from the target list and advancing\n");
+        count++;
+        if (iter1 != candidateVector.end()) iter1++;
+        if (workingTime >= two.timeStamp) {  // we skip this record of the other vector
+          while (iter2 != other.end() && workingTime >= (*iter2).timeStamp) {
+            fprintf(stderr, "Incrementing other pointer\n");
+            iter2++;
+          }
+        }
+      } else {
+        fprintf(stderr, "Stitching at working time %d, two.timeStamp %d\n", workingTime, two.timeStamp);
+        if (workingTime == two.timeStamp) {
+          newVector.push_back(two);
+          fprintf(stderr, "recorded an element from the list to merge in and advancing\n");
+          merged++;
+          count++;
+          if (iter2 != other.end()) iter2++;
+          if (workingTime >= one.timeStamp) {  // we skip this record of candidate vector
+            while (iter1 != candidateVector.end() && workingTime >= (*iter1).timeStamp) {
+              fprintf(stderr, "Incrementing target pointer\n");
+              iter1++;
+            }
           }
         }
       }
     }
     if ((sequenceDelimiters.size() > 0) && (workingTime == lastWorkingTime + 1)) {
-      std::list<StartEnd>::iterator current = sequenceDelimiters.end();
+      std::vector<StartEnd>::iterator current = sequenceDelimiters.end();
       current--;
       StartEnd se = *current;
       se.end = workingTime;
@@ -159,17 +203,17 @@ bool SpotCandidate::mergeList(const std::list<SampleRecord> other) {
       longestSequence = currentSequence;
     }
     lastWorkingTime = workingTime;
-    done = (iter1 == candidateList.end()) && (iter2 == other.end());
+    done = (iter1 == candidateVector.end()) && (iter2 == other.end());
   }
   this->longestSequence = longestSequence;
   this->count = count;
-  candidateList.clear();
-  for (std::list<SampleRecord>::iterator iter = newList.begin(); iter != newList.end(); iter++) {
-    candidateList.push_back(*iter);
+  candidateVector.clear();
+  for (auto entry : newVector) {
+    candidateVector.push_back(entry);
   }
   if (longestSequence > 161) {
     if (fitInfo) delete(fitInfo);
-    fitInfo = new Regression(getCentroidList());
+    fitInfo = new Regression(getCentroidVector());
     slope = fitInfo->getSlope();
     yIntercept = fitInfo->getYIntercept();
     valid = true;
@@ -180,76 +224,79 @@ bool SpotCandidate::mergeList(const std::list<SampleRecord> other) {
   return true;
 }
 /* ---------------------------------------------------------------------- */
-const std::list<SpotCandidate::SampleRecord> SpotCandidate::getList(void) {
-  return candidateList;
+const std::vector<SpotCandidate::SampleRecord> SpotCandidate::getVector(void) {
+  return candidateVector;
 }
 /* ---------------------------------------------------------------------- */
-const std::list<SpotCandidate::SampleRecord> SpotCandidate::getValidSublist(int listNumber) {
-  std::list<SampleRecord> aSublist;
+const std::vector<SpotCandidate::SampleRecord> SpotCandidate::getValidSubvector(int vectorNumber) {
   StartEnd se = { 0, 0 };
-  SampleRecord sr;
   int validCount = 0;
-  for (std::list<StartEnd>::iterator iter = sequenceDelimiters.begin(); iter != sequenceDelimiters.end(); iter++) {
+  aSubvector.clear();
+  for (std::vector<StartEnd>::iterator iter = sequenceDelimiters.begin(); iter != sequenceDelimiters.end(); iter++) {
     se = *iter;
     if (se.end - se.start + 1 > 161) { // valid
       validCount++;
-      if (validCount == listNumber) {  // get this list
+      if (validCount == vectorNumber) {  // get this list
         break;
       }
     }
     se = { 0, 0 };
   }
-  if (se.start == se.end) return aSublist;  // return an empty list if no list was found
-  for (std::list<SampleRecord>::iterator iter = candidateList.begin(); iter != candidateList.end(); iter++) {
-    sr = *iter;
-    if (sr.timeStamp >= se.start && sr.timeStamp <= se.end) {
-      aSublist.push_back(sr);
+  if (se.start == se.end) return aSubvector;  // return an empty list if no list was found
+  for (auto entry : candidateVector) {
+    if (entry.timeStamp >= se.start && entry.timeStamp <= se.end) {
+      aSubvector.push_back(entry);
     }
   }
-  return aSublist;
+  return aSubvector;
 }
 /* ---------------------------------------------------------------------- */
-const std::list<int> SpotCandidate::tokenize(const std::list<SampleRecord> validList) {
-  SpotCandidate candidate(1000, validList);
-  std::list<float> centroidList = candidate.getCentroidList();
+void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::vector<int> & tokens) {
+  tokens.clear();
+  SpotCandidate candidate(1000, validVector);
+  std::vector<float> centroidVector = candidate.getCentroidVector();
   float slope = candidate.getSlope();
   float yIntercept = candidate.getYIntercept();
-  std::list<int> tokens;
+  float minCentroid = candidate.getMinCentroid();
+  float maxCentroid = candidate.getMaxCentroid();
   float x = 0.0;
   float minExpected = 0.0;
   float maxExpected = 0.0;
   if (slope < 0.0) {  // The maximum value of the signal should occur near zero, the minimum value near count
-    minExpected = yIntercept + slope * validList.size() - 1.5;
+    minExpected = yIntercept + slope * validVector.size() - 1.5;
     maxExpected = yIntercept + 1.5;
   } else {
     minExpected = yIntercept - 1.5;
-    maxExpected = yIntercept + slope * validList.size() + 1.5;
+    maxExpected = yIntercept + slope * validVector.size() + 1.5;
   }
+  float scale = 256.0/(maxCentroid - minCentroid);
   fprintf(stderr, "expected bounds are: %7.2f and %7.2f\n", minExpected, maxExpected);
-  for (std::list<float>::iterator iter = centroidList.begin(); iter != centroidList.end(); iter++) {
+  for (auto entry : centroidVector) {
     float expectedY = yIntercept + slope * x;
     float base = expectedY - 1.5;
-    int token = std::min(std::max((int)(*iter - base + 0.5),0),3);
+    //int token = std::min(std::max((int)(entry - base + 0.5),0),3);
+    int token = std::min(std::max((int)((entry - minCentroid) * scale),0),255);
     tokens.push_back(token);
-    fprintf(stderr, "sample %3d - expected: %7.2f, actual: %7.2f, error: %7.2f, token: %d\n",
-            (int) x, expectedY, *iter, expectedY - *iter, token);
+    //fprintf(stderr, "sample %3d - expected: %7.2f, actual: %7.2f, error: %7.2f, token: %d\n",
+    //        (int) x, expectedY, entry, expectedY - entry, token);
+    fprintf(stderr, "sample %3d - minCentroid: %7.2f, maxCentroid: %7.2f, actual: %7.2f, error: %7.2f, token: %d\n",
+            (int) x, minCentroid, maxCentroid, entry, entry - minCentroid, token);
     x += 1.0;
   }
-  return tokens;
 }
 /* ---------------------------------------------------------------------- */
-std::list<float> SpotCandidate::getCentroidList(void) {
-  std::list<float> centroids;
-  for (std::list<SampleRecord>::iterator iter = candidateList.begin(); iter != candidateList.end(); iter++) {
-    centroids.push_back((*iter).centroid);
+std::vector<float> SpotCandidate::getCentroidVector(void) {
+  centroids.clear();
+  for (auto entry : candidateVector) {
+    centroids.push_back(entry.centroid);
   }
   return centroids;
 }
 /* ---------------------------------------------------------------------- */
-std::list<float> SpotCandidate::getMagnitudeList(void) {
-  std::list<float> magnitudes;
-  for (std::list<SampleRecord>::iterator iter = candidateList.begin(); iter != candidateList.end(); iter++) {
-    magnitudes.push_back((*iter).magnitude);
+std::vector<float> SpotCandidate::getMagnitudeVector(void) {
+  magnitudes.clear();
+  for (auto entry : candidateVector) {
+    magnitudes.push_back(entry.magnitude);
   }
   return magnitudes;
 }
@@ -258,19 +305,19 @@ void SpotCandidate::printReport(void) {
   fprintf(stderr, "Potential Candidate %d Report - samples: %5d, longest sequence: %5d, status: %s, slope: %7.4f, y-intercept: %7.2f\n",
           ID, count, longestSequence, valid?"  valid":"invalid", slope, yIntercept);
   int i = 0;
-  lastTimeStamp = 0;
-  for (std::list<SampleRecord>::iterator iter = candidateList.begin(); iter != candidateList.end(); iter++) {
+  lastTimeStamp = -1;
+  for (auto entry : candidateVector) {
     fprintf(stderr, "%3d: centroid: %7.2f, magnitude: %10.0f, time stamp: %5d, time in seconds: %7.2f %s\n",
-            i++, (*iter).centroid, (*iter).magnitude, (*iter).timeStamp, (*iter).timeSeconds,
-            (((*iter).timeStamp - lastTimeStamp) == 1)?"*":" ");
-    lastTimeStamp = (*iter).timeStamp;
+            i++, entry.centroid, entry.magnitude, entry.timeStamp, entry.timeSeconds,
+            ((entry.timeStamp - lastTimeStamp) == 1)?"*":" ");
+    lastTimeStamp = entry.timeStamp;
   }
-  for (std::list<StartEnd>::iterator iter = sequenceDelimiters.begin(); iter != sequenceDelimiters.end(); iter++) {
-    if ((*iter).start != (*iter).end) fprintf(stderr, "sequence start %d, sequence end %d\n", (*iter).start, (*iter).end);
+  for (auto entry : sequenceDelimiters) {
+    if (entry.start != entry.end) fprintf(stderr, "sequence start %d, sequence end %d\n", entry.start, entry.end);
   }
 }
 /* ---------------------------------------------------------------------- */
 SpotCandidate::~SpotCandidate(void) {
-  candidateList.clear();
+  candidateVector.clear();
   if (fitInfo) delete(fitInfo);
 }

@@ -25,14 +25,14 @@ LDFLAGS= $(PARAMS_LIBS)
 SOURCES= dspp.cc 
 OBJECTS=$(SOURCES:.cc=.o)
 
-FNLFSRC = FindNLargestF.cc FindNLargestF.h WSPRSymbols.cc WSPRSymbols.h WSPRPass1.cc WSPRPass1.h SpotCandidate.cc SpotCandidate.h
+FNLFSRC = Fano.cc Fano.h FindNLargestF.cc FindNLargestF.h WSPRSymbols.cc WSPRSymbols.h WSPRPass1.cc WSPRPass1.h SpotCandidate.cc SpotCandidate.h
 AGCSRC = AGC.cc AGC.h
 RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h RTLTCPServer.cc RTLTCPServer.h
 FIRFILTSRC = FIRFilter.cc FIRFilter.h SFIRFilter.cc SFIRFilter.h CFilter.cc CFilter.h Poly.cc Poly.h
 MODSRC = FMMod.cc FMMod.h
 FFTSRC = DsppFFT.cc DsppFFT.h
 BASICSRC = Regression.cc Regression.h
-FNLFOBJ = FindNLargestF.o WSPRSymbols.o WSPRPass1.o SpotCandidate.o
+FNLFOBJ = Fano.o FindNLargestF.o WSPRSymbols.o WSPRPass1.o SpotCandidate.o
 AGCOBJ = AGC.o
 RTLTCPOBJ = RTLTCPClient.o RTLTCPServer.o
 FIRFILTOBJ = FIRFilter.o SFIRFilter.o CFilter.o Poly.o
@@ -77,6 +77,8 @@ test:
 	$(CC) $(LDFLAGS) testIn14a.o -o testIn14a -lm
 	$(CC) $(CFLAGS) testIn15.cc -o testIn15.o
 	$(CC) $(LDFLAGS) testIn15.o -o testIn15 -lm
+	$(CC) $(CFLAGS) testIn16.cc -o testIn16.o
+	$(CC) $(LDFLAGS) testIn16.o Fano.o -o testIn16 -lm
 
 	$(CC) $(CFLAGS) testOut1.cc -o testOut1.o
 	$(CC) $(LDFLAGS) testOut1.o -o testOut1 -lm

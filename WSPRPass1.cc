@@ -17,6 +17,7 @@
 #include <string.h>
 #include "WSPRPass1.h"
 #include "SpotCandidate.h"
+#include "fano.h"
 
 /* ---------------------------------------------------------------------- */
 void WSPRPass1::init(int size, int number, char * prefix) {
@@ -414,11 +415,11 @@ void WSPRPass1::doWork() {
   }
   if (firstMergeBin >= 0) {
     fprintf(stderr, "Merging list %d with list %d\n", freqBin, firstMergeBin);
-    candidatesPass1[freqBin]->mergeList(candidatesPass1[firstMergeBin]->getList());
+    candidatesPass1[freqBin]->mergeVector(candidatesPass1[firstMergeBin]->getVector());
   }
   if (secondMergeBin >= 0) {
     fprintf(stderr, "Merging list %d with list %d\n", freqBin, secondMergeBin);
-    candidatesPass1[freqBin]->mergeList(candidatesPass1[secondMergeBin]->getList());
+    candidatesPass1[freqBin]->mergeVector(candidatesPass1[secondMergeBin]->getVector());
   }
   candidatesPass1[freqBin]->printReport();
   int nextBin = 0;
@@ -430,19 +431,88 @@ void WSPRPass1::doWork() {
     if (nextBin >= size) nextBin = 0;
   }
   fprintf(stderr, "Merging list %d with list %d\n", freqBin, nextBin);
-  candidatesPass1[freqBin]-> mergeList(candidatesPass1[nextBin]->getList());
+  candidatesPass1[freqBin]-> mergeVector(candidatesPass1[nextBin]->getVector());
   candidatesPass1[freqBin]->printReport();
-  const std::list<SpotCandidate::SampleRecord> bestList1 = candidatesPass1[freqBin]->getValidSublist(1);
-  SpotCandidate * best1 = new SpotCandidate(999, bestList1);
+  const std::vector<SpotCandidate::SampleRecord> bestVector1 = candidatesPass1[freqBin]->getValidSubvector(1);
+  SpotCandidate * best1 = new SpotCandidate(999, bestVector1);
   best1->printReport();
-  const std::list<SpotCandidate::SampleRecord> bestList2 = candidatesPass1[freqBin]->getValidSublist(2);
-  SpotCandidate * best2 = new SpotCandidate(998, bestList2);
+  const std::vector<SpotCandidate::SampleRecord> bestVector2 = candidatesPass1[freqBin]->getValidSubvector(2);
+  SpotCandidate * best2 = new SpotCandidate(998, bestVector2);
   best2->printReport();
-  const std::list<SpotCandidate::SampleRecord> bestList3 = candidatesPass1[freqBin]->getValidSublist(3);
-  SpotCandidate * best3 = new SpotCandidate(997, bestList3);
+  const std::vector<SpotCandidate::SampleRecord> bestVector3 = candidatesPass1[freqBin]->getValidSubvector(3);
+  SpotCandidate * best3 = new SpotCandidate(997, bestVector3);
   best3->printReport();
-  best1->tokenize(bestList1);
-  best2->tokenize(bestList2);
+  std::vector<int> tokenVector;
+  best1->tokenize(bestVector1, tokenVector);
+  int index = 0;
+  for (auto entry : tokenVector) {
+    fprintf(stderr, "tokenVect %d: %d\n", index++, entry);
+  }
+  Fano fanoObject;
+  unsigned char symbols[162];
+  unsigned int metric;
+  unsigned int cycles;
+  unsigned int maxnp;
+  unsigned char data[12];
+  unsigned int nbits = 81;
+  int delta = 60;
+  unsigned int maxcycles = 10000;
+  fprintf(stderr, "Producing symbols from token vector\n");
+  for (int i = 0; i < 162; i++) {
+    fprintf(stderr, "working on index %d\n", i);
+    //symbols[i] = tokenVector[i] << 6;
+    symbols[i] = tokenVector[i];
+  }
+  fprintf(stderr, "Deinterleave symbols\n");
+  fanoObject.deinterleave(symbols);
+  fprintf(stderr, "Performing Fano\n");
+  if (fanoObject.fano(&metric, &cycles, &maxnp, data, symbols, nbits, delta, maxcycles)) {
+    fprintf(stderr, "Did not decode, metric: %8.8x, cycles: %d, maxnp: %d\n", metric, cycles, maxnp);
+  } else {
+    fprintf(stderr, "Fano successful\n");
+  }
+  int8_t message[12];
+  char call_loc_pow[23] = {0};
+  char call[13] = {0};
+  char callsign[13] = {0};
+  char loc[7] = {0};
+  char pwr[3] = {0};
+  char hashtab[32768*13] = {0};
+  for (int i = 0; i < 12; i++) {
+    if (data[i] > 127) {
+      message[i] = data[i] - 256;
+    } else {
+      message[i] = data[i];
+    }
+  }
+  fprintf(stderr, "unpacking data\n");
+  fanoObject.unpk(message, hashtab, call_loc_pow, call, loc, pwr, callsign);
+  fprintf(stderr, "%s %s %s %s %s\n", call_loc_pow, call, loc, pwr, callsign);
+  best2->tokenize(bestVector2, tokenVector);
+  fprintf(stderr, "Producing symbols from token vector\n");
+  for (int i = 0; i < 162; i++) {
+    fprintf(stderr, "working on index %d\n", i);
+    //symbols[i] = tokenVector[i] << 6;
+    symbols[i] = tokenVector[i];
+  }
+  fprintf(stderr, "Deinterleave symbols\n");
+  fanoObject.deinterleave(symbols);
+  fprintf(stderr, "Performing Fano\n");
+  if (fanoObject.fano(&metric, &cycles, &maxnp, data, symbols, nbits, delta, maxcycles)) {
+    fprintf(stderr, "Did not decode, metric: %8.8x, cycles: %d, maxnp: %d\n", metric, cycles, maxnp);
+  } else {
+    fprintf(stderr, "Fano successful\n");
+  }
+  for (int i = 0; i < 12; i++) {
+    if (data[i] > 127) {
+      message[i] = data[i] - 256;
+    } else {
+      message[i] = data[i];
+    }
+  }
+  fprintf(stderr, "unpacking data\n");
+  fanoObject.unpk(message, hashtab, call_loc_pow, call, loc, pwr, callsign);
+  fprintf(stderr, "%s %s %s %s %s\n", call_loc_pow, call, loc, pwr, callsign);
   fprintf(stderr, "leaving doWork within WSPRPass1\n");
   delete(best1);
   delete(best2);
