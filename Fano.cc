@@ -662,9 +662,9 @@ int Fano::fano( unsigned int  *metric,	// Final path metric (returned value)
         np->metrics[1] = mettab[0][symbols[0]] + mettab[1][symbols[1]];
         np->metrics[2] = mettab[1][symbols[0]] + mettab[0][symbols[1]];
         np->metrics[3] = mettab[1][symbols[0]] + mettab[1][symbols[1]];
-        fprintf(stderr, "metric 0: %d, 1: %d, 2: %d, 3: %d, symbol 1: %d, symbol 2: %d\n",
-                np->metrics[0], np->metrics[1], np->metrics[2], np->metrics[3],
-                symbols[0], symbols[1]);
+        //fprintf(stderr, "metric 0: %d, 1: %d, 2: %d, 3: %d, symbol 1: %d, symbol 2: %d\n",
+        //        np->metrics[0], np->metrics[1], np->metrics[2], np->metrics[3],
+        //        symbols[0], symbols[1]);
         symbols += 2;
     }
     np = nodes;
@@ -774,17 +774,17 @@ int Fano::fano( unsigned int  *metric,	// Final path metric (returned value)
     nbits >>= 3;
     np = &nodes[7];
 
-    fprintf(stderr, "copying into data nbits: %d\n", nbits);
+    //fprintf(stderr, "copying into data nbits: %d\n", nbits);
     while(nbits-- != 0) {
         *data++ = np->encstate;
-        fprintf(stderr, "  %2.2x\n", np->encstate);
+        //fprintf(stderr, "  %2.2x\n", np->encstate);
         np += 8;
     }
     *cycles = i+1;
 
     free(nodes);
     if(i >= maxcycles) {
-      fprintf(stderr, "i is %d, maxcycles is %d\n", i, maxcycles);
+      //fprintf(stderr, "i is %d, maxcycles is %d\n", i, maxcycles);
       return -1;	 // Decoder timed out
     }
 
@@ -797,7 +797,7 @@ Fano::Fano(void) {
   for(int i=0; i<256; i++) {
     mettab[0][i]=round( 10*(metric_tables[2][i]-bias) );
     mettab[1][i]=round( 10*(metric_tables[2][255-i]-bias) );
-    fprintf(stderr, " %5d, %5d\n", mettab[0][i], mettab[1][i]);
+    //fprintf(stderr, " %5d, %5d\n", mettab[0][i], mettab[1][i]);
   }
 }
 Fano::~Fano(void) {

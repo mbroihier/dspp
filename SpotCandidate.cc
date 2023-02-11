@@ -256,32 +256,31 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
   SpotCandidate candidate(1000, validVector);
   std::vector<float> centroidVector = candidate.getCentroidVector();
   float slope = candidate.getSlope();
-  float yIntercept = candidate.getYIntercept();
+  //float yIntercept = candidate.getYIntercept();
   float minCentroid = candidate.getMinCentroid();
   float maxCentroid = candidate.getMaxCentroid();
   float x = 0.0;
-  float minExpected = 0.0;
-  float maxExpected = 0.0;
+  float scale = 255.0/(maxCentroid - minCentroid);
+  fprintf(stderr, "bounds observed were: %7.2f and %7.2f\n", minCentroid, maxCentroid);
+  float base = 0.0;
   if (slope < 0.0) {  // The maximum value of the signal should occur near zero, the minimum value near count
-    minExpected = yIntercept + slope * validVector.size() - 1.5;
-    maxExpected = yIntercept + 1.5;
+    base = minCentroid - slope * (validVector.size() - 1);
   } else {
-    minExpected = yIntercept - 1.5;
-    maxExpected = yIntercept + slope * validVector.size() + 1.5;
+    base = minCentroid;
   }
-  float scale = 256.0/(maxCentroid - minCentroid);
-  fprintf(stderr, "expected bounds are: %7.2f and %7.2f\n", minExpected, maxExpected);
   for (auto entry : centroidVector) {
-    float expectedY = yIntercept + slope * x;
-    float base = expectedY - 1.5;
+    //float expectedY = yIntercept + slope * x;
+    //float base = expectedY - 1.5;
     //int token = std::min(std::max((int)(entry - base + 0.5),0),3);
-    int token = std::min(std::max((int)((entry - minCentroid) * scale),0),255);
+    //float base = minCentroid + x * slope;
+    int token = std::min(std::max((int)((entry - base) * scale),0),255);
     tokens.push_back(token);
     //fprintf(stderr, "sample %3d - expected: %7.2f, actual: %7.2f, error: %7.2f, token: %d\n",
     //        (int) x, expectedY, entry, expectedY - entry, token);
-    fprintf(stderr, "sample %3d - minCentroid: %7.2f, maxCentroid: %7.2f, actual: %7.2f, error: %7.2f, token: %d\n",
-            (int) x, minCentroid, maxCentroid, entry, entry - minCentroid, token);
+    fprintf(stderr, "sample %3d - minCentroid: %7.2f, base: %7.2f, actual: %7.2f, error: %7.2f, token: %d\n",
+            (int) x, minCentroid, base, entry, entry - base, token);
     x += 1.0;
+    base += slope;
   }
 }
 /* ---------------------------------------------------------------------- */

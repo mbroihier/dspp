@@ -18,8 +18,6 @@ class WSPRPass1 {
  private:
   const int NOMINAL_NUMBER_OF_SYMBOLS = 162;
   void init(int size, int number, char * prefix);
-  void convertToSymbols(std::list<float> centroidList);
-  void regressionFit(std::list<float> centroidList);
   int * binArray;
   bool * used;
   float * samples;
@@ -40,12 +38,11 @@ class WSPRPass1 {
   struct Range { float lowerBound; float upperBound; };
   struct BaseRecord { float base; int timeStamp; };
   std::map<int, float> candidates;    // list of cadidates mapped to their centroid location
-  std::map<int, bool> floatingCandidateUpdated; 
   
   std::map<int, std::list<SampleRecord> *> centroidHistory;
   std::map<int, std::list<BaseRecord> *> baseHistory;
   struct CandidateRecord { float centroid; int timeStamp; Range range; std::list<SampleRecord> * history;
-    int floatingCandidateID; bool groupIndexUsed;};
+    bool groupIndexUsed;};
   CandidateRecord * allCandidates;
   bool * alreadyUpdated;
  public:

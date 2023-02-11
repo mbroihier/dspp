@@ -44,7 +44,6 @@ void WSPRPass1::init(int size, int number, char * prefix) {
     allCandidates[i].range.lowerBound = i * 4 - 0.5;
     allCandidates[i].range.upperBound = i * 4 + 3.5;
     allCandidates[i].centroid = (allCandidates[i].range.upperBound + allCandidates[i].range.lowerBound) / 2.0;
-    allCandidates[i].floatingCandidateID = -1;
     allCandidates[i].history = new std::list<SampleRecord>;
   }
   alreadyUpdated = reinterpret_cast<bool *>(malloc((size/4) * sizeof(bool)));
@@ -56,160 +55,6 @@ WSPRPass1::WSPRPass1(int size, int number, char * prefix) {
   fprintf(stderr, "done creating WSPRPass1 object\n");
 }
 
-void WSPRPass1::regressionFit(std::list<float> centroidList) {
-  float sumX = 0.0;
-  float sumY = 0.0;
-  float sumXY = 0.0;
-  float sumX2 = 0.0;
-  int count = 0;
-  // produce regression terms
-  for (std::list<float>::iterator iter = centroidList.begin(); iter != centroidList.end(); iter++) {
-    sumY += *iter;
-    sumX += count;
-    sumXY += *iter * count;
-    sumX2 += count * count;
-    count++;
-  }
-  slope = (count * sumXY - sumX * sumY) / (count * sumX2 - sumX * sumX);
-  yIntercept = sumY / count - slope * sumX / count;
-  fprintf(stderr, "linear fit of centroid data - slope: %7.2f, y-intercept: %7.2f\n", slope, yIntercept);
-}
-
-void WSPRPass1::convertToSymbols(std::list<float> centroidList) {
-  const unsigned char sync[162] = {
-     1,1,0,0,0,0,0,0,1,0,0,0,1,1,1,0,0,0,1,0,0,1,0,1,1,1,1,0,0,0,0,0,
-     0,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,1,1,0,0,1,1,0,1,0,0,0,1,1,0,1,0,
-     0,0,0,1,1,0,1,0,1,0,1,0,1,0,0,1,0,0,1,0,1,1,0,0,0,1,1,0,1,0,1,0,
-     0,0,1,0,0,0,0,0,1,0,0,1,0,0,1,1,1,0,1,1,0,0,1,1,0,1,0,0,0,1,1,1,
-     0,0,0,0,0,1,0,1,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,0,1,1,0,0,0,1,1,0,
-     0,0 };
-  const unsigned char token[4][24] = {
-     0,0,0,0,0,0,1,1,1,1,1,1,2,2,2,2,2,2,3,3,3,3,3,3,
-     1,2,3,1,2,3,0,0,2,2,3,3,0,0,1,1,3,3,0,0,1,1,2,2,
-     2,3,1,3,1,2,2,3,0,3,0,2,1,3,0,3,0,1,1,2,0,2,0,1,
-     3,1,2,2,3,1,3,2,3,0,2,0,3,1,3,0,1,0,2,1,2,0,1,0 };
-  for (int j = 0; j < 24; j++) {
-    for (int i = 0; i < 4; i++) {
-      fprintf(stderr, " %d ", token[i][j]);
-    }
-    fprintf(stderr, "\n");
-  }
-  bool first = true;
-  float minValue = 0.0;
-  float maxValue = 0.0;
-  float drift = 0.0;
-  float average = 0.0;
-  float accumulator = 0.0;
-  float sumSquares = 0.0;
-  int count = 0;
-  for (std::list<float>::iterator iter = centroidList.begin(); iter != centroidList.end(); iter++) {
-    accumulator += *iter;
-    sumSquares += *iter * *iter;
-    count++;
-    if (first) {
-      minValue = *iter;
-      maxValue = *iter;
-      first = false;
-    } else {    
-      if (*iter < minValue) {
-        minValue = *iter;
-      } else if (*iter > maxValue) {
-        maxValue = *iter;
-      }
-    }
-  }
-  average = accumulator / count;
-  float std = sqrt((sumSquares - (accumulator * accumulator) / count)/ (count - 1));
-  drift = maxValue - minValue - 3.0;
-  fprintf(stderr, "maximum centroid observed was: %7.2f, minimum centroid observed was: %7.2f, drift is: %7.2f, "
-          "average is: %7.2f, std is: %7.2f\n", maxValue, minValue, drift, average, std);
-  std::list<int> bestGuessSymbols;
-  int bestGuessTokenColumn = 0;
-  int bestMatchCount = 0;
-  int bestShiftValue = 0;
-  if (drift >= 3.0) {
-    fprintf(stderr, "attempting to tokenize centroid list\n");
-    regressionFit(centroidList);
-    float x = 0.0;
-    float minExpected = 0.0;
-    float maxExpected = 0.0;
-    if (slope < 0.0) {  // The maximum value of the signal should occur near zero, the minimum value near count
-      minExpected = yIntercept + slope * count - 1.5;
-      maxExpected = yIntercept + 1.5;
-    } else {
-      minExpected = yIntercept - 1.5;
-      maxExpected = yIntercept + slope * count + 1.5;
-    }
-    std::list<int> tokenList;
-    fprintf(stderr, "expected bounds are: %7.2f and %7.2f\n", minExpected, maxExpected);
-    for (std::list<float>::iterator iter = centroidList.begin(); iter != centroidList.end(); iter++) {
-      float expectedY = yIntercept + slope * x;
-      float base = expectedY - 1.5;
-      int token = std::min(std::max((int)(*iter - base + 0.5),0),3);
-      tokenList.push_back(token);
-      fprintf(stderr, "sample %3d - expected: %7.2f, actual: %7.2f, error: %7.2f, token: %d\n",
-              (int) x, expectedY, *iter, expectedY - *iter, token);
-      x += 1.0;
-    }
-    /*
-    const unsigned char testTokens [172] = {0,0,0,0,0,
-                                            1,1,0,0,0,0,0,0,1,0,0,0,1,1,1,0,0,0,1,0,0,1,0,1,1,1,1,0,0,0,0,0,
-                                            0,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,1,1,0,0,1,1,0,1,0,0,0,1,1,0,1,0,
-                                            0,0,0,1,1,0,1,0,1,0,1,0,1,0,0,1,0,0,1,0,1,1,0,0,0,1,1,0,1,0,1,0,
-                                            0,0,1,0,0,0,0,0,1,0,0,1,0,0,1,1,1,0,1,1,0,0,1,1,0,1,0,0,0,1,1,1,
-                                            0,0,0,0,0,1,0,1,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,0,1,1,0,0,0,1,1,0,
-                                            0,0,
-                                            0,0,0,0,0};
-    tokenList.clear();
-    for (unsigned int i = 0; i < sizeof(testTokens); i++) {
-      tokenList.push_back(testTokens[i]);
-    }
-    */
-    for (int col = 0; col < 24; col++) {  //translate the tokens to symbols and evaluate
-      int matchCount = 0;
-      std::list<int> testSymbols;
-      int listCount = 0;
-      for (std::list<int>::iterator iter = tokenList.begin(); iter != tokenList.end(); iter++) {
-        testSymbols.push_back(token[*iter][col]);
-        listCount++;
-      }
-      int shiftRange = listCount - 162;  // this is the number of shifts that can be made in the token list
-      for (int i = 0; i < shiftRange; i++) {
-        int currentShift = 0;
-        matchCount = 0;
-        int syncIndex = 0;
-        for (std::list<int>::iterator iter = testSymbols.begin();
-             (iter != testSymbols.end()) && (syncIndex < 162); iter++) {
-          if (currentShift++ < i) continue;  // go to next list value
-          matchCount += ((*iter & 0x01) == sync[syncIndex++]) ? 1:0;
-        }
-        fprintf(stderr, "Match count for token column %d shift %d was %d\n", col, i, matchCount);
-        if (matchCount >= bestMatchCount) {  // this is the best match we've seen so far, record it
-          bestShiftValue = i;
-          bestGuessTokenColumn = col;
-          bestGuessSymbols.clear();
-          currentShift = 0;
-          fprintf(stderr, "-------------\n");
-          for (std::list<int>::iterator iter = testSymbols.begin(); iter != testSymbols.end(); iter++) {
-            if (currentShift++ < i) continue;  // go to next list value
-            bestGuessSymbols.push_back(*iter);
-            fprintf(stderr, "%d\n", *iter);
-          }
-          bestMatchCount = matchCount;
-        }
-      }
-    }
-    fprintf(stderr, "Best match with sycn was with token column %d, shifted by %d, count of %d\n",
-            bestGuessTokenColumn, bestShiftValue, bestMatchCount);
-    fprintf(stderr, "Final symbol list:\n");
-    for (std::list<int>::iterator iter = bestGuessSymbols.begin(); iter != bestGuessSymbols.end(); iter++) {
-      fprintf(stderr, "%d\n", *iter);
-    }
-          
-  } else {
-    fprintf(stderr, "there is not enough frequency range to tokenize this list\n");
-  }
-}
 void WSPRPass1::doWork() {
   std::map<int, float> groupCentroids;  // mapped by group ID
   std::map<int, SpotCandidate *> candidatesPass1;
@@ -433,21 +278,8 @@ void WSPRPass1::doWork() {
   fprintf(stderr, "Merging list %d with list %d\n", freqBin, nextBin);
   candidatesPass1[freqBin]-> mergeVector(candidatesPass1[nextBin]->getVector());
   candidatesPass1[freqBin]->printReport();
-  const std::vector<SpotCandidate::SampleRecord> bestVector1 = candidatesPass1[freqBin]->getValidSubvector(1);
-  SpotCandidate * best1 = new SpotCandidate(999, bestVector1);
-  best1->printReport();
-  const std::vector<SpotCandidate::SampleRecord> bestVector2 = candidatesPass1[freqBin]->getValidSubvector(2);
-  SpotCandidate * best2 = new SpotCandidate(998, bestVector2);
-  best2->printReport();
-  const std::vector<SpotCandidate::SampleRecord> bestVector3 = candidatesPass1[freqBin]->getValidSubvector(3);
-  SpotCandidate * best3 = new SpotCandidate(997, bestVector3);
-  best3->printReport();
-  std::vector<int> tokenVector;
-  best1->tokenize(bestVector1, tokenVector);
-  int index = 0;
-  for (auto entry : tokenVector) {
-    fprintf(stderr, "tokenVect %d: %d\n", index++, entry);
-  }
+  // convert potential candidate information in symbols and attempt to decode with Fano
+  int vectorIndex = 1;
   Fano fanoObject;
   unsigned char symbols[162];
   unsigned int metric;
@@ -457,66 +289,55 @@ void WSPRPass1::doWork() {
   unsigned int nbits = 81;
   int delta = 60;
   unsigned int maxcycles = 10000;
-  fprintf(stderr, "Producing symbols from token vector\n");
-  for (int i = 0; i < 162; i++) {
-    fprintf(stderr, "working on index %d\n", i);
-    //symbols[i] = tokenVector[i] << 6;
-    symbols[i] = tokenVector[i];
-  }
-  fprintf(stderr, "Deinterleave symbols\n");
-  fanoObject.deinterleave(symbols);
-  fprintf(stderr, "Performing Fano\n");
-  if (fanoObject.fano(&metric, &cycles, &maxnp, data, symbols, nbits, delta, maxcycles)) {
-    fprintf(stderr, "Did not decode, metric: %8.8x, cycles: %d, maxnp: %d\n", metric, cycles, maxnp);
-  } else {
-    fprintf(stderr, "Fano successful\n");
-  }
-  int8_t message[12];
-  char call_loc_pow[23] = {0};
-  char call[13] = {0};
-  char callsign[13] = {0};
-  char loc[7] = {0};
-  char pwr[3] = {0};
-  char hashtab[32768*13] = {0};
-  for (int i = 0; i < 12; i++) {
-    if (data[i] > 127) {
-      message[i] = data[i] - 256;
+  done = false;
+  while (!done) {
+    fprintf(stderr, "Working on candidate vector %d\n", vectorIndex);
+    const std::vector<SpotCandidate::SampleRecord> canVector =
+      candidatesPass1[freqBin]->getValidSubvector(vectorIndex++);
+    if (canVector.size() > 0) {
+      std::vector<int> tokenVector;
+      candidatesPass1[freqBin]->tokenize(canVector, tokenVector);
+      for (size_t offset = 0; offset <= canVector.size() - NOMINAL_NUMBER_OF_SYMBOLS; offset++) {
+        fprintf(stderr, "Offset %d\n", offset);
+        fprintf(stderr, "Producing symbols from token vector\n");
+        for (int i = 0; i < 162; i++) {
+          symbols[i] = tokenVector[i+offset];
+        }
+        fprintf(stderr, "Deinterleave symbols\n");
+        fanoObject.deinterleave(symbols);
+        fprintf(stderr, "Performing Fano\n");
+        if (fanoObject.fano(&metric, &cycles, &maxnp, data, symbols, nbits, delta, maxcycles)) {
+          fprintf(stderr, "Did not decode, metric: %8.8x, cycles: %d, maxnp: %d\n", metric, cycles, maxnp);
+        } else {
+          fprintf(stderr, "Fano successful\n");
+          int8_t message[12];
+          char call_loc_pow[23] = {0};
+          char call[13] = {0};
+          char callsign[13] = {0};
+          char loc[7] = {0};
+          char pwr[3] = {0};
+          char hashtab[32768*13] = {0};
+          for (int i = 0; i < 12; i++) {
+            if (data[i] > 127) {
+              message[i] = data[i] - 256;
+            } else {
+              message[i] = data[i];
+            }
+          }
+          fprintf(stderr, "unpacking data\n");
+          fanoObject.unpk(message, hashtab, call_loc_pow, call, loc, pwr, callsign);
+          fprintf(stderr, "%s %s %s %s %s\n", call_loc_pow, call, loc, pwr, callsign);
+        }
+      }
     } else {
-      message[i] = data[i];
+      done = true;
     }
   }
-  fprintf(stderr, "unpacking data\n");
-  fanoObject.unpk(message, hashtab, call_loc_pow, call, loc, pwr, callsign);
-  fprintf(stderr, "%s %s %s %s %s\n", call_loc_pow, call, loc, pwr, callsign);
-  best2->tokenize(bestVector2, tokenVector);
-  fprintf(stderr, "Producing symbols from token vector\n");
-  for (int i = 0; i < 162; i++) {
-    fprintf(stderr, "working on index %d\n", i);
-    //symbols[i] = tokenVector[i] << 6;
-    symbols[i] = tokenVector[i];
+  for (std::map<int, SpotCandidate *>::iterator iter = candidatesPass1.begin(); iter != candidatesPass1.end(); iter++) {
+    delete((*iter).second);
   }
-  fprintf(stderr, "Deinterleave symbols\n");
-  fanoObject.deinterleave(symbols);
-  fprintf(stderr, "Performing Fano\n");
-  if (fanoObject.fano(&metric, &cycles, &maxnp, data, symbols, nbits, delta, maxcycles)) {
-    fprintf(stderr, "Did not decode, metric: %8.8x, cycles: %d, maxnp: %d\n", metric, cycles, maxnp);
-  } else {
-    fprintf(stderr, "Fano successful\n");
-  }
-  for (int i = 0; i < 12; i++) {
-    if (data[i] > 127) {
-      message[i] = data[i] - 256;
-    } else {
-      message[i] = data[i];
-    }
-  }
-  fprintf(stderr, "unpacking data\n");
-  fanoObject.unpk(message, hashtab, call_loc_pow, call, loc, pwr, callsign);
-  fprintf(stderr, "%s %s %s %s %s\n", call_loc_pow, call, loc, pwr, callsign);
+  candidatesPass1.clear();
   fprintf(stderr, "leaving doWork within WSPRPass1\n");
-  delete(best1);
-  delete(best2);
-  delete(best3);
 }
 
 WSPRPass1::~WSPRPass1(void) {
@@ -526,7 +347,13 @@ WSPRPass1::~WSPRPass1(void) {
   if (mag) free(mag);
   if (binArray) free(binArray);
   if (samples) free(samples);
-  if (allCandidates) free(allCandidates);
+  if (allCandidates) {
+    for (int i = 0; i < size/4; i++) {
+      allCandidates[i].history->clear();
+      delete(allCandidates[i].history);
+    }
+    free(allCandidates);
+  }
   if (alreadyUpdated) free(alreadyUpdated);
 }
 
