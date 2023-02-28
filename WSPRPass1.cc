@@ -18,6 +18,7 @@
 #include "WSPRPass1.h"
 #include "SpotCandidate.h"
 #include "Fano.h"
+#define SELFTEST 1
 
 /* ---------------------------------------------------------------------- */
 void WSPRPass1::init(int size, int number, char * prefix) {
@@ -25,29 +26,18 @@ void WSPRPass1::init(int size, int number, char * prefix) {
   this->number = number;
   this->prefix = prefix;
   freq = 375.0;
+  deltaFreq = freq / size;
   fprintf(stderr, "allocating binArray memory\n");
   binArray = reinterpret_cast<int *>(malloc(number * sizeof(int)));
-  used = reinterpret_cast<bool *>(malloc(number * sizeof(bool)));
   fprintf(stderr, "allocating samples memory\n");
-  samples = reinterpret_cast<float *>(malloc(size * sizeof(float) * 2));
+  fftOverTime = reinterpret_cast<float *> (malloc(size * sizeof(float) * 2 * PROCESSING_SIZE));
   fprintf(stderr, "allocating mag memory\n");
   mag = reinterpret_cast<float *>(malloc(size * sizeof(float)));
-  sampleBufferSize = size * 2;
-  histogram = reinterpret_cast<int *>(malloc(size * sizeof(int)));
+  magAcc = reinterpret_cast<float *>(malloc(size * sizeof(float)));
+    sampleBufferSize = size * 2;
   tic = 0;
-  for (int i = 0; i < size; i++) {
-    histogram[i] = 0;
+  memset(magAcc, 0, size * sizeof(float));
   }
-  allCandidates = reinterpret_cast<CandidateRecord *>(malloc((size/4) * sizeof(CandidateRecord)));
-  for (int i = 0; i < size/4; i++) {
-    allCandidates[i].timeStamp = -1;
-    allCandidates[i].range.lowerBound = i * 4 - 0.5;
-    allCandidates[i].range.upperBound = i * 4 + 3.5;
-    allCandidates[i].centroid = (allCandidates[i].range.upperBound + allCandidates[i].range.lowerBound) / 2.0;
-    allCandidates[i].history = new std::list<SampleRecord>;
-  }
-  alreadyUpdated = reinterpret_cast<bool *>(malloc((size/4) * sizeof(bool)));
-}
 
 WSPRPass1::WSPRPass1(int size, int number, char * prefix) {
   fprintf(stderr, "creating WSPRPass1 object\n");
@@ -56,304 +46,226 @@ WSPRPass1::WSPRPass1(int size, int number, char * prefix) {
 }
 
 void WSPRPass1::doWork() {
-  std::map<int, float> groupCentroids;  // mapped by group ID
   std::map<int, SpotCandidate *> candidatesPass1;
-  int frame = 0;
+  char hashtab[32768*13] = {0};  //EXPERIMENT
+
   int count = 0;
   float * samplePtr;
   float * magPtr;
+  float * magAccPtr;
+  float * fftOverTimePtr;
   fprintf(stderr, "Find WSPR signals pass 1\n", number);
   bool done = false;
   float wallClock = 0.0;
   float deltaTime = 1.0 / freq * size;
+  fftOverTimePtr = fftOverTime;
   while (!done) {
     // get an FFT's worth of bins
-    fprintf(stderr, "done with set of data\n");
-    count = fread(samples, sizeof(float), sampleBufferSize, stdin);
-    fprintf(stderr, "done with read for tic %d, wall clock %7.2f\n", tic, wallClock += deltaTime);
-    if (count < sampleBufferSize) {
+    count = fread(fftOverTimePtr, sizeof(float), sampleBufferSize, stdin);
+    fprintf(stderr, "done with read for tic %d, wall clock %7.2f\n", tic, wallClock);
+    if (count < sampleBufferSize  || tic >= PROCESSING_SIZE) {
       done = true;
       continue;
     }
-    for (int i = 0; i < number; i++) {
-      used[i] = false;
+#ifdef SELFTEST
+    samplePtr = fftOverTimePtr;
+    fprintf(stderr, "SELFTEST for checking sample access is enabled\n");
+    for (int bin = 0; bin < size; bin++) {
+      float r = fftOverTime[tic * size * 2 + bin * 2];
+      float i = fftOverTime[tic * size * 2 + bin * 2 + 1];
+      if (r != *samplePtr) {
+        fprintf(stderr, "SELFTEST error - r != input, bin: %d, tic: %d, r: %10.5f, input: %10.5f\n",
+                bin, tic, r, *samplePtr);
+        return;
+      }
+      samplePtr++;
+      if (i != *samplePtr) {
+        fprintf(stderr, "SELFTEST error - i != input, bin: %d, tic: %d, i: %10.5f, input: %10.5f\n",
+                bin, tic, i, *samplePtr);
+        return;
+      }
+      samplePtr++;
     }
-    samplePtr = samples;
+#endif
+    samplePtr = fftOverTimePtr;
+    fftOverTimePtr += sampleBufferSize;
     magPtr = mag;
-    float peak = 0.0;
+    magAccPtr = magAcc;
     // generate magnitude
-    int bin = 0;
     for (int j = 0; j < size; j++) {
       float r = *samplePtr++;
       float i = *samplePtr++;
       *magPtr = sqrt(r*r + i*i);
-      if (*magPtr > peak) {
-        peak = *magPtr;
-        binArray[0] = bin;
-      }
+      *magAccPtr++ += *magPtr;
       magPtr++;
-      bin++;
-    }
-    fprintf(stderr, "bin should be %d, it is %d\n", size, bin);
-    // make a sorted list (up to number) of bin numbers that contain the highest frequency magnitudes
-    for (int binIndex = 1; binIndex < number; binIndex++) {
-      float threshold = mag[binArray[binIndex - 1]];
-      peak = 0.0;
-      for (int frequencyIndex = 0; frequencyIndex < size; frequencyIndex++) {
-        if ((mag[frequencyIndex] <= threshold) && (mag[frequencyIndex] > peak)) {
-          bool notInBinArray = true;
-          for (int checkIndex = 0; checkIndex < binIndex; checkIndex++) {
-            if (frequencyIndex == binArray[checkIndex]) {
-              notInBinArray = false;
-            }
-          }
-          if (notInBinArray) {  // update peak
-            peak = mag[frequencyIndex];
-            bin = frequencyIndex;
-          }
-        }
-      }
-      binArray[binIndex] = bin;
-    }
-    // output this array of integer bin numbers that are the indices of the highest amplitude frequencies
-    // fwrite(binArray, sizeof(int), number, stdout);
-    fprintf(stderr, "binArray on frame %d\n", frame++);
-    for (int binIndex = 0; binIndex < number; binIndex++) {
-      fprintf(stderr, "binArray[%3d]: %3d, mag[binArray[%3d]: %f \n", binIndex, binArray[binIndex],
-              binIndex, mag[binArray[binIndex]]);
-    }
-    
-    // now group the bins that are adjacent and find the center bin of these groups
-    std::map <int, int> binToGroup;
-    std::map <int, std::list<int> *> groupToBins;
-    int groupNumber = 0;
-    int numberOfGroups = 0;
-    int rememberedBinIndex = 0;
-    for (int bin = 0; bin < size; bin++) {  // walk through all the bins
-      bool inBinArray = false;
-      for (int binIndex = 0; binIndex < number; binIndex++) {
-        if (binArray[binIndex] == bin) {
-          inBinArray = true;
-          rememberedBinIndex = binIndex;
-        }
-      }
-      bool escape = false;
-      if (inBinArray) {
-        for (int groupIndex = 0; groupIndex < numberOfGroups; groupIndex++) {
-          for (std::list<int>::iterator iter = groupToBins[groupIndex]->begin(); iter != groupToBins[groupIndex]->end(); iter++) {
-            if (abs(bin - *iter) <= 2 && !used[rememberedBinIndex]) { // this bin belongs to this group
-              groupToBins[groupIndex]->push_back(bin);
-              binToGroup[bin] = groupIndex;
-              used[rememberedBinIndex] = true;
-              escape = true;
-              break;  // done with is bin
-            }
-          }
-          if (escape) break;
-        }
-        if (!escape && !used[rememberedBinIndex]) {  // this bin is in the bin array, and not part of any of the
-          // groups we last looked at, so make a new group
-          used[rememberedBinIndex] = true;
-          binToGroup[bin] = groupNumber;
-          groupToBins[groupNumber] = new std::list<int>;
-          groupToBins[groupNumber]->push_back(bin);
-          groupNumber++;
-          numberOfGroups++;
-        }
-      }
-    }
-    // find the centroids of each group
-    for (int groupIndex = 0; groupIndex < numberOfGroups; groupIndex++) {
-      fprintf(stderr, "bins in group %d:", groupIndex);
-      groupToBins[groupIndex]->sort();
-      //float minMag = mag[binArray[number-1]];
-      float minMag = mag[size/2];
-      float maxMag = minMag;
-      for (std::list<int>::iterator iter = groupToBins[groupIndex]->begin(); iter != groupToBins[groupIndex]->end(); iter++) {
-        if (mag[*iter] < minMag) {
-          minMag = mag[*iter];
-        }
-        if (mag[*iter] > maxMag) {
-          maxMag = mag[*iter];
-        }
-      }
-      float clip = (maxMag - minMag) / 3.0 + minMag;
-      float weightedCentroid = 0.0;
-      float accumulator = 0.0;
-      for (std::list<int>::iterator iter = groupToBins[groupIndex]->begin(); iter != groupToBins[groupIndex]->end(); iter++) {
-        fprintf(stderr, " %d", *iter);
-        if (mag[*iter] >= clip) {
-          weightedCentroid += *iter * mag[*iter];
-          accumulator += mag[*iter];
-        }
-      }
-      if (accumulator > 1.0) {
-        weightedCentroid = weightedCentroid / accumulator;
-        float observedFreq = weightedCentroid * (freq/size);
-        if (observedFreq > freq / 2.0) {
-          observedFreq = -freq + observedFreq;
-        }
-        fprintf(stderr," --- weighted centroid: %7.2f, freq: %7.2f\n\n",weightedCentroid, observedFreq);
-        int id = (int) (weightedCentroid + 0.5);
-        if (candidatesPass1.end() == candidatesPass1.find(id)) {
-          candidatesPass1[id] = new SpotCandidate(id);
-        }
-        candidatesPass1[id]->
-          logSample(observedFreq, mag[id], tic, wallClock);
-      } else {
-        weightedCentroid = 0.0;
-        fprintf(stderr, " -- weighted centroid forced to zero\n\n");
-      }
-      groupCentroids[groupIndex] = weightedCentroid;  // indexed by groupIndex
-      histogram[(int) weightedCentroid]++;
-      // map this group centroid to a fixed Candidate
-      int fixedIndex = ((int) weightedCentroid + 0.5) / 4;
-      SampleRecord sr;
-      sr.centroid = groupCentroids[groupIndex];
-      allCandidates[fixedIndex].groupIndexUsed = false;
-      sr.magnitude = mag[(int) sr.centroid];
-      sr.timeStamp = tic;
-      allCandidates[fixedIndex].timeStamp = tic;
-      allCandidates[fixedIndex].history->push_back(sr);
-      allCandidates[fixedIndex].groupIndexUsed = false;
-    }
-    for (int canID = 0; canID < size/4; canID++) {
-      alreadyUpdated[canID] = false;
     }
     tic++;
-    if (wallClock > 240.0) done = true;
+    wallClock += deltaTime;
   }
-  for (std::map<int, SpotCandidate *>::iterator iter = candidatesPass1.begin(); iter != candidatesPass1.end(); iter++) {
-    (*iter).second->printReport();
-  }
-  int mostLikelyCandidate = -1;
-  int freqBin = -1;
-  for (std::map<int, SpotCandidate *>::iterator iter = candidatesPass1.begin(); iter != candidatesPass1.end(); iter++) {
-    if ((*iter).second->getCount() > mostLikelyCandidate) {
-      mostLikelyCandidate = (*iter).second->getCount();
-      freqBin = (*iter).first;
+  // where are the frequencies with the most energy?
+  float peak = 0.0;
+  for (int i = 0; i < size; i++) {
+    if (magAcc[i] > peak) {
+      peak = magAcc[i];
+      binArray[0] = i;
     }
   }
-  fprintf(stderr, "The most likely candidate with count %d was found at frequency bin %d\n", mostLikelyCandidate,
-          freqBin);
-  int mergeLowerBin = freqBin - 1;
-  int mergeUpperBin = freqBin + 1;
-  if (mergeLowerBin < 0) mergeLowerBin = size - 1;
-  if (mergeUpperBin > size - 1) mergeUpperBin = 0;
-  fprintf(stderr, "Will attempt to merge bins around %d, which are %d and %d\n", freqBin, mergeLowerBin, mergeUpperBin);
-  int firstMergeBin = -1;
-  int secondMergeBin = -1;
-  if ((candidatesPass1.end() != candidatesPass1.find(mergeLowerBin)) && (candidatesPass1.end() != candidatesPass1.find(mergeUpperBin))) {
-    if (candidatesPass1[mergeLowerBin]->getCount() > candidatesPass1[mergeUpperBin]->getCount()) {
-      firstMergeBin = mergeLowerBin;
-      secondMergeBin = mergeUpperBin;
+  float threshold = peak;
+  for (int i = 1; i < number; i++) {
+    peak = 0.0;
+    for (int j = 0; j < size; j++) {
+      if (magAcc[j] > peak && magAcc[j] < threshold) {
+        peak = magAcc[j];
+        binArray[i] = j;
+      }
+    }
+    threshold = peak;
+  }
+  for (int i = 0; i < size; i++) {
+    bool inBinArray = false;
+    for (int j = 0; j < number; j++) {
+      if (binArray[j] == i) {
+        inBinArray = true;
+      }
+    }
+    if (inBinArray) {
+      fprintf(stderr, "%3d: %12.0f *\n", i, magAcc[i]);
     } else {
-      firstMergeBin = mergeUpperBin;
-      secondMergeBin = mergeLowerBin;
-    }
-  } else {
-    if (candidatesPass1.end() != candidatesPass1.find(mergeLowerBin)) {  // lower bin exists, upper doesn't
-      firstMergeBin = mergeLowerBin;
-    } else {
-      firstMergeBin = mergeUpperBin;
+      fprintf(stderr, "%3d: %12.0f\n", i, magAcc[i]);
     }
   }
-  if (firstMergeBin >= 0) {
-    fprintf(stderr, "Merging list %d with list %d\n", freqBin, firstMergeBin);
-    candidatesPass1[freqBin]->mergeVector(candidatesPass1[firstMergeBin]->getVector());
-  }
-  if (secondMergeBin >= 0) {
-    fprintf(stderr, "Merging list %d with list %d\n", freqBin, secondMergeBin);
-    candidatesPass1[freqBin]->mergeVector(candidatesPass1[secondMergeBin]->getVector());
-  }
-  candidatesPass1[freqBin]->printReport();
-  int nextBin = 0;
-  if ((firstMergeBin != -1) && firstMergeBin < freqBin) {
-    nextBin = firstMergeBin - 1;
-    if (nextBin < 0) nextBin = size - 1;
-  } else {
-    nextBin = firstMergeBin + 1;
-    if (nextBin >= size) nextBin = 0;
-  }
-  fprintf(stderr, "Merging list %d with list %d\n", freqBin, nextBin);
-  candidatesPass1[freqBin]-> mergeVector(candidatesPass1[nextBin]->getVector());
-  candidatesPass1[freqBin]->printReport();
-  // convert potential candidate information in symbols and attempt to decode with Fano
-  int vectorIndex = 1;
-  Fano fanoObject;
-  unsigned char symbols[162];
-  unsigned int metric;
-  unsigned int cycles;
-  unsigned int maxnp;
-  unsigned char data[12];
-  unsigned int nbits = 81;
-  int delta = 60;
-  unsigned int maxcycles = 10000;
-  done = false;
-  while (!done) {
-    fprintf(stderr, "Working on candidate vector %d\n", vectorIndex);
-    const std::vector<SpotCandidate::SampleRecord> canVector =
-      candidatesPass1[freqBin]->getValidSubvector(vectorIndex++);
-    if (canVector.size() > 0) {
-      std::vector<int> tokenVector;
-      candidatesPass1[freqBin]->tokenize(canVector, tokenVector);
-      for (size_t offset = 0; offset <= canVector.size() - NOMINAL_NUMBER_OF_SYMBOLS; offset++) {
-        fprintf(stderr, "Offset %d\n", offset);
-        fprintf(stderr, "Producing symbols from token vector\n");
-        for (int i = 0; i < 162; i++) {
-          symbols[i] = tokenVector[i+offset];
-        }
-        fprintf(stderr, "Deinterleave symbols\n");
-        fanoObject.deinterleave(symbols);
-        fprintf(stderr, "Performing Fano\n");
-        if (fanoObject.fano(&metric, &cycles, &maxnp, data, symbols, nbits, delta, maxcycles)) {
-          fprintf(stderr, "Did not decode, metric: %8.8x, cycles: %d, maxnp: %d\n", metric, cycles, maxnp);
+  // Now let's assume that there is a WSPR signal at the peak locations.
+  // Slide a 7 bin frequency window across each peak location starting at the largest peak.
+  // For each window, calculate the centroid of the window for each time tic and store that information in a Spot
+  // Candidate.  Develop a symbol for each tic and then scan down all the tics looking for something that Fano
+  // decodes.
+  for (int currentPeakIndex = 0; currentPeakIndex < number; currentPeakIndex++) {
+    int currentPeakBin = binArray[currentPeakIndex];
+    int freqBinsToProcess[SpotCandidate::WINDOW];
+    int offset = SpotCandidate::WINDOW / 2;
+    for (int i = -offset; i <= offset; i++) {
+      if (i < 0) {
+        freqBinsToProcess[i + offset] = ((currentPeakBin + i) >= 0) ? currentPeakBin + i : size + (currentPeakBin + i);
+      } else {
+        freqBinsToProcess[i + offset] = (currentPeakBin + i) % size;
+      }
+    }
+#ifdef SELFTEST
+    fprintf(stderr, "SELFTEST for checking bins to process for this peak\n");
+    int lastBin = -1;
+    for (int i = 0; i < SpotCandidate::WINDOW; i++) {
+      fprintf(stderr, "freqBinsToProcess[%d]: %d\n", i, freqBinsToProcess[i]);
+      if (lastBin < 0) {
+        lastBin = freqBinsToProcess[i];
+      } else {
+        if (freqBinsToProcess[i] == lastBin + 1) {
+          lastBin = freqBinsToProcess[i];
         } else {
-          fprintf(stderr, "Fano successful\n");
-          int8_t message[12];
-          char call_loc_pow[23] = {0};
-          char call[13] = {0};
-          char callsign[13] = {0};
-          char loc[7] = {0};
-          char pwr[3] = {0};
-          char hashtab[32768*13] = {0};
-          for (int i = 0; i < 12; i++) {
-            if (data[i] > 127) {
-              message[i] = data[i] - 256;
-            } else {
-              message[i] = data[i];
-            }
+          if (lastBin == 255  && freqBinsToProcess[i] == 0) {
+            lastBin = 0;
+          } else {
+            fprintf(stderr, "Error, out of sequence\n");
           }
-          fprintf(stderr, "unpacking data\n");
-          fanoObject.unpk(message, hashtab, call_loc_pow, call, loc, pwr, callsign);
-          fprintf(stderr, "%s %s %s %s %s\n", call_loc_pow, call, loc, pwr, callsign);
         }
       }
-    } else {
-      done = true;
+    }
+#endif
+    std::vector<SpotCandidate::SampleRecord> candidateInfo;
+    for (int t = 0; t < tic; t++) {
+      SpotCandidate::SampleRecord sr;
+      sr.centroid = 0.0;
+      sr.magnitude = 0.0;
+      sr.magSlice.clear();
+      sr.timeStamp = t;
+      sr.timeSeconds = t * deltaTime;
+      float acc = 0.0;
+      float accBinLoc = 0.0;
+      for (int bin = 0; bin < SpotCandidate::WINDOW; bin++) {
+        float r = fftOverTime[t * size * 2 + freqBinsToProcess[bin] * 2];
+        float i = fftOverTime[t * size * 2 + freqBinsToProcess[bin] * 2 + 1];
+        float m = sqrt(r * r + i * i);
+        sr.magSlice.push_back(m);
+        sr.r.push_back(r);
+        sr.i.push_back(i);
+        acc += m;
+        accBinLoc += bin * m;
+      }
+      if (acc > 1.0) {
+        sr.centroid = accBinLoc / acc;
+        sr.magnitude = acc;
+        candidateInfo.push_back(sr);
+      } else {
+        fprintf(stderr, "Error - should always be able to generate a centroid\n");
+        return;
+      }
+    }
+    SpotCandidate candidate(currentPeakBin, candidateInfo, deltaFreq);
+    candidate.printReport();
+    Fano fanoObject;
+    unsigned char symbols[162];
+    unsigned int metric;
+    unsigned int cycles;
+    unsigned int maxnp;
+    unsigned char data[12];
+    unsigned int nbits = 81;
+    int delta = 60;
+    unsigned int maxcycles = 10000;
+    int numberOfShifts = candidateInfo.size() - NOMINAL_NUMBER_OF_SYMBOLS;
+    for (int shift = 0; shift < numberOfShifts; shift++) {
+      std::vector<SpotCandidate::SampleRecord> subset;
+      for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
+        subset.push_back(candidateInfo[index + shift]);
+      }
+      std::vector<int>  tokens;
+      candidate.tokenize(subset, tokens);
+      for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
+        symbols[index] = tokens[index];
+      }
+      fprintf(stderr, "Deinterleave symbols\n");
+      fanoObject.deinterleave(symbols);
+      fprintf(stderr, "Performing Fano\n");
+      if (fanoObject.fano(&metric, &cycles, &maxnp, data, symbols, nbits, delta, maxcycles)) {
+        fprintf(stderr, "Did not decode peak bin: %d @ shift: %d, metric: %8.8x, cycles: %d, maxnp: %d\n",
+                currentPeakBin, shift, metric, cycles, maxnp);
+      } else {
+        bool pass = false;
+        for (auto c : data) {
+          if (c != 0) pass = true;
+        }
+        if (pass) {
+          fprintf(stderr, "Fano successful, current peak bin: %d, shift: %d\n", currentPeakBin, shift);
+        } else {
+          fprintf(stderr, "Did not decode peak bin: %d @ shift: %d, metric: %8.8x, cycles: %d, maxnp: %d\n",
+                  currentPeakBin, shift, metric, cycles, maxnp);
+        }
+      }
+      int8_t message[12];
+      char call_loc_pow[23] = {0};
+      char call[13] = {0};
+      char callsign[13] = {0};
+      char loc[7] = {0};
+      char pwr[3] = {0};
+      //char hashtab[32768*13] = {0};
+      for (int i = 0; i < 12; i++) {
+        if (data[i] > 127) {
+          message[i] = data[i] - 256;
+        } else {
+          message[i] = data[i];
+        }
+      }
+      fanoObject.unpk(message, hashtab, call_loc_pow, call, loc, pwr, callsign);
+      fprintf(stderr, "unpacked data: %s %s %s %s %s\n", call_loc_pow, call, loc, pwr, callsign);
     }
   }
-  for (std::map<int, SpotCandidate *>::iterator iter = candidatesPass1.begin(); iter != candidatesPass1.end(); iter++) {
-    delete((*iter).second);
-  }
-  candidatesPass1.clear();
   fprintf(stderr, "leaving doWork within WSPRPass1\n");
 }
 
 WSPRPass1::~WSPRPass1(void) {
   fprintf(stderr, "destructing WSPRPass1\n");
-  if (histogram) free(histogram);
-  if (used) free(used);
+  if (fftOverTime) free(fftOverTime);
   if (mag) free(mag);
+  if (magAcc) free(magAcc);
   if (binArray) free(binArray);
   if (samples) free(samples);
-  if (allCandidates) {
-    for (int i = 0; i < size/4; i++) {
-      allCandidates[i].history->clear();
-      delete(allCandidates[i].history);
-    }
-    free(allCandidates);
-  }
-  if (alreadyUpdated) free(alreadyUpdated);
 }
 

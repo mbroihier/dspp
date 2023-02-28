@@ -9,7 +9,7 @@
  */
 
 /* ---------------------------------------------------------------------- */
-#include <list>
+#include <vector>
 #include <map>
 #include <math.h>
 #include <sys/types.h>
@@ -17,34 +17,25 @@
 class WSPRPass1 {
  private:
   const int NOMINAL_NUMBER_OF_SYMBOLS = 162;
+  const int PROCESSING_SIZE = 352;  // tics in 4 minutes
   void init(int size, int number, char * prefix);
   int * binArray;
-  bool * used;
   float * samples;
   float * mag;
+  float * magAcc;
   float slope;
   float yIntercept;
-  int * histogram;
   int sampleBufferSize;
   int size;
   int number;
   int tic;
   float freq;
+  float deltaFreq;
   char * prefix;
-
-  std::map<int, std::map<int, float> *>  targets;
+  float * fftOverTime;
 
   struct SampleRecord { float centroid; float magnitude; int timeStamp; };
-  struct Range { float lowerBound; float upperBound; };
-  struct BaseRecord { float base; int timeStamp; };
-  std::map<int, float> candidates;    // list of cadidates mapped to their centroid location
   
-  std::map<int, std::list<SampleRecord> *> centroidHistory;
-  std::map<int, std::list<BaseRecord> *> baseHistory;
-  struct CandidateRecord { float centroid; int timeStamp; Range range; std::list<SampleRecord> * history;
-    bool groupIndexUsed;};
-  CandidateRecord * allCandidates;
-  bool * alreadyUpdated;
  public:
   void doWork(void);
   WSPRPass1(int size, int number, char * prefix);

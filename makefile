@@ -45,6 +45,8 @@ EXECUTABLE=dspp
 all: $(EXECUTABLE)
 
 test:
+	$(CC) $(CFLAGS) ToWSPRFile.cc -lm -o ToWSPRFile.o
+	$(CC) $(LDFLAGS) ToWSPRFile.o -o ToWSPRFile -lm 
 	$(CC) $(CFLAGS) testIn1.cc -lm -o testIn1.o
 	$(CC) $(LDFLAGS) testIn1.o -o testIn1 -lm 
 	$(CC) $(CFLAGS) testIn2.cc -o testIn2.o

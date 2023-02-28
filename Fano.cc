@@ -788,7 +788,7 @@ int Fano::fano( unsigned int  *metric,	// Final path metric (returned value)
       return -1;	 // Decoder timed out
     }
 
-    fprintf(stderr, "Successful Fano decode: i is %d, maxcycles is %d\n", i, maxcycles);
+    //fprintf(stderr, "Successful Fano decode: i is %d, maxcycles is %d\n", i, maxcycles);
     return 0;		 // Successful completion
 }
 Fano::Fano(void) {

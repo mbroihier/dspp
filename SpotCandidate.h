@@ -9,13 +9,16 @@
  */
 
 /* ---------------------------------------------------------------------- */
+#include <stdlib.h>
 #include <vector>
 #include "Regression.h"
 /* ---------------------------------------------------------------------- */
 class SpotCandidate {
  public:
   struct StartEnd { int start; int end; };
-  struct SampleRecord { float centroid; float magnitude; int timeStamp; float timeSeconds; };
+  struct SampleRecord { float centroid; float magnitude; std::vector<float> r; std::vector<float> i;
+    std::vector<float> magSlice; int timeStamp; float timeSeconds; };
+  static const int WINDOW = 7;
  private:
   int ID;
   int count;
@@ -27,6 +30,8 @@ class SpotCandidate {
   float maxCentroid;
   int longestSequence;
   int currentSequence;
+  float freq;
+  float deltaFreq;
   Regression * fitInfo;
   std::vector<float> magnitudes;
   std::vector<SampleRecord> aSubvector;
@@ -48,8 +53,8 @@ class SpotCandidate {
   float getYIntercept() { return yIntercept; };
   float getMinCentroid() { return minCentroid; };
   float getMaxCentroid() { return maxCentroid; };
-  SpotCandidate(int ID);
-  SpotCandidate(int ID, const std::vector<SampleRecord> input);
+  SpotCandidate(int ID, float deltaFreq);
+  SpotCandidate(int ID, const std::vector<SampleRecord> input, float deltaFreq);
   ~SpotCandidate(void);
 };
 #endif  // SPOTCANDIDATE_H_
