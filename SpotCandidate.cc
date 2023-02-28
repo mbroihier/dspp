@@ -281,18 +281,8 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
   }
   std::vector<float> centroidVector = candidate.getCentroidVector();
   float slope = candidate.getSlope();
-  float minCentroid = candidate.getMinCentroid();
-  float maxCentroid = candidate.getMaxCentroid();
-  float x = 0.0;
-  float scale = 255.0/(maxCentroid - minCentroid);
-  fprintf(stderr, "bounds observed were: %7.2f and %7.2f\n", minCentroid, maxCentroid);
   float base = 0.0;
-  if (slope < 0.0) {  // The maximum value of the signal should occur near zero, the minimum value near count
-    base = minCentroid - slope * (validVector.size() - 1);
-  } else {
-    base = minCentroid;
-  }
-  base = candidate.getYIntercept() - 1.5;  // EXPERIMENNT
+  base = candidate.getYIntercept() - 1.5;
   // the vector below should result in a call sign of KG5YJE, a location of EM13 and power of 10
   int testInput[] = {3, 3, 2, 2, 2, 2, 2, 2, 3, 0, 2, 0, 3, 1, 1, 0, 0, 0, 1, 2, 2, 1, 2, 1, 1, 1, 3, 0, 0, 2,
                      2, 2, 2, 2, 1, 0, 2, 3, 0, 1, 0, 0, 0, 0, 0, 2, 1, 0, 3, 3, 2, 0, 1, 3, 2, 3, 2, 2, 2, 3,
@@ -302,7 +292,6 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
                      3, 0, 3, 1, 2, 0, 0, 3, 3, 2, 0, 2};
 #ifdef SELFTEST
   base = 0.0;
-  //scale = 60.0; taking this out gives some randomness in the output
   //slope = 0.0;  taking this out gives some randomness in the output
   centroidVector.clear();
   int index = 0;
@@ -314,12 +303,10 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
     }
   }
 #endif
-  int syncIndex = 0;
   int token = 0;
-  int cbToken = 0;  // centroid based token
   int sumAE0 = 0;
-  int sumAE1 = 0;
-  for (auto entry : centroidVector) {
+  int usedDefault = 0;
+  for (size_t syncIndex = 0; syncIndex < centroidVector.size(); syncIndex++) {
     int sliceIndexZero = (int) (base - 0.5);
     int sliceIndexOne = sliceIndexZero + 1;
     int sliceIndexTwo = sliceIndexZero + 2;
@@ -339,32 +326,44 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
       // token should be 64 or 192
       if (validVector[syncIndex].magSlice[sliceIndexOne] - magnitudeAverages[sliceIndexOne] <
           validVector[syncIndex].magSlice[sliceIndexThree] - magnitudeAverages[sliceIndexThree]) {
-        token = 3 << 6;
+        if (validVector[syncIndex].magSlice[sliceIndexThree] - magnitudeAverages[sliceIndexThree] > 0) {
+          token = 3 << 6;
+        } else {
+          usedDefault++;
+          token = 64;  // default
+        }
       } else {
-        token = 1 << 6;
+        if (validVector[syncIndex].magSlice[sliceIndexOne] - magnitudeAverages[sliceIndexOne] > 0) {
+          token = 1 << 6;
+        } else {
+          usedDefault++;
+          token = 64;  // default
+        }
       }
     } else { // token should be 0 or 128
       if (validVector[syncIndex].magSlice[sliceIndexZero] - magnitudeAverages[sliceIndexZero] <
           validVector[syncIndex].magSlice[sliceIndexTwo] - magnitudeAverages[sliceIndexTwo]) {
-        token = 2 << 6;
+        if (validVector[syncIndex].magSlice[sliceIndexTwo] - magnitudeAverages[sliceIndexTwo] > 0) {
+          token = 2 << 6;
+        } else {
+          usedDefault++;
+          token = 128;  // default
+        }
       } else {
-        token = 0;
+        if (validVector[syncIndex].magSlice[sliceIndexZero] - magnitudeAverages[sliceIndexZero] > 0) {
+          token = 0;
+        } else {
+          usedDefault++;
+          token = 128;  // default
+        }
       }
     }
     fprintf(stderr, " token: %3d, ideal: %3d\n", token, testInput[syncIndex] << 6);
-    cbToken = std::max(std::min((int)((entry - base) * scale + 0.5),255), 0);
     tokens.push_back(token);
-    //tokens.push_back(cbToken);  //EXPERIMENT
     sumAE0 += abs(token - (testInput[syncIndex] << 6));
-    sumAE1 += abs(cbToken - (testInput[syncIndex] << 6));
-    //fprintf(stderr, "sample %3d - minCentroid: %7.2f, base: %7.2f, actual: %7.2f, error: %7.2f, token: %3d, "
-    //        "cbToken: %3d, ideal: %3d\n",
-    //        (int) x, minCentroid, base, entry, entry - base, token, cbToken, testInput[syncIndex] << 6);
-    x += 1.0;
     base += slope;
-    syncIndex++;
   }
-  fprintf(stderr, "sumAE0: %8d, sumAE1: %8d\n", sumAE0, sumAE1);
+  fprintf(stderr, "sumAE0: %8d, used default %d\n", sumAE0, usedDefault);
 }
 /* ---------------------------------------------------------------------- */
 std::vector<float> SpotCandidate::getCentroidVector(void) {
