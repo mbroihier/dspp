@@ -283,6 +283,7 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
   float slope = candidate.getSlope();
   float base = 0.0;
   base = candidate.getYIntercept() - 1.5;
+#ifdef SELFTEST
   // the vector below should result in a call sign of KG5YJE, a location of EM13 and power of 10
   int testInput[] = {3, 3, 2, 2, 2, 2, 2, 2, 3, 0, 2, 0, 3, 1, 1, 0, 0, 0, 1, 2, 2, 1, 2, 1, 1, 1, 3, 0, 0, 2,
                      2, 2, 2, 2, 1, 0, 2, 3, 0, 1, 0, 0, 0, 0, 0, 2, 1, 0, 3, 3, 2, 0, 1, 3, 2, 3, 2, 2, 2, 3,
@@ -290,7 +291,6 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
                      3, 0, 1, 2, 1, 2, 2, 2, 1, 0, 0, 0, 0, 2, 3, 0, 0, 3, 0, 0, 1, 3, 1, 2, 3, 3, 0, 2, 1, 3,
                      0, 1, 0, 0, 2, 3, 1, 1, 2, 2, 2, 0, 0, 3, 2, 1, 0, 0, 1, 3, 2, 0, 2, 2, 0, 0, 0, 1, 1, 2,
                      3, 0, 3, 1, 2, 0, 0, 3, 3, 2, 0, 2};
-#ifdef SELFTEST
   base = 0.0;
   //slope = 0.0;  taking this out gives some randomness in the output
   centroidVector.clear();
@@ -304,8 +304,10 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
   }
 #endif
   int token = 0;
-  int sumAE0 = 0;
-  int usedDefault = 0;
+  float one = 0.0;
+  float two = 0.0;
+  float three = 0.0;
+  float zero = 0.0;
   for (size_t syncIndex = 0; syncIndex < centroidVector.size(); syncIndex++) {
     int sliceIndexZero = (int) (base - 0.5);
     int sliceIndexOne = sliceIndexZero + 1;
@@ -316,54 +318,29 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
       tokens.clear(); // clear anything that may have been entered into the vector
       break;
     }
-    fprintf(stderr, " %15.0f, %15.0f, %15.0f, %15.0f, %d,",
-            validVector[syncIndex].magSlice[sliceIndexZero] - magnitudeAverages[sliceIndexZero],
-            validVector[syncIndex].magSlice[sliceIndexOne] - magnitudeAverages[sliceIndexOne],
-            validVector[syncIndex].magSlice[sliceIndexTwo] - magnitudeAverages[sliceIndexTwo],
-            validVector[syncIndex].magSlice[sliceIndexThree] - magnitudeAverages[sliceIndexThree],
+    zero = validVector[syncIndex].magSlice[sliceIndexZero] - magnitudeAverages[sliceIndexZero];
+    one =  validVector[syncIndex].magSlice[sliceIndexOne] - magnitudeAverages[sliceIndexOne];
+    two =  validVector[syncIndex].magSlice[sliceIndexTwo] - magnitudeAverages[sliceIndexTwo];
+    three = validVector[syncIndex].magSlice[sliceIndexThree] - magnitudeAverages[sliceIndexThree];
+    fprintf(stderr, " %15.0f, %15.0f, %15.0f, %15.0f, %d,", zero, one, two, three,
             interleavedSync[syncIndex]);
-    if (interleavedSync[syncIndex] == 1) {
-      // token should be 64 or 192
-      if (validVector[syncIndex].magSlice[sliceIndexOne] - magnitudeAverages[sliceIndexOne] <
-          validVector[syncIndex].magSlice[sliceIndexThree] - magnitudeAverages[sliceIndexThree]) {
-        if (validVector[syncIndex].magSlice[sliceIndexThree] - magnitudeAverages[sliceIndexThree] > 0) {
-          token = 3 << 6;
-        } else {
-          usedDefault++;
-          token = 64;  // default
-        }
+    if (zero > one && zero > two && zero > three) {
+      token = 0;
+    } else {
+      if (one > zero && one > two && one > three) {
+        token = 1 << 6;
       } else {
-        if (validVector[syncIndex].magSlice[sliceIndexOne] - magnitudeAverages[sliceIndexOne] > 0) {
-          token = 1 << 6;
-        } else {
-          usedDefault++;
-          token = 64;  // default
-        }
-      }
-    } else { // token should be 0 or 128
-      if (validVector[syncIndex].magSlice[sliceIndexZero] - magnitudeAverages[sliceIndexZero] <
-          validVector[syncIndex].magSlice[sliceIndexTwo] - magnitudeAverages[sliceIndexTwo]) {
-        if (validVector[syncIndex].magSlice[sliceIndexTwo] - magnitudeAverages[sliceIndexTwo] > 0) {
+        if (two > zero && two > one && two > three) {
           token = 2 << 6;
         } else {
-          usedDefault++;
-          token = 128;  // default
-        }
-      } else {
-        if (validVector[syncIndex].magSlice[sliceIndexZero] - magnitudeAverages[sliceIndexZero] > 0) {
-          token = 0;
-        } else {
-          usedDefault++;
-          token = 128;  // default
+          token = 3 << 6;
         }
       }
     }
-    fprintf(stderr, " token: %3d, ideal: %3d\n", token, testInput[syncIndex] << 6);
+    fprintf(stderr, " token: %3d\n", token);
     tokens.push_back(token);
-    sumAE0 += abs(token - (testInput[syncIndex] << 6));
     base += slope;
   }
-  fprintf(stderr, "sumAE0: %8d, used default %d\n", sumAE0, usedDefault);
 }
 /* ---------------------------------------------------------------------- */
 std::vector<float> SpotCandidate::getCentroidVector(void) {

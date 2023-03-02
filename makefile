@@ -45,6 +45,8 @@ EXECUTABLE=dspp
 all: $(EXECUTABLE)
 
 test:
+	$(CC) $(CFLAGS) FFTOverTimeToOctavePhase.cc -o FFTOverTimeToOctavePhase.o
+	$(CC) $(LDFLAGS) FFTOverTimeToOctavePhase.o -o FFTOverTimeToOctavePhase -lm
 	$(CC) $(CFLAGS) ToWSPRFile.cc -lm -o ToWSPRFile.o
 	$(CC) $(LDFLAGS) ToWSPRFile.o -o ToWSPRFile -lm 
 	$(CC) $(CFLAGS) testIn1.cc -lm -o testIn1.o
