@@ -359,7 +359,7 @@ void Fano::unpack50( signed char *dat, int32_t *n1, int32_t *n2 ) {
     i=dat[6];
     i4=i&255;
     *n2=*n2+((i4>>6)&3);
-    fprintf(stderr, "n1: %8.8x, n2: %8.8x\n", *n1, *n2);
+    //fprintf(stderr, "n1: %8.8x, n2: %8.8x\n", *n1, *n2);
 }
 
 int Fano::unpackcall( int32_t ncall, char *call ) {

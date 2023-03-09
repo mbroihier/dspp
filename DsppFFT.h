@@ -26,6 +26,7 @@ class DsppFFT {
   DsppFFT(int size);
 
   int processSampleSet(void);
+  int processSampleSet(float * input, float * fftOfInput);
 
   ~DsppFFT(void);
     

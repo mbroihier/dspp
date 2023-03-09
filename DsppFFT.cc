@@ -47,6 +47,25 @@ int DsppFFT::processSampleSet() {
   return 1; // pipe terminated - typically ok
 }
 
+int DsppFFT::processSampleSet(float * input, float * fftOfInput) {
+  float * floatPtr;
+  double * doublePtr;
+  floatPtr = input;
+  doublePtr = (double *) signal;
+  for (int index = 0; index < numberOfSamples; index++) {
+    *doublePtr++ = *floatPtr++;
+    *doublePtr++ = *floatPtr++;
+  }
+  fftw_execute(plan);
+  floatPtr = fftOfInput;
+  doublePtr = (double *) signalInFreqDomain;
+  for (int index = 0; index < numberOfSamples; index++) {
+    *floatPtr++ = *doublePtr++;
+    *floatPtr++ = *doublePtr++;
+  }
+  return 1; // return ok
+}
+
 DsppFFT::~DsppFFT(void){
   if (plan) fftw_destroy_plan(plan);
   if (signal) fftw_free(signal);

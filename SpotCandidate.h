@@ -53,6 +53,7 @@ class SpotCandidate {
   float getYIntercept() { return yIntercept; };
   float getMinCentroid() { return minCentroid; };
   float getMaxCentroid() { return maxCentroid; };
+  float getFrequency() { return freq; }
   SpotCandidate(int ID, float deltaFreq);
   SpotCandidate(int ID, const std::vector<SampleRecord> input, float deltaFreq);
   ~SpotCandidate(void);

@@ -25,14 +25,14 @@ LDFLAGS= $(PARAMS_LIBS)
 SOURCES= dspp.cc 
 OBJECTS=$(SOURCES:.cc=.o)
 
-FNLFSRC = Fano.cc Fano.h FindNLargestF.cc FindNLargestF.h WSPRSymbols.cc WSPRSymbols.h WSPRPass1.cc WSPRPass1.h SpotCandidate.cc SpotCandidate.h
+FNLFSRC = WSPRWindow.cc WSPRWindow.h Fano.cc Fano.h FindNLargestF.cc FindNLargestF.h WSPRSymbols.cc WSPRSymbols.h WSPRPass1.cc WSPRPass1.h SpotCandidate.cc SpotCandidate.h
 AGCSRC = AGC.cc AGC.h
 RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h RTLTCPServer.cc RTLTCPServer.h
 FIRFILTSRC = FIRFilter.cc FIRFilter.h SFIRFilter.cc SFIRFilter.h CFilter.cc CFilter.h Poly.cc Poly.h
 MODSRC = FMMod.cc FMMod.h
 FFTSRC = DsppFFT.cc DsppFFT.h
 BASICSRC = Regression.cc Regression.h
-FNLFOBJ = Fano.o FindNLargestF.o WSPRSymbols.o WSPRPass1.o SpotCandidate.o
+FNLFOBJ = WSPRWindow.o Fano.o FindNLargestF.o WSPRSymbols.o WSPRPass1.o SpotCandidate.o
 AGCOBJ = AGC.o
 RTLTCPOBJ = RTLTCPClient.o RTLTCPServer.o
 FIRFILTOBJ = FIRFilter.o SFIRFilter.o CFilter.o Poly.o

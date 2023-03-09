@@ -200,7 +200,7 @@ void WSPRPass1::doWork() {
       }
     }
     SpotCandidate candidate(currentPeakBin, candidateInfo, deltaFreq);
-    candidate.printReport();
+    //candidate.printReport();
     Fano fanoObject;
     unsigned char symbols[162];
     unsigned int metric;
@@ -234,27 +234,27 @@ void WSPRPass1::doWork() {
         }
         if (pass) {
           fprintf(stderr, "Fano successful, current peak bin: %d, shift: %d\n", currentPeakBin, shift);
+          int8_t message[12];
+          char call_loc_pow[23] = {0};
+          char call[13] = {0};
+          char callsign[13] = {0};
+          char loc[7] = {0};
+          char pwr[3] = {0};
+          //char hashtab[32768*13] = {0};
+          for (int i = 0; i < 12; i++) {
+            if (data[i] > 127) {
+              message[i] = data[i] - 256;
+            } else {
+              message[i] = data[i];
+            }
+          }
+          fanoObject.unpk(message, hashtab, call_loc_pow, call, loc, pwr, callsign);
+          fprintf(stderr, "unpacked data: %s %s %s %s %s\n", call_loc_pow, call, loc, pwr, callsign);
         } else {
           fprintf(stderr, "Did not decode peak bin: %d @ shift: %d, metric: %8.8x, cycles: %d, maxnp: %d\n",
                   currentPeakBin, shift, metric, cycles, maxnp);
         }
       }
-      int8_t message[12];
-      char call_loc_pow[23] = {0};
-      char call[13] = {0};
-      char callsign[13] = {0};
-      char loc[7] = {0};
-      char pwr[3] = {0};
-      //char hashtab[32768*13] = {0};
-      for (int i = 0; i < 12; i++) {
-        if (data[i] > 127) {
-          message[i] = data[i] - 256;
-        } else {
-          message[i] = data[i];
-        }
-      }
-      fanoObject.unpk(message, hashtab, call_loc_pow, call, loc, pwr, callsign);
-      fprintf(stderr, "unpacked data: %s %s %s %s %s\n", call_loc_pow, call, loc, pwr, callsign);
     }
   }
   fprintf(stderr, "leaving doWork within WSPRPass1\n");

@@ -259,16 +259,6 @@ const std::vector<SpotCandidate::SampleRecord> SpotCandidate::getValidSubvector(
 }
 /* ---------------------------------------------------------------------- */
 void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::vector<int> & tokens) {
-  int interleavedSync [] = { 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0,
-                             0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1,
-                             0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1,
-                             1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1,
-                             0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0,
-                             0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1,
-                             0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1,
-                             0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0,
-                             0, 0 };
-
   tokens.clear();
   SpotCandidate candidate(1000, validVector, 0.0);
   std::vector<float> magnitudeAverages;
@@ -284,6 +274,16 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
   float base = 0.0;
   base = candidate.getYIntercept() - 1.5;
 #ifdef SELFTEST
+  int interleavedSync [] = { 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0,
+                             0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1,
+                             0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1,
+                             1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1,
+                             0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0,
+                             0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1,
+                             0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1,
+                             0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0,
+                             0, 0 };
+
   // the vector below should result in a call sign of KG5YJE, a location of EM13 and power of 10
   int testInput[] = {3, 3, 2, 2, 2, 2, 2, 2, 3, 0, 2, 0, 3, 1, 1, 0, 0, 0, 1, 2, 2, 1, 2, 1, 1, 1, 3, 0, 0, 2,
                      2, 2, 2, 2, 1, 0, 2, 3, 0, 1, 0, 0, 0, 0, 0, 2, 1, 0, 3, 3, 2, 0, 1, 3, 2, 3, 2, 2, 2, 3,
@@ -322,8 +322,8 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
     one =  validVector[syncIndex].magSlice[sliceIndexOne] - magnitudeAverages[sliceIndexOne];
     two =  validVector[syncIndex].magSlice[sliceIndexTwo] - magnitudeAverages[sliceIndexTwo];
     three = validVector[syncIndex].magSlice[sliceIndexThree] - magnitudeAverages[sliceIndexThree];
-    fprintf(stderr, " %15.0f, %15.0f, %15.0f, %15.0f, %d,", zero, one, two, three,
-            interleavedSync[syncIndex]);
+    //fprintf(stderr, " %15.0f, %15.0f, %15.0f, %15.0f, %d,", zero, one, two, three,
+    //        interleavedSync[syncIndex]);
     if (zero > one && zero > two && zero > three) {
       token = 0;
     } else {
@@ -337,7 +337,7 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
         }
       }
     }
-    fprintf(stderr, " token: %3d\n", token);
+    //fprintf(stderr, " token: %3d\n", token);
     tokens.push_back(token);
     base += slope;
   }
