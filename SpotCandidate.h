@@ -45,7 +45,7 @@ class SpotCandidate {
   int getCount(void) { return count; }; 
   const std::vector<SampleRecord> getVector(void);
   const std::vector<SampleRecord> getValidSubvector(int vectorNumber);
-  bool isValid(void);
+  bool isValid(void) { return valid ; };
   void printReport(void);
   bool  mergeVector(const std::vector<SampleRecord> other);
   static void tokenize(const std::vector<SampleRecord> validVector, std::vector<int> & tokens);

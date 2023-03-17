@@ -67,7 +67,6 @@ void WSPRWindow::doWork() {
   float * fftOverTimePtr;
   fprintf(stderr, "Process WSPR Windows\n", number);
   bool done = false;
-  float wallClock = 0.0;
   float deltaTime = 1.0 / freq * size;
   int baseTime = time(0);
   while (!done) {
@@ -76,14 +75,16 @@ void WSPRWindow::doWork() {
     // wait for an odd to even minute transition
     if (background) {
       pid_t id;
-      float skipSamples[2];
+      float skipSamples[750];
       while (background) {
         id = waitpid(background, &status, WNOHANG);
         if (id < 0) {
           background = 0;  // background child process has terminated
+          continue;
         }
-        if (0 == fread(skipSamples, sizeof(float), 2, stdin)) {  // skip all samples
-          sleep(1.0);
+        // skip all samples while waiting for background to finish
+        if (0 == fread(skipSamples, sizeof(float), 750, stdin)) {
+          sleep(0.0);
         }
       }
     }
@@ -93,19 +94,24 @@ void WSPRWindow::doWork() {
         while (((time(0) / 60) & 0x01) == 0) {
           fprintf(stderr, "e");
           float skipSamples[2];
-          fread(skipSamples, sizeof(float), 2, stdin);  // skip samples until even minute
+          fread(skipSamples, sizeof(float), 2, stdin);  // skip samples
         }
       }
-      while (((time(0) / 60) & 0x01) == 1) {
+      while (((time(0) / 60) & 0x01) == 1) {  // in an odd minute, so wait for an even start minute
         fprintf(stderr, "o");
         float skipSamples[2];
-        fread(skipSamples, sizeof(float), 2, stdin);  // skip samples until even minute
+        fread(skipSamples, sizeof(float), 2, stdin);  // skip samples
       }
     }
-    fprintf(stderr, "\nCollecting samples at %d\n", time(0) - baseTime);
+    const time_t now = time(0);
+    fprintf(stderr, "\nCollecting samples at %d - %s", now - baseTime, ctime(&now));
+    fprintf(stdout, "Collecting samples at %s", ctime(&now));
 
     count = fread(windowOfIQData, sizeof(float), sampleBufferSize, stdin);
     fprintf(stderr, "Done collecting samples at %d\n", time(0) - baseTime);
+    const time_t now2 = time(0);
+    fprintf(stdout, "Done collecting samples at %s", ctime(&now2));
+    
     if (count < sampleBufferSize) {
       done = true;
       continue;
@@ -242,9 +248,11 @@ void WSPRWindow::doWork() {
               candidateInfo.push_back(sr);
               fprintf(stderr, "Error - should always be able to generate a centroid\n");
               fprintf(stderr, "FFT sample %d, in shift %d\n", t, shift);
+              break;
             }
           }
           SpotCandidate candidate(currentPeakBin, candidateInfo, deltaFreq);
+          if (!candidate.isValid()) continue;
           //candidate.printReport();
           unsigned char symbols[162];
           unsigned int metric;
@@ -254,7 +262,7 @@ void WSPRWindow::doWork() {
           unsigned int nbits = 81;
           int delta = 60;
           unsigned int maxcycles = 10000;
-          int numberOfSymbolSets = candidateInfo.size() - NOMINAL_NUMBER_OF_SYMBOLS;
+          int numberOfSymbolSets = candidateInfo.size() - NOMINAL_NUMBER_OF_SYMBOLS + 1;
           for (int symbolSet = 0; symbolSet < numberOfSymbolSets; symbolSet++) {
             std::vector<SpotCandidate::SampleRecord> subset;
             for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
@@ -293,7 +301,8 @@ void WSPRWindow::doWork() {
                 }
                 fanoObject.unpk(message, hashtab, call_loc_pow, call, loc, pwr, callsign);
                 fprintf(stderr, "unpacked data: %s %s %s %s %s\n", call_loc_pow, call, loc, pwr, callsign);
-                fprintf(stdout, "spot: %s at frequency %15.0f\n", call_loc_pow, dialFreq + candidate.getFrequency());
+                fprintf(stdout, "spot: %s at frequency %15.0f\n", call_loc_pow, dialFreq + 1500.0 +
+                        candidate.getFrequency());
               } else {
                 fprintf(stderr, "Did not decode peak bin: %d @ symbol set: %d, metric: %8.8x, cycles: %d, maxnp: %d\n",
                         currentPeakBin, symbolSet, metric, cycles, maxnp);
@@ -321,7 +330,7 @@ int main() {
   char pre[10] = {0};
   float dialFreq = 14095600.0;
   snprintf(pre, sizeof(pre), "%s", "prefix");
-  WSPRWindow testObj(256, 7, pre, dialFreq, false);
+  WSPRWindow testObj(256, 9, pre, dialFreq, false);
   testObj.doWork();
 }
 #endif

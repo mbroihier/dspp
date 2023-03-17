@@ -44,8 +44,8 @@ Regression::Regression(std::vector<float> input) {
   if (minCentroid != maxCentroid) {
     scale = 255.0 / (maxCentroid - minCentroid);
   }
-  fprintf(stderr, "linear fit of list - slope: %7.5f, y-intercept: %7.2f, min: %7.2f, max: %7.2f, scale: %7.2f\n",
-          slope, yIntercept, minCentroid, maxCentroid, scale);
+  //fprintf(stderr, "linear fit of list - slope: %7.5f, y-intercept: %7.2f, min: %7.2f, max: %7.2f, scale: %7.2f\n",
+  //        slope, yIntercept, minCentroid, maxCentroid, scale);
 }
 /* ---------------------------------------------------------------------- */
 Regression::~Regression(void) {
