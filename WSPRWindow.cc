@@ -56,7 +56,6 @@ WSPRWindow::WSPRWindow(int size, int number, char * prefix, float dialFreq, bool
 }
 
 void WSPRWindow::doWork() {
-  char hashtab[32768*13] = {0};  //EXPERIMENT - move to Fano
   pid_t background = 0;
   int status = 0;
 
@@ -117,7 +116,8 @@ void WSPRWindow::doWork() {
       continue;
     }
     background = fork();
-    if (background == 0) {  // this is the child process, so continue this processing in "backgroun"
+    if (background == 0) {  // this is the child process, so continue this processing in "background"
+      fanoObject.childAttach();  // attach shared memory
       fftOverTimePtr = fftOverTime;
       for (int shift = 0; shift < SHIFTS; shift++) {
         fftOverTimePtr = fftOverTime;
@@ -299,7 +299,7 @@ void WSPRWindow::doWork() {
                     message[i] = data[i];
                   }
                 }
-                fanoObject.unpk(message, hashtab, call_loc_pow, call, loc, pwr, callsign);
+                fanoObject.unpk(message, call_loc_pow, call, loc, pwr, callsign);
                 fprintf(stderr, "unpacked data: %s %s %s %s %s\n", call_loc_pow, call, loc, pwr, callsign);
                 fprintf(stdout, "spot: %s at frequency %15.0f\n", call_loc_pow, dialFreq + 1500.0 +
                         candidate.getFrequency());
@@ -311,6 +311,7 @@ void WSPRWindow::doWork() {
           }
         }
       }
+      fanoObject.childDetach();
       exit(0) ; // terminate child process
     }
   }

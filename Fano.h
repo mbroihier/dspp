@@ -29,8 +29,10 @@ class Fano {
   int encode(unsigned char *symbols,unsigned char *data,unsigned int nbytes);
 
   void deinterleave(unsigned char *sym);
-  int unpk(signed char *message, char *hashtab, char *call_loc_pow, char *call, char *loc, char *pwr, char *callsign);
+  int unpk(signed char *message, char *call_loc_pow, char *call, char *loc, char *pwr, char *callsign);
   uint32_t nhash( const void * key, size_t length, uint32_t initval);
+  void childAttach(void);
+  void childDetach(void);
 
   static constexpr float metric_tables[4][256]= {
     0.9782,  0.9695,  0.9689,  0.9669,  0.9666,  0.9653,  0.9638,  0.9618,  0.9599,  0.9601,
@@ -140,6 +142,10 @@ class Fano {
   };
 
  private:
+  const key_t MEMORY_BLOCK_KEY = 8073;
+  const int MEMORY_BLOCK_SIZE = 32768*13;
+  int sharedMemoryID;
+  char * hashtab;
   int32_t mettab[2][256];
   static constexpr unsigned char Partab[] = {
     0, 1, 1, 0, 1, 0, 0, 1,

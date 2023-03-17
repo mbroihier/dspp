@@ -13,6 +13,7 @@
 
 #define	LL 1	                // Select Layland-Lushbaugh code
 
+#include <sys/shm.h>
 #include "Fano.h"
 
 struct node {
@@ -519,7 +520,7 @@ void Fano::deinterleave(unsigned char *sym) {
         sym[i]=tmp[i];
     }
 }
-int Fano::unpk(signed char *message, char *hashtab, char *call_loc_pow, char *call, char *loc, char *pwr, char *callsign) {
+int Fano::unpk(signed char *message, char *call_loc_pow, char *call, char *loc, char *pwr, char *callsign) {
     int n1,n2,n3,ndbm,ihash,nadd,noprint=0;
     char grid[5],grid6[7];
     const int sizeOfCallAll = 23;
@@ -791,9 +792,31 @@ int Fano::fano( unsigned int  *metric,	// Final path metric (returned value)
     //fprintf(stderr, "Successful Fano decode: i is %d, maxcycles is %d\n", i, maxcycles);
     return 0;		 // Successful completion
 }
+void Fano::childAttach() {
+  hashtab = (char *) shmat(sharedMemoryID, (void *) 0, 0);
+  if (hashtab == (char *) -1) {
+    perror("shmat");
+    exit(1);
+  }
+}  
+void Fano::childDetach() {
+  if (shmdt(hashtab) == -1) {
+    perror("shmdt");
+    exit(1);
+  }
+}  
 Fano::Fano(void) {
   // Setup metric table
-  float bias=0.42;
+  if ((sharedMemoryID = shmget(MEMORY_BLOCK_KEY, MEMORY_BLOCK_SIZE, 0644 | IPC_CREAT)) == -1) {
+    perror("shmget");
+    exit(1);
+  }
+  hashtab = (char *) shmat(sharedMemoryID, (void *) 0, 0);
+  if (hashtab == (char *) -1) {
+    perror("shmat");
+    exit(1);
+  }
+  float bias = 0.42;
   for(int i=0; i<256; i++) {
     mettab[0][i]=round( 10*(metric_tables[2][i]-bias) );
     mettab[1][i]=round( 10*(metric_tables[2][255-i]-bias) );
@@ -801,4 +824,5 @@ Fano::Fano(void) {
   }
 }
 Fano::~Fano(void) {
+  childDetach();
 }
