@@ -64,12 +64,12 @@ void WSPRWindow::doWork() {
   float * magPtr;
   float * magAccPtr;
   float * fftOverTimePtr;
-  fprintf(stderr, "Process WSPR Windows\n", number);
+  fprintf(stderr, "Process WSPR Windows\n");
   bool done = false;
   float deltaTime = 1.0 / freq * size;
   int baseTime = time(0);
   while (!done) {
-    fprintf(stderr, "Starting a window at %d\n", time(0) - baseTime);
+    fprintf(stderr, "Starting a window at %ld\n", time(0) - baseTime);
     // get a Window worth of samples
     // wait for an odd to even minute transition
     if (background) {
@@ -103,11 +103,11 @@ void WSPRWindow::doWork() {
       }
     }
     const time_t now = time(0);
-    fprintf(stderr, "\nCollecting samples at %d - %s", now - baseTime, ctime(&now));
+    fprintf(stderr, "\nCollecting samples at %ld - %s", now - baseTime, ctime(&now));
     fprintf(stdout, "Collecting samples at %s", ctime(&now));
 
     count = fread(windowOfIQData, sizeof(float), sampleBufferSize, stdin);
-    fprintf(stderr, "Done collecting samples at %d\n", time(0) - baseTime);
+    fprintf(stderr, "Done collecting samples at %ld\n", time(0) - baseTime);
     const time_t now2 = time(0);
     fprintf(stdout, "Done collecting samples at %s", ctime(&now2));
     
@@ -132,7 +132,7 @@ void WSPRWindow::doWork() {
           samplePtr += size * 2;
         }
       }
-      fprintf(stderr, "Done with FFTs at %d\n", time(0) - baseTime);
+      fprintf(stderr, "Done with FFTs at %ld\n", time(0) - baseTime);
 
       // Now it is time to find the frequencies that have the most power on them
       samplePtr = fftOverTime;

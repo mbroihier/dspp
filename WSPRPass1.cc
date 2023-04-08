@@ -54,7 +54,7 @@ void WSPRPass1::doWork() {
   float * magPtr;
   float * magAccPtr;
   float * fftOverTimePtr;
-  fprintf(stderr, "Find WSPR signals pass 1\n", number);
+  fprintf(stderr, "Find WSPR signals pass 1\n");
   bool done = false;
   float wallClock = 0.0;
   float deltaTime = 1.0 / freq * size;
@@ -248,7 +248,7 @@ void WSPRPass1::doWork() {
               message[i] = data[i];
             }
           }
-          fanoObject.unpk(message, hashtab, call_loc_pow, call, loc, pwr, callsign);
+          fanoObject.unpk(message, call_loc_pow, call, loc, pwr, callsign);
           fprintf(stderr, "unpacked data: %s %s %s %s %s\n", call_loc_pow, call, loc, pwr, callsign);
         } else {
           fprintf(stderr, "Did not decode peak bin: %d @ shift: %d, metric: %8.8x, cycles: %d, maxnp: %d\n",

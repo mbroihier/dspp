@@ -401,7 +401,7 @@ void WSPRSymbols::doWork() {
   int count = 0;
   float * samplePtr;
   float * magPtr;
-  fprintf(stderr, "Find WSPR symbols\n", number);
+  fprintf(stderr, "Find WSPR symbols\n");
   bool done = false;
   while (!done) {
     // get an FFT's worth of bins
