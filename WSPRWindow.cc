@@ -20,6 +20,7 @@
 #include <string.h>
 #include "SpotCandidate.h"
 #include "WSPRWindow.h"
+#include "WSPRUtilities.h"
 #define SELFTEST 1
 
 /* ---------------------------------------------------------------------- */
@@ -29,7 +30,7 @@ void WSPRWindow::init(int size, int number, char * prefix, float dialFreq, bool 
   this->prefix = prefix;
   this->dialFreq = dialFreq;
   this->skipSync = skipSync;
-  freq = 375.0;
+  freq = BASE_BAND;
   fftObject = new DsppFFT(size);
   deltaFreq = freq / size;
   fprintf(stderr, "allocating binArray memory\n");
@@ -59,6 +60,7 @@ void WSPRWindow::doWork() {
   pid_t background = 0;
   int status = 0;
 
+  time_t now;
   int count = 0;
   float * samplePtr;
   float * magPtr;
@@ -68,22 +70,32 @@ void WSPRWindow::doWork() {
   bool done = false;
   float deltaTime = 1.0 / freq * size;
   int baseTime = time(0);
+  int sampleLabel = 0;
+  char sampleFile[50];
+
   while (!done) {
     fprintf(stderr, "Starting a window at %ld\n", time(0) - baseTime);
     // get a Window worth of samples
     // wait for an odd to even minute transition
     if (background) {
       pid_t id;
-      float skipSamples[750];
+      float skipSamples[PERIOD * BASE_BAND * 2];
+      float remainsOf2Min[(PERIOD - PROCESSING_SIZE) * BASE_BAND * 2];
+      // Before entering loop, disard the remaining samples associated with this 2 minute block
+      fprintf(stdout, "Discarding %d unused samples of this 2 minute window\n", (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2);
+      fread(remainsOf2Min, sizeof(float), (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2, stdin);
       while (background) {
         id = waitpid(background, &status, WNOHANG);
-        if (id < 0) {
+        if (id < 0 || id == background) {
           background = 0;  // background child process has terminated
           continue;
         }
-        // skip all samples while waiting for background to finish
-        if (0 == fread(skipSamples, sizeof(float), 750, stdin)) {
-          sleep(0.0);
+        // skip whole two minute blocks while waiting for bacground to finish
+        fprintf(stdout, "Discarding %d a whole window of data\n", PERIOD * BASE_BAND * 2);
+        if (0 == fread(skipSamples, sizeof(float), PERIOD * BASE_BAND * 2, stdin)) {
+          now = time(0);
+          fprintf(stdout, "Input read was empty, sleeping for a while at %s", ctime(&now));
+          sleep(60.0);
         }
       }
     }
@@ -102,15 +114,17 @@ void WSPRWindow::doWork() {
         fread(skipSamples, sizeof(float), 2, stdin);  // skip samples
       }
     }
-    const time_t now = time(0);
-    fprintf(stderr, "\nCollecting samples at %ld - %s", now - baseTime, ctime(&now));
-    fprintf(stdout, "Collecting samples at %s", ctime(&now));
+    now = time(0);
+    fprintf(stderr, "\nCollecting %d samples at %ld - %s", sampleBufferSize, now - baseTime, ctime(&now));
+    fprintf(stdout, "Collecting %d samples at %s", sampleBufferSize, ctime(&now));
 
     count = fread(windowOfIQData, sizeof(float), sampleBufferSize, stdin);
-    fprintf(stderr, "Done collecting samples at %ld\n", time(0) - baseTime);
-    const time_t now2 = time(0);
-    fprintf(stdout, "Done collecting samples at %s", ctime(&now2));
-    
+    sampleLabel = time(0) - baseTime;
+    fprintf(stderr, "Done collecting samples at %ld\n", sampleLabel);
+    now = time(0);
+    fprintf(stdout, "Done collecting samples at %s", ctime(&now));
+    snprintf(sampleFile, 50, "rawFile%d.bin", sampleLabel);
+    WSPRUtilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
     if (count < sampleBufferSize) {
       done = true;
       continue;
@@ -119,13 +133,16 @@ void WSPRWindow::doWork() {
     if (background == 0) {  // this is the child process, so continue this processing in "background"
       fanoObject.childAttach();  // attach shared memory
       fftOverTimePtr = fftOverTime;
+      
       for (int shift = 0; shift < SHIFTS; shift++) {
         fftOverTimePtr = fftOverTime;
         fftOverTimePtr += shift * size * 2 * FFTS_PER_SHIFT;
         float * samplePtr = windowOfIQData;
         samplePtr += shift * 2;
         int samplesLeft = sampleBufferSize - shift * 2;
-        while (samplesLeft >= 2 * size) {
+        float * ptrLimit = &fftOverTime[SHIFTS * size * 2 * FFTS_PER_SHIFT];
+        while (samplesLeft >= 2 * size && fftOverTimePtr < ptrLimit) {
+          //  while enough samples to FFT and while enough FFT buffers
           fftObject->processSampleSet(samplePtr, fftOverTimePtr);
           samplesLeft -= size * 2;
           fftOverTimePtr += size * 2;
@@ -216,7 +233,7 @@ void WSPRWindow::doWork() {
         }
 #endif
         std::vector<SpotCandidate::SampleRecord> candidateInfo;
-        for (int shift = 0; shift < SHIFTS; shift++) {
+        for (int shift = 0; shift < SHIFTS; shift += 10) {
           fprintf(stderr, "Processing sample shift of %d\n", shift);
           candidateInfo.clear();  // clear information for this cycle
           for (int t = 0; t < FFTS_PER_SHIFT; t++) {
@@ -299,8 +316,11 @@ void WSPRWindow::doWork() {
                     message[i] = data[i];
                   }
                 }
-                fanoObject.unpk(message, call_loc_pow, call, loc, pwr, callsign);
-                fprintf(stderr, "unpacked data: %s %s %s %s %s\n", call_loc_pow, call, loc, pwr, callsign);
+                char sampleFile[] = "sampleFile.bin";
+                WSPRUtilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
+                int unpkStatus = fanoObject.unpk(message, call_loc_pow, call, loc, pwr, callsign);
+                fprintf(stderr, "unpacked data: %s %s %s %s %s, status: %d\n",
+                        call_loc_pow, call, loc, pwr, callsign, unpkStatus);
                 fprintf(stdout, "spot: %s at frequency %15.0f\n", call_loc_pow, dialFreq + 1500.0 +
                         candidate.getFrequency());
               } else {
@@ -312,6 +332,7 @@ void WSPRWindow::doWork() {
         }
       }
       fanoObject.childDetach();
+      fprintf(stdout, "Child process complete\n");
       exit(0) ; // terminate child process
     }
   }
@@ -331,7 +352,7 @@ int main() {
   char pre[10] = {0};
   float dialFreq = 14095600.0;
   snprintf(pre, sizeof(pre), "%s", "prefix");
-  WSPRWindow testObj(256, 9, pre, dialFreq, false);
+  WSPRWindow testObj(256, 9, pre, dialFreq, true);
   testObj.doWork();
 }
 #endif

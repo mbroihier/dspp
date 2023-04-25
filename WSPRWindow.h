@@ -18,9 +18,11 @@
 /* ---------------------------------------------------------------------- */
 class WSPRWindow {
  private:
+  const int PERIOD = 120;  // number of seconds in a WSPR period
   const int NOMINAL_NUMBER_OF_SYMBOLS = 162;
-  const int SHIFTS = 375;  
-  const int PROCESSING_SIZE = 113;  // 113 seconds of collection time - enough for 162 FFTs for every shift
+  const int SHIFTS = 375;
+  const int BASE_BAND = 375;  // base band frequency width
+  const int PROCESSING_SIZE = 116;  // 113 seconds of collection time - enough for 162 FFTs for every shift
   const int FFTS_PER_SHIFT = 164;   // maximum number of FFTs per sample shift (this happens only on the shift of 0)
   void init(int size, int number, char * prefix, float dialFreq, bool skipSync);
   int * binArray;
