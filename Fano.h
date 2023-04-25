@@ -30,6 +30,7 @@ class Fano {
 
   void deinterleave(unsigned char *sym);
   int unpk(signed char *message, char *call_loc_pow, char *call, char *loc, char *pwr, char *callsign);
+  void checkHash(char * where);
   uint32_t nhash( const void * key, size_t length, uint32_t initval);
   void childAttach(void);
   void childDetach(void);

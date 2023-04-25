@@ -371,6 +371,7 @@ int Fano::unpackcall( int32_t ncall, char *call ) {
     int32_t n;
     int i;
     char tmp[7];
+    const int sizeOfCall = 13;
 
     n=ncall;
     strcpy(call,"......");
@@ -398,7 +399,7 @@ int Fano::unpackcall( int32_t ncall, char *call ) {
             if( tmp[i] != c[36] )
                 break;
         }
-        sprintf(call,"%-6s",&tmp[i]);
+        snprintf(call,sizeOfCall,"%-6s",&tmp[i]);
         // remove trailing whitespace
         for(i=0; i<6; i++) {
             if( call[i] == c[36] ) {
@@ -600,13 +601,16 @@ int Fano::unpk(signed char *message, char *call_loc_pow, char *call, char *loc, 
             //         isalpha(grid6[4]) && isalpha(grid6[5]) ) ) {
             ihash=nhash(callsign,strlen(callsign),(uint32_t)146);
             strcpy(hashtab+ihash*13,callsign);
+            fprintf(stderr, "ihash: %4.4x hashtab: %p\n", ihash*13, hashtab);
         } else noprint=1;
 
         ihash=(n2-ntype-64)/128;
         if( strncmp(hashtab+ihash*13,"\0",1) != 0 ) {
-            sprintf(callsign,"<%s>",hashtab+ihash*13);
+          fprintf(stderr, "hash found\n");
+          snprintf(callsign,sizeOfCall,"<%s>",hashtab+ihash*13);
         } else {
-            sprintf(callsign,"%5s","<...>");
+          fprintf(stderr, "hash NOT found\n");
+          snprintf(callsign,sizeOfCall,"%5s","<...>");
         }
 
         memset(call_loc_pow,0,sizeof(char)*23);
@@ -798,7 +802,21 @@ void Fano::childAttach() {
     perror("shmat");
     exit(1);
   }
-}  
+}
+void Fano::checkHash(char * where) {
+  bool stillClean = true;
+  for (int i = 0; i < MEMORY_BLOCK_SIZE; i++) {
+    if (hashtab[i] != 0) {
+      fprintf(stderr, "Detected information in hash table @ %s\n", where);
+      stillClean = false;
+      break;
+    }
+  }
+  if (stillClean) {
+    fprintf(stderr, "hash table is still clean @ %s\n", where);
+  }
+}
+  
 void Fano::childDetach() {
   if (shmdt(hashtab) == -1) {
     perror("shmdt");
@@ -811,9 +829,16 @@ Fano::Fano(void) {
     perror("shmget");
     exit(1);
   }
+  hashtab = 0;
   hashtab = (char *) shmat(sharedMemoryID, (void *) 0, 0);
   if (hashtab == (char *) -1) {
     perror("shmat");
+    exit(1);
+  }
+  if (hashtab) {
+    memset(hashtab, 0, MEMORY_BLOCK_SIZE);
+  } else {
+    fprintf(stderr, "Fano object creation problem, hashtab not set\n");
     exit(1);
   }
   float bias = 0.42;
