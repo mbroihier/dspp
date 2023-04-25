@@ -26,13 +26,14 @@ WindowSample::WindowSample(int samplesInWindow, int samplesInPeriod, int syncTo)
   this->syncTo = syncTo;
   filler = reinterpret_cast<uint8_t *>(malloc(samplesInPeriod));
   windowOfIQSamples = reinterpret_cast<uint8_t *>(malloc(samplesInWindow));
-  memset(filler, 0, samplesInPeriod);
+  memset(filler, 0x80, samplesInPeriod);
   fprintf(stderr, "done creating WindowSample object\n");
   
 }
 
 void WindowSample::doWork() {
-  bool currentState = time(0) % syncTo;
+  int currentState = time(0) % syncTo;
+  int accumulator = 0;
   int count = 0;
   bool done = false;
   time_t now = 0;
@@ -45,11 +46,16 @@ void WindowSample::doWork() {
       fread(skipSamples, sizeof(uint8_t), 2, stdin);  // skip samples
     }
     now = time(0);
-    fprintf(stderr, "taking sample @ %s", ctime(&now));
-    count = fread(windowOfIQSamples, sizeof(uint8_t), samplesInWindow, stdin);
-    done =  (count != samplesInWindow);
+    fprintf(stderr, "taking samples @ %s", ctime(&now));
+    accumulator = 0;
+    count = -1;
+    while (accumulator != samplesInWindow && count != 0) {
+      count = fread(windowOfIQSamples, sizeof(uint8_t), 2, stdin);
+      fwrite(windowOfIQSamples, sizeof(uint8_t), 2, stdout);
+      accumulator += count;
+    }
+    done =  (accumulator != samplesInWindow);
     if (!done) {
-      fwrite(windowOfIQSamples, sizeof(uint8_t), samplesInWindow, stdout);
       fwrite(filler, sizeof(uint8_t), fillerBufferSize, stdout);
       currentState = time(0) % syncTo;
     }
@@ -67,7 +73,7 @@ WindowSample::~WindowSample(void) {
 
 #ifdef SELFTEST
 int main() {
-  WindowSample testObj(112*1200000*2, 120*1200000*2, 120);
+  WindowSample testObj(116*1200000*2, 120*1200000*2, 120);
   testObj.doWork();
 }
 #endif
