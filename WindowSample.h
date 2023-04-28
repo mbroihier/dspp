@@ -14,12 +14,10 @@
 /* ---------------------------------------------------------------------- */
 class WindowSample {
  private:
-  int samplesInWindow;
+  const int BUFFER_SIZE = 8;
+  int modulo;
   int samplesInPeriod;
   int syncTo;
-  int fillerBufferSize;
-  uint8_t * filler = 0;
-  uint8_t * windowOfIQSamples = 0;
  public:
   void doWork(void);
   WindowSample(int samplesInWindow, int samplesInPeriod, int syncTo);

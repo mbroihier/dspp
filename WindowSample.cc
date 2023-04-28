@@ -18,27 +18,30 @@
 #define SELFTEST 1
 
 /* ---------------------------------------------------------------------- */
-WindowSample::WindowSample(int samplesInWindow, int samplesInPeriod, int syncTo) {
+WindowSample::WindowSample(int samplesInPeriod, int modulo, int syncTo) {
   fprintf(stderr, "creating WindowSample object\n");
-  this->samplesInWindow = samplesInWindow;
   this->samplesInPeriod = samplesInPeriod;
+  this->modulo = modulo;
   this->syncTo = syncTo;
-  windowOfIQSamples = reinterpret_cast<uint8_t *>(malloc(2));
+  if (samplesInPeriod % BUFFER_SIZE != 0) {
+    fprintf(stderr, "Error, BUFFER_SIZE and modulo are not consistent\n");
+    exit(1);
+  }
   fprintf(stderr, "done creating WindowSample object\n");
-  
 }
 
 void WindowSample::doWork() {
-  int currentState = time(0) % syncTo;
+  int currentState = time(0) % modulo;
   int accumulator = 0;
   int count = 0;
   bool done = false;
   time_t now = 0;
-  if (currentState == 0) { // if it is currently at the sync, we need to skip this window
+  uint8_t IQSamples[BUFFER_SIZE];
+  if (currentState == syncTo) { // if it is currently at the sync, we need to skip this window
     sleep(2.0);
   }
-  while (0 != (currentState = time(0) % syncTo)) {  // wait here until time to sample
-    fread(windowOfIQSamples, sizeof(uint8_t), 2, stdin);  // skip samples
+  while (syncTo != (time(0) % modulo)) {  // wait here until time to sample
+    fread(IQSamples, sizeof(uint8_t), BUFFER_SIZE, stdin);  // skip samples
   }
   while (!done) {
     now = time(0);
@@ -46,8 +49,8 @@ void WindowSample::doWork() {
     accumulator = 0;
     count = -1;
     while (accumulator != samplesInPeriod && count != 0) {
-      count = fread(windowOfIQSamples, sizeof(uint8_t), 2, stdin);
-      fwrite(windowOfIQSamples, sizeof(uint8_t), 2, stdout);
+      count = fread(IQSamples, sizeof(uint8_t), BUFFER_SIZE, stdin);
+      fwrite(IQSamples, sizeof(uint8_t), BUFFER_SIZE, stdout);
       accumulator += count;
     }
     done =  (accumulator != samplesInPeriod);
@@ -58,12 +61,22 @@ void WindowSample::doWork() {
 
 WindowSample::~WindowSample(void) {
   fprintf(stderr, "destructing WindowSample\n");
-  if(windowOfIQSamples) free(windowOfIQSamples);
 }
 
 #ifdef SELFTEST
-int main() {
-  WindowSample testObj(116*1200000*2, 120*1200000*2, 120);
+int main(int argc, char *argv[]) {
+  int syncTo = 0;
+  if (argc == 1) {
+    syncTo = 0;
+  } else {
+    if (argc == 2) {
+      sscanf(argv[1], "%d", &syncTo);
+    } else {
+      fprintf(stderr, "Usage WindowSample [sync to value]\n");
+      exit(1);
+    }
+  }
+  WindowSample testObj(120*1200000*2, 120, syncTo);
   testObj.doWork();
 }
 #endif
