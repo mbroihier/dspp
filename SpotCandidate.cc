@@ -328,12 +328,12 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
       token = 0;
     } else {
       if (one > zero && one > two && one > three) {
-        token = 1 << 6;
+        token = 1;
       } else {
         if (two > zero && two > one && two > three) {
-          token = 2 << 6;
+          token = 2;
         } else {
-          token = 3 << 6;
+          token = 3;
         }
       }
     }

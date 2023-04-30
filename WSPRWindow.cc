@@ -56,6 +56,38 @@ WSPRWindow::WSPRWindow(int size, int number, char * prefix, float dialFreq, bool
   fprintf(stderr, "done creating WSPRWindow object\n");
 }
 
+void WSPRWindow::remap(std::vector<int> tokens, std::vector<int> &symbols, int mapSelector) {
+  // map tokens to the possible symbol sets
+  const int tokenToSymbol[] = { 0, 1, 2, 3,
+                                0, 1, 3, 1,
+                                0, 2, 1, 3,
+                                0, 2, 3, 1,
+                                0, 3, 1, 2,
+                                0, 3, 2, 1,
+                                1, 0, 2, 3,
+                                1, 0, 3, 2,
+                                1, 2, 0, 3,
+                                1, 2, 3, 0,
+                                1, 3, 0, 2,
+                                1, 3, 2, 1,
+                                2, 0, 1, 3,
+                                2, 0, 3, 1,
+                                2, 1, 0, 3,
+                                2, 1, 3, 0,
+                                2, 3, 0, 1,
+                                2, 3, 1, 0,
+                                3, 0, 1, 2,
+                                3, 0, 2, 1,
+                                3, 1, 0, 2,
+                                3, 1, 2, 0,
+                                3, 2, 0, 1,
+                                3, 2, 1, 1 };
+  int offset = mapSelector * 4;
+  symbols.clear();
+  for (auto element : tokens) {
+    symbols.push_back(tokenToSymbol[element + offset] << 6);
+  }
+}
 void WSPRWindow::doWork() {
   pid_t background = 0;
   int status = 0;
@@ -286,46 +318,54 @@ void WSPRWindow::doWork() {
               subset.push_back(candidateInfo[index + symbolSet]);
             }
             std::vector<int>  tokens;
+            std::vector<int> symbolVector;
             candidate.tokenize(subset, tokens);
-            for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
-              symbols[index] = tokens[index];
-            }
-            fprintf(stderr, "Deinterleave symbols\n");
-            fanoObject.deinterleave(symbols);
-            fprintf(stderr, "Performing Fano\n");
-            if (fanoObject.fano(&metric, &cycles, &maxnp, data, symbols, nbits, delta, maxcycles)) {
-              fprintf(stderr, "Did not decode peak bin: %d @ symbol set: %d, metric: %8.8x, cycles: %d, maxnp: %d\n",
-                      currentPeakBin, symbolSet, metric, cycles, maxnp);
-            } else {
-              bool pass = false;
-              for (auto c : data) {
-                if (c != 0) pass = true;
+            for (int remapIndex = 0; remapIndex < 24; remapIndex++) {
+              remap(tokens, symbolVector, remapIndex);
+              for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
+                symbols[index] = symbolVector[index];
               }
-              if (pass) {
-                fprintf(stderr, "Fano successful, current peak bin: %d, symbol set: %d\n", currentPeakBin, symbolSet);
-                int8_t message[12];
-                char call_loc_pow[23] = {0};
-                char call[13] = {0};
-                char callsign[13] = {0};
-                char loc[7] = {0};
-                char pwr[3] = {0};
-                for (int i = 0; i < 12; i++) {
-                  if (data[i] > 127) {
-                    message[i] = data[i] - 256;
-                  } else {
-                    message[i] = data[i];
-                  }
-                }
-                char sampleFile[] = "sampleFile.bin";
-                WSPRUtilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
-                int unpkStatus = fanoObject.unpk(message, call_loc_pow, call, loc, pwr, callsign);
-                fprintf(stderr, "unpacked data: %s %s %s %s %s, status: %d\n",
-                        call_loc_pow, call, loc, pwr, callsign, unpkStatus);
-                fprintf(stdout, "spot: %s at frequency %15.0f\n", call_loc_pow, dialFreq + 1500.0 +
-                        candidate.getFrequency());
-              } else {
+              fprintf(stderr, "Deinterleave symbols\n");
+              fanoObject.deinterleave(symbols);
+              fprintf(stderr, "Performing Fano\n");
+              if (fanoObject.fano(&metric, &cycles, &maxnp, data, symbols, nbits, delta, maxcycles)) {
                 fprintf(stderr, "Did not decode peak bin: %d @ symbol set: %d, metric: %8.8x, cycles: %d, maxnp: %d\n",
                         currentPeakBin, symbolSet, metric, cycles, maxnp);
+              } else {
+                bool pass = false;
+                for (auto c : data) {
+                  if (c != 0) pass = true;
+                }
+                if (pass) {
+                  fprintf(stderr, "Fano successful, current peak bin: %d, symbol set: %d, remapIndex: %d\n",
+                          currentPeakBin, symbolSet, remapIndex);
+                  int8_t message[12];
+                  char call_loc_pow[23] = {0};
+                  char call[13] = {0};
+                  char callsign[13] = {0};
+                  char loc[7] = {0};
+                  char pwr[3] = {0};
+                  for (int i = 0; i < 12; i++) {
+                    if (data[i] > 127) {
+                      message[i] = data[i] - 256;
+                    } else {
+                      message[i] = data[i];
+                    }
+                  }
+                  char sampleFile[] = "sampleFile.bin";
+                  WSPRUtilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
+                  int unpkStatus = fanoObject.unpk(message, call_loc_pow, call, loc, pwr, callsign);
+                  fprintf(stderr, "unpacked data: %s %s %s %s %s, status: %d\n",
+                          call_loc_pow, call, loc, pwr, callsign, unpkStatus);
+                  fprintf(stdout, "spot: %s at frequency %15.0f, currentPeakIndex: %d, shift: %d, remapIndex: %d\n",
+                          call_loc_pow, dialFreq + 1500.0 +
+                          candidate.getFrequency(), currentPeakIndex, shift, remapIndex);
+                  break;
+                } else {
+                  fprintf(stderr,
+                          "Did not decode peak bin: %d @ symbol set: %d, metric: %8.8x, cycles: %d, maxnp: %d\n",
+                          currentPeakBin, symbolSet, metric, cycles, maxnp);
+                }
               }
             }
           }

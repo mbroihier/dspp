@@ -25,6 +25,7 @@ class WSPRWindow {
   const int PROCESSING_SIZE = 116;  // 113 seconds of collection time - enough for 162 FFTs for every shift
   const int FFTS_PER_SHIFT = 164;   // maximum number of FFTs per sample shift (this happens only on the shift of 0)
   void init(int size, int number, char * prefix, float dialFreq, bool skipSync);
+  void remap(std::vector<int> tokens, std::vector<int> &symbols, int mapSelector);
   int * binArray;
   float * mag;
   float * magAcc;
