@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 #include "WindowSample.h"
@@ -31,21 +32,27 @@ WindowSample::WindowSample(int samplesInPeriod, int modulo, int syncTo) {
 }
 
 void WindowSample::doWork() {
-  int currentState = time(0) % modulo;
+  timeval tv;
+  gettimeofday(&tv, NULL);  
+  int currentState = tv.tv_sec % modulo;
   int accumulator = 0;
   int count = 0;
   bool done = false;
-  time_t now = 0;
   uint8_t IQSamples[BUFFER_SIZE];
   if (currentState == syncTo) { // if it is currently at the sync, we need to skip this window
     sleep(2.0);
   }
-  while (syncTo != (time(0) % modulo)) {  // wait here until time to sample
+  gettimeofday(&tv, NULL);  
+  while (syncTo != ( tv.tv_sec % modulo)) {  // wait here until time to sample
     fread(IQSamples, sizeof(uint8_t), BUFFER_SIZE, stdin);  // skip samples
+    gettimeofday(&tv, NULL);  
   }
+  char displayString[128];
   while (!done) {
-    now = time(0);
-    fprintf(stderr, "taking samples @ %s", ctime(&now));
+    snprintf(displayString, sizeof(displayString), "taking samples @ %s", ctime(&tv.tv_sec));
+    snprintf(&displayString[strlen(displayString) - 1], sizeof(displayString) - strlen(displayString),
+             ", microseconds: %d\n", tv.tv_usec);
+    fprintf(stderr, "%s", displayString);
     accumulator = 0;
     count = -1;
     while (accumulator != samplesInPeriod && count != 0) {
@@ -55,6 +62,7 @@ void WindowSample::doWork() {
     }
     done =  (accumulator != samplesInPeriod);
     fprintf(stderr, "window done\n");
+    gettimeofday(&tv, NULL);  
   }
   fprintf(stderr, "leaving doWork within WindowSample\n");
 }
