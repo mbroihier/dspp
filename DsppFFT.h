@@ -1,3 +1,5 @@
+#ifndef DSPPFFT_H_
+#define DSPPFFT_H_
 /*
  *      DsppFFT.cc - FFTW3 wrappers class for dspp
  *
@@ -31,4 +33,5 @@ class DsppFFT {
   ~DsppFFT(void);
     
 };
+#endif  // DSPPFFT_H_
 

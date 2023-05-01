@@ -73,7 +73,9 @@ static const char USAGE_STR[] = "\n"
         "  overlap_samples_n_2        : overlap samples N by 2\n"
         "  split_stream               : split input stream into multiple streams\n"
         "  WSPR_symbols               : find WSPR symbols by candidate\n"
-        "  WSPR_Pass1                 : find potential WSPR signal\n";
+        "  WSPR_Pass1                 : find potential WSPR signal\n"
+        "  WSPRWindow                 : find WSPR spots in a WSPR window\n"
+        "  WindowSample               : Synchronize a sampling window to a clock\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"       , no_argument, NULL, 1 },
@@ -114,6 +116,8 @@ static struct option longOpts[] = {
   { "split_stream"              , no_argument, NULL, 36 },
   { "WSPR_symbols"              , no_argument, NULL, 37 },
   { "WSPR_Pass1"                , no_argument, NULL, 38 },
+  { "WSPRWindow"                , no_argument, NULL, 39 },
+  { "WindowSample"              , no_argument, NULL, 40 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -1421,6 +1425,40 @@ int dspp::split_stream(char ** paths) {
   return 0;
 }
 /* ---------------------------------------------------------------------- */
+/*
+ *      WSPR_window.cc -- DSP Pipe - process a WSPR window to find WSPR spots
+ *
+ *      Copyright (C) 2023
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+
+int dspp::WSPR_window(float centerFrequency, char * prefix, int numberOfCandidates) {
+  WSPRWindow * WSPRWindowObject;
+  WSPRWindowObject = new WSPRWindow(256, numberOfCandidates, prefix,  centerFrequency, true);
+  WSPRWindowObject->doWork();
+  return 0;
+}
+/* ---------------------------------------------------------------------- */
+/*
+ *      window_samppe.cc -- DSP Pipe - synchronize a window to a clock
+ *
+ *      Copyright (C) 2023
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+
+int dspp::window_sample(int period, int modulo, int syncTo) {
+  WindowSample * windowSampleObject;
+  windowSampleObject = new WindowSample(period, modulo, syncTo);
+  windowSampleObject->doWork();
+  return 0;
+}
+/* ---------------------------------------------------------------------- */
 
 int main(int argc, char *argv[]) {
 
@@ -1924,6 +1962,38 @@ int main(int argc, char *argv[]) {
           doneProcessing = !dsppInstance.fwspr(size, count, argv[4]);
 	} else {
 	  fprintf(stderr, "WSPR_Pass1 should have 3 parameters - error\n");
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 39: {
+        float dialFrequency = 0.0;
+        char prefix[128];
+        int numberOfCandidates = 0;
+        if (argc == 5) {
+	  fprintf(stderr, "starting WSPRWindow\n");
+          sscanf(argv[2], "%f", &dialFrequency);
+          snprintf(prefix, sizeof(prefix), "%s", argv[3]);
+          sscanf(argv[4], "%d", &numberOfCandidates);
+          doneProcessing = !dsppInstance.WSPR_window(dialFrequency, prefix, numberOfCandidates);
+	} else {
+	  fprintf(stderr, "WSPRWindow should have 3 parameters - error\n");
+	  doneProcessing = true;
+	}
+        break;
+      }
+      case 40: {
+        int period = 0;
+        int modulo = 0;
+        int syncTo = 0;
+        if (argc == 5) {
+	  fprintf(stderr, "starting WindowSamle\n");
+          sscanf(argv[2], "%d", &period);
+          sscanf(argv[3], "%d", &modulo);
+          sscanf(argv[4], "%d", &syncTo);
+          doneProcessing = !dsppInstance.window_sample(period, modulo, syncTo);
+	} else {
+	  fprintf(stderr, "WindowSample should have 3 parameters - error\n");
 	  doneProcessing = true;
 	}
         break;

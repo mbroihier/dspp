@@ -21,7 +21,7 @@
 #include "SpotCandidate.h"
 #include "WSPRWindow.h"
 #include "WSPRUtilities.h"
-#define SELFTEST 1
+//#define SELFTEST 1
 
 /* ---------------------------------------------------------------------- */
 void WSPRWindow::init(int size, int number, char * prefix, float dialFreq, bool skipSync) {

@@ -16,7 +16,7 @@
 #include <time.h>
 #include <unistd.h>
 #include "WindowSample.h"
-#define SELFTEST 1
+//#define SELFTEST 1
 
 /* ---------------------------------------------------------------------- */
 WindowSample::WindowSample(int samplesInPeriod, int modulo, int syncTo) {

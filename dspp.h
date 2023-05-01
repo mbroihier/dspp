@@ -22,6 +22,8 @@
 #include "FindNLargestF.h"
 #include "WSPRSymbols.h"
 #include "WSPRPass1.h"
+#include "WSPRWindow.h"
+#include "WindowSample.h"
 /* ---------------------------------------------------------------------- */
 class dspp {
 
@@ -64,6 +66,8 @@ class dspp {
   int fwspr(int size, int count, char * prefix);
   int overlap_samples_n_2(int size);
   int split_stream(char ** paths);
+  int WSPR_window(float dialFrequency, char * prefix, int numberOfCandidates);
+  int window_sample(int samplesInPeriod, int modulo, int syncTo);
 
   //dspp(void);
 
