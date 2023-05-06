@@ -152,7 +152,7 @@ void WSPRWindow::doWork() {
 
     count = fread(windowOfIQData, sizeof(float), sampleBufferSize, stdin);
     sampleLabel = time(0) - baseTime;
-    fprintf(stderr, "Done collecting samples at %ld\n", sampleLabel);
+    fprintf(stderr, "Done collecting samples at %d\n", sampleLabel);
     now = time(0);
     fprintf(stdout, "Done collecting samples at %s", ctime(&now));
     snprintf(sampleFile, 50, "rawFile%d.bin", sampleLabel);

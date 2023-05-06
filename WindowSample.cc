@@ -51,7 +51,7 @@ void WindowSample::doWork() {
   while (!done) {
     snprintf(displayString, sizeof(displayString), "taking samples @ %s", ctime(&tv.tv_sec));
     snprintf(&displayString[strlen(displayString) - 1], sizeof(displayString) - strlen(displayString),
-             ", microseconds: %d\n", tv.tv_usec);
+             ", microseconds: %ld\n", tv.tv_usec);
     fprintf(stderr, "%s", displayString);
     accumulator = 0;
     count = -1;
