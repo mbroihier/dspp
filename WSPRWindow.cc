@@ -320,7 +320,7 @@ void WSPRWindow::doWork() {
             std::vector<int>  tokens;
             std::vector<int> symbolVector;
             candidate.tokenize(subset, tokens);
-            for (int remapIndex = 0; remapIndex < 24; remapIndex++) {
+            for (int remapIndex = 0; remapIndex < 1; remapIndex++) {  // can be up to 24
               remap(tokens, symbolVector, remapIndex);
               for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
                 symbols[index] = symbolVector[index];

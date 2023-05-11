@@ -42,8 +42,12 @@ void WindowSample::doWork() {
   if (currentState == syncTo) { // if it is currently at the sync, we need to skip this window
     sleep(2.0);
   }
-  gettimeofday(&tv, NULL);  
-  while (syncTo != ( tv.tv_sec % modulo)) {  // wait here until time to sample
+  gettimeofday(&tv, NULL);
+  int justBefore = syncTo - 1;
+  if (justBefore < 0) {
+    justBefore = modulo - 1;
+  }
+  while (justBefore != ( tv.tv_sec % modulo) || tv.tv_usec < 960000) {  // wait here until time to sample
     fread(IQSamples, sizeof(uint8_t), BUFFER_SIZE, stdin);  // skip samples
     gettimeofday(&tv, NULL);  
   }
