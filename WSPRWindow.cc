@@ -155,8 +155,10 @@ void WSPRWindow::doWork() {
     fprintf(stderr, "Done collecting samples at %d\n", sampleLabel);
     now = time(0);
     fprintf(stdout, "Done collecting samples at %s", ctime(&now));
-    snprintf(sampleFile, 50, "rawFile%d.bin", sampleLabel);
-    WSPRUtilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
+    if (strlen(prefix) > 0) {
+      snprintf(sampleFile, 50, "%s%d.bin", prefix, sampleLabel);
+      WSPRUtilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
+    }
     if (count < sampleBufferSize) {
       done = true;
       continue;
@@ -352,8 +354,11 @@ void WSPRWindow::doWork() {
                       message[i] = data[i];
                     }
                   }
-                  char sampleFile[] = "sampleFile.bin";
-                  WSPRUtilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
+                  if (strlen(prefix) > 0) {
+                    char sampleFile[100];
+                    snprintf(sampleFile, sizeof(sampleFile), "%s_Signal_%d.bin", prefix, sampleLabel);
+                    WSPRUtilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
+                  }
                   int unpkStatus = fanoObject.unpk(message, call_loc_pow, call, loc, pwr, callsign);
                   fprintf(stderr, "unpacked data: %s %s %s %s %s, status: %d\n",
                           call_loc_pow, call, loc, pwr, callsign, unpkStatus);
