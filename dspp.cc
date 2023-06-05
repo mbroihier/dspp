@@ -75,7 +75,8 @@ static const char USAGE_STR[] = "\n"
         "  WSPR_symbols               : find WSPR symbols by candidate\n"
         "  WSPR_Pass1                 : find potential WSPR signal\n"
         "  WSPRWindow                 : find WSPR spots in a WSPR window\n"
-        "  WindowSample               : Synchronize a sampling window to a clock\n";
+        "  WindowSample               : Synchronize a sampling window to a clock\n"
+        "  convert_f_byte             : convert a float stream to a signed byte stream\n";
 
 static struct option longOpts[] = {
   { "convert_byte_sInt16"       , no_argument, NULL, 1 },
@@ -118,6 +119,7 @@ static struct option longOpts[] = {
   { "WSPR_Pass1"                , no_argument, NULL, 38 },
   { "WSPRWindow"                , no_argument, NULL, 39 },
   { "WindowSample"              , no_argument, NULL, 40 },
+  { "convert_f_byte"            , no_argument, NULL, 41 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -202,6 +204,42 @@ int dspp::convert_byte_f() {
       *fptr++ = *cptr++/128.0 ;
     }
     fwrite(&f, sizeof(float), BUFFER_SIZE, stdout);
+  }
+
+  return 0;
+
+}
+/* ---------------------------------------------------------------------- */
+/*
+ *      convert_f_byte.c -- DSP Pipe - float stream to byte(signed) stream
+ *
+ *      Copyright (C) 2023
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+
+int dspp::convert_f_byte() {
+  const int BUFFER_SIZE = 4096;
+  int8_t sbyte[BUFFER_SIZE];
+  float f[BUFFER_SIZE];
+  int count;
+  float * fptr;
+  int8_t * cptr;
+  for (;;) {
+    count = fread(&f, sizeof(float), BUFFER_SIZE, stdin);
+    cptr = sbyte;
+    fptr = f;
+    for (int i=0; i < count; i++) {
+      *cptr++ = *fptr++ ;
+    }
+    fwrite(&sbyte, sizeof(int8_t), count, stdout);
+    if(count < BUFFER_SIZE) {
+      fprintf(stderr, "Short data stream, convert_f_byte\n");
+      fclose(stdout);
+      return 0;
+    }
   }
 
   return 0;
@@ -1713,7 +1751,7 @@ int main(int argc, char *argv[]) {
         if (argc == 3) {
           sscanf(argv[2], "%f", &cutoff);
           SFIRFilter sfilter(cutoff);
-          fprintf(stderr, "Low pass smooth filter a complex stream with cutoff at %s of Nyquist:\n", argv[2]);
+          fprintf(stderr, "Low pass smooth filter a complex stream with cutoff at %s of Nyquist\n", argv[2]);
           sfilter.filterSignal();
           doneProcessing = true;
         } else if (argc == 4) {
@@ -1996,6 +2034,10 @@ int main(int argc, char *argv[]) {
 	  fprintf(stderr, "WindowSample should have 3 parameters - error\n");
 	  doneProcessing = true;
 	}
+        break;
+      }
+      case 41: {
+        doneProcessing = !dsppInstance.convert_f_byte();
         break;
       }
       default:

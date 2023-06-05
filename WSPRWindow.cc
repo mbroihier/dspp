@@ -9,6 +9,7 @@
 /* ---------------------------------------------------------------------- */
 
 #include <algorithm>
+#include <map>
 #include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -167,7 +168,9 @@ void WSPRWindow::doWork() {
     if (background == 0) {  // this is the child process, so continue this processing in "background"
       fanoObject.childAttach();  // attach shared memory
       fftOverTimePtr = fftOverTime;
-      
+      struct info { char * callSign; char * power; char * loc; int occurrence; double freq; int shift; float snr; };
+      std::map<int, info> candidates;
+      int numberOfCandidates = 0;
       for (int shift = 0; shift < SHIFTS; shift++) {
         fftOverTimePtr = fftOverTime;
         fftOverTimePtr += shift * size * 2 * FFTS_PER_SHIFT;
@@ -321,7 +324,8 @@ void WSPRWindow::doWork() {
             }
             std::vector<int>  tokens;
             std::vector<int> symbolVector;
-            candidate.tokenize(subset, tokens);
+            float snr = 0.0;
+            candidate.tokenize(subset, tokens, snr);
             for (int remapIndex = 0; remapIndex < 1; remapIndex++) {  // can be up to 24
               remap(tokens, symbolVector, remapIndex);
               for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
@@ -362,9 +366,33 @@ void WSPRWindow::doWork() {
                   int unpkStatus = fanoObject.unpk(message, call_loc_pow, call, loc, pwr, callsign);
                   fprintf(stderr, "unpacked data: %s %s %s %s %s, status: %d\n",
                           call_loc_pow, call, loc, pwr, callsign, unpkStatus);
-                  fprintf(stdout, "spot: %s at frequency %15.0f, currentPeakIndex: %d, shift: %d, remapIndex: %d\n",
+                  //fprintf(stdout, "spot: %s at frequency %15.0f, currentPeakIndex: %d, bin: %d shift: %d, "
+                  //        "remapIndex: %d\n",
+                  //        call_loc_pow, dialFreq + 1500.0 +
+                  //        candidate.getFrequency(), currentPeakIndex, currentPeakBin, shift, remapIndex);
+                  fprintf(stderr, "spot: %s at frequency %15.0f, currentPeakIndex: %d, bin: %d shift: %d, "
+                          "remapIndex: %d\n",
                           call_loc_pow, dialFreq + 1500.0 +
-                          candidate.getFrequency(), currentPeakIndex, shift, remapIndex);
+                          candidate.getFrequency(), currentPeakIndex, currentPeakBin, shift, remapIndex);
+                  bool newCand = true;
+                  for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
+                    if ((strcmp((*iter).second.callSign, callsign) == 0) &&
+                        (fabs((*iter).second.freq - (dialFreq + 1500.0 + candidate.getFrequency())) < 1.0)) {
+                      newCand = false;
+                      (*iter).second.occurrence++;
+                      if (snr > (*iter).second.snr) {
+                        (*iter).second.snr = snr;
+                      }
+                    }
+                  }
+                  if (newCand) {
+                    char * cs = strdup(callsign);
+                    char * p = strdup(pwr);
+                    char * l = strdup(loc);
+                    candidates[numberOfCandidates] = { cs, p, l, 1,
+                                                       dialFreq + 1500.0 + candidate.getFrequency(), shift, snr };
+                    numberOfCandidates++;
+                  }
                   break;
                 } else {
                   fprintf(stderr,
@@ -377,6 +405,13 @@ void WSPRWindow::doWork() {
         }
       }
       fanoObject.childDetach();
+      for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
+        if ((*iter).second.occurrence > 1) {
+          fprintf(stdout, "Candidate %d (%s) was seen %d times at frequency %15.0f with best SNR of %15.7f dB\n",
+                  (*iter).first, (*iter).second.callSign, (*iter).second.occurrence, (*iter).second.freq,
+                  (*iter).second.snr);
+        }
+      }
       fprintf(stdout, "Child process complete\n");
       exit(0) ; // terminate child process
     }

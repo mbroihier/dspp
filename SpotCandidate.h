@@ -48,7 +48,7 @@ class SpotCandidate {
   bool isValid(void) { return valid ; };
   void printReport(void);
   bool  mergeVector(const std::vector<SampleRecord> other);
-  static void tokenize(const std::vector<SampleRecord> validVector, std::vector<int> & tokens);
+  static void tokenize(const std::vector<SampleRecord> validVector, std::vector<int> & tokens, float & snr);
   float getSlope() { return slope; };
   float getYIntercept() { return yIntercept; };
   float getMinCentroid() { return minCentroid; };

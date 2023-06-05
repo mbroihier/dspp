@@ -33,6 +33,7 @@ class dspp {
 
   int convert_byte_sInt16();
   int convert_byte_f();
+  int convert_f_byte();
   int convert_uByte_f();
   int convert_uByte_byte();
   int shift_frequency_cc(float cyclesPerSample);

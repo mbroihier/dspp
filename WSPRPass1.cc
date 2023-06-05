@@ -217,7 +217,8 @@ void WSPRPass1::doWork() {
         subset.push_back(candidateInfo[index + shift]);
       }
       std::vector<int>  tokens;
-      candidate.tokenize(subset, tokens);
+      float snr = 0.0;
+      candidate.tokenize(subset, tokens, snr);
       for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
         symbols[index] = tokens[index];
       }
