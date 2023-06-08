@@ -407,9 +407,13 @@ void WSPRWindow::doWork() {
       fanoObject.childDetach();
       for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
         if ((*iter).second.occurrence > 1) {
-          fprintf(stdout, "Candidate %d (%s) was seen %d times at frequency %15.0f with best SNR of %15.7f dB\n",
+          int iP = 0;
+          sscanf((*iter).second.power, "%d", &iP);
+          float p = exp10f((float) iP / 10.0) / 1000.0;
+          fprintf(stdout, "Candidate %d (%s) was seen %d times at frequency %1.0f Hz with best SNR of %4.3f dB,\n"
+                  " with transmitter power of %4.3f W, and location of %s\n",
                   (*iter).first, (*iter).second.callSign, (*iter).second.occurrence, (*iter).second.freq,
-                  (*iter).second.snr);
+                  (*iter).second.snr, p, (*iter).second.loc);
         }
       }
       fprintf(stdout, "Child process complete\n");
