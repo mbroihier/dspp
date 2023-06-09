@@ -94,6 +94,7 @@ void WSPRWindow::doWork() {
   int status = 0;
 
   time_t now;
+  time_t spotTime;
   int count = 0;
   float * samplePtr;
   float * magPtr;
@@ -148,6 +149,7 @@ void WSPRWindow::doWork() {
       }
     }
     now = time(0);
+    spotTime = now;
     fprintf(stderr, "\nCollecting %d samples at %ld - %s", sampleBufferSize, now - baseTime, ctime(&now));
     fprintf(stdout, "Collecting %d samples at %s", sampleBufferSize, ctime(&now));
 
@@ -168,7 +170,7 @@ void WSPRWindow::doWork() {
     if (background == 0) {  // this is the child process, so continue this processing in "background"
       fanoObject.childAttach();  // attach shared memory
       fftOverTimePtr = fftOverTime;
-      struct info { char * callSign; char * power; char * loc; int occurrence; double freq; int shift; float snr; };
+      struct info { char * date; char * time; char * callSign; char * power; char * loc; int occurrence; double freq; int shift; float snr; };
       std::map<int, info> candidates;
       int numberOfCandidates = 0;
       for (int shift = 0; shift < SHIFTS; shift++) {
@@ -386,10 +388,17 @@ void WSPRWindow::doWork() {
                     }
                   }
                   if (newCand) {
+                    // note, this memory will be released when the child terminates
+                    char * d = reinterpret_cast<char *>(malloc(7)); // date
+                    char * t = reinterpret_cast<char *>(malloc(5)); // time
+                    struct tm * gtm;
+                    gtm = gmtime(&spotTime);
+                    snprintf(d, 7, "%02d%02d%02d", gtm->tm_year - 100, gtm->tm_mon + 1, gtm->tm_mday);
+                    snprintf(t, 5, "%02d%02d", gtm->tm_hour, gtm->tm_min);
                     char * cs = strdup(callsign);
                     char * p = strdup(pwr);
                     char * l = strdup(loc);
-                    candidates[numberOfCandidates] = { cs, p, l, 1,
+                    candidates[numberOfCandidates] = { d, t, cs, p, l, 1,
                                                        dialFreq + 1500.0 + candidate.getFrequency(), shift, snr };
                     numberOfCandidates++;
                   }
@@ -410,8 +419,9 @@ void WSPRWindow::doWork() {
           int iP = 0;
           sscanf((*iter).second.power, "%d", &iP);
           float p = exp10f((float) iP / 10.0) / 1000.0;
-          fprintf(stdout, "Candidate %d (%s) was seen %d times at frequency %1.0f Hz with best SNR of %4.3f dB,\n"
+          fprintf(stdout, "%s %s: Candidate %d (%s) was seen %d times at %1.0f Hz with best SNR of %4.3f dB,\n"
                   " with transmitter power of %4.3f W, and location of %s\n",
+                  (*iter).second.date, (*iter).second.time,
                   (*iter).first, (*iter).second.callSign, (*iter).second.occurrence, (*iter).second.freq,
                   (*iter).second.snr, p, (*iter).second.loc);
         }
