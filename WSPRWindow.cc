@@ -166,8 +166,10 @@ void WSPRWindow::doWork() {
       done = true;
       continue;
     }
+    fflush(stdout);  // flush standard out to make file output sane
     background = fork();
     if (background == 0) {  // this is the child process, so continue this processing in "background"
+      fprintf(stdout, "Starting child\n");
       fanoObject.childAttach();  // attach shared memory
       fftOverTimePtr = fftOverTime;
       struct info { char * date; char * time; char * callSign; char * power; char * loc; int occurrence; double freq; int shift; float snr; };

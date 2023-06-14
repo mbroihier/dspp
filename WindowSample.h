@@ -18,6 +18,7 @@ class WindowSample {
   int modulo;
   int samplesInPeriod;
   int syncTo;
+  float microSecondsPerSample = 0.0;
  public:
   void doWork(void);
   WindowSample(int samplesInWindow, int samplesInPeriod, int syncTo);
