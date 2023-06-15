@@ -48,7 +48,7 @@ void WindowSample::doWork() {
   int correction = 0;  // at the moment, this isn't used - a simpler approach is used where I just resync
   float halfWindowPeriod = modulo * 500000.0;
   float fullWindowPeriod = modulo * 1000000.0;
-  float target = syncTo == 0 ? 960000.0 : (syncTo - 1) * 1000000.0 + 960000.0;
+  float target = syncTo == 0 ? 19960000.0 : (syncTo - 1) * 1000000.0 + 960000.0;
   timeval tv;
   int currentState = 0;
   int accumulator = 0;
