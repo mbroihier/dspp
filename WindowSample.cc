@@ -48,7 +48,7 @@ void WindowSample::doWork() {
   int correction = 0;  // at the moment, this isn't used - a simpler approach is used where I just resync
   float halfWindowPeriod = modulo * 500000.0;
   float fullWindowPeriod = modulo * 1000000.0;
-  float target = syncTo == 0 ? 19960000.0 : (syncTo - 1) * 1000000.0 + 960000.0;
+  float target = syncTo == 0 ? (modulo - 1) * 1000000.0 + 960000.0 : (syncTo - 1) * 1000000.0 + 960000.0;
   timeval tv;
   int currentState = 0;
   int accumulator = 0;
@@ -58,6 +58,7 @@ void WindowSample::doWork() {
   int justBefore = syncTo == 0 ? modulo - 1 : syncTo - 1;
   float windowTime = 0.0;
   bool resync = true;
+  fprintf(stderr, "target: %1.0f\n", target);
   while (resync) {
     fprintf(stderr, "syncing....\n");
     resync = false;
