@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <thread>
 #include <time.h>
 #include <unistd.h>
 #include <string.h>
@@ -91,7 +92,6 @@ void WSPRWindow::remap(std::vector<int> tokens, std::vector<int> &symbols, int m
 }
 void WSPRWindow::doWork() {
   pid_t background = 0;
-  int status = 0;
 
   time_t now;
   time_t spotTime;
@@ -106,24 +106,34 @@ void WSPRWindow::doWork() {
   int baseTime = time(0);
   int sampleLabel = 0;
   char sampleFile[50];
+  bool terminate = false;
 
+  auto reaper = [&background, &terminate]() {
+                  pid_t id;
+                  int status;
+                  while (!terminate) {
+                    if (background) {
+                      id = waitpid(background, &status, WNOHANG);
+                      if (id < 0 || id == background) {
+                        background = 0;  // background child process has terminated
+                      }
+                    }
+                    sleep(0.0);
+                  }
+                };
+  std::thread monitor(reaper);
   while (!done) {
     fprintf(stderr, "Starting a window at %ld\n", time(0) - baseTime);
     // get a Window worth of samples
     // wait for an odd to even minute transition
     if (background) {
-      pid_t id;
       float skipSamples[PERIOD * BASE_BAND * 2];
       float remainsOf2Min[(PERIOD - PROCESSING_SIZE) * BASE_BAND * 2];
       // Before entering loop, disard the remaining samples associated with this 2 minute block
       fprintf(stdout, "Discarding %d unused samples of this 2 minute window\n", (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2);
       fread(remainsOf2Min, sizeof(float), (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2, stdin);
       while (background) {
-        id = waitpid(background, &status, WNOHANG);
-        if (id < 0 || id == background) {
-          background = 0;  // background child process has terminated
-          continue;
-        }
+        // the background thread will set backgroud to 0
         // skip whole two minute blocks while waiting for bacground to finish
         fprintf(stdout, "Discarding %d a whole window of data\n", PERIOD * BASE_BAND * 2);
         if (0 == fread(skipSamples, sizeof(float), PERIOD * BASE_BAND * 2, stdin)) {
@@ -432,6 +442,8 @@ void WSPRWindow::doWork() {
       exit(0) ; // terminate child process
     }
   }
+  terminate = true;
+  monitor.join();  // wait for reaper thread to finish
   fprintf(stderr, "leaving doWork within WSPRWindow\n");
 }
 
