@@ -1475,7 +1475,7 @@ int dspp::split_stream(char ** paths) {
 
 int dspp::WSPR_window(float centerFrequency, char * prefix, int numberOfCandidates) {
   WSPRWindow * WSPRWindowObject;
-  WSPRWindowObject = new WSPRWindow(256, numberOfCandidates, prefix,  centerFrequency, true);
+  WSPRWindowObject = new WSPRWindow(256, numberOfCandidates, prefix,  centerFrequency);
   WSPRWindowObject->doWork();
   return 0;
 }

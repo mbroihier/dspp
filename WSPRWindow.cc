@@ -17,7 +17,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <thread>
-#include <time.h>
 #include <unistd.h>
 #include <string.h>
 #include "SpotCandidate.h"
@@ -26,12 +25,11 @@
 //#define SELFTEST 1
 
 /* ---------------------------------------------------------------------- */
-void WSPRWindow::init(int size, int number, char * prefix, float dialFreq, bool skipSync) {
+void WSPRWindow::init(int size, int number, char * prefix, float dialFreq) {
   this->size = size;
   this->number = number;
   this->prefix = prefix;
   this->dialFreq = dialFreq;
-  this->skipSync = skipSync;
   freq = BASE_BAND;
   fftObject = new DsppFFT(size);
   deltaFreq = freq / size;
@@ -39,8 +37,7 @@ void WSPRWindow::init(int size, int number, char * prefix, float dialFreq, bool 
   binArray = reinterpret_cast<int *>(malloc(number * sizeof(int)));
   fprintf(stderr, "allocating FFT memory - %d bytes\n", size * sizeof(float) * 2 * FFTS_PER_SHIFT * SHIFTS);
   fftOverTime = reinterpret_cast<float *> (malloc(size * sizeof(float) * 2 * FFTS_PER_SHIFT * SHIFTS));
-  fprintf(stderr, "allocating window IQ memory - %d bytes\n", (int)freq  * sizeof(float) * 2 * PROCESSING_SIZE);
-  windowOfIQData = reinterpret_cast<float *> (malloc((int)freq * sizeof(float) * 2 * PROCESSING_SIZE));
+  windowOfIQData = NULL;
   fprintf(stderr, "allocating mag memory\n");
   mag = reinterpret_cast<float *>(malloc(size * sizeof(float)));
   magAcc = reinterpret_cast<float *>(malloc(size * sizeof(float)));
@@ -52,9 +49,9 @@ void WSPRWindow::init(int size, int number, char * prefix, float dialFreq, bool 
   }
 }
 
-WSPRWindow::WSPRWindow(int size, int number, char * prefix, float dialFreq, bool skipSync) {
+WSPRWindow::WSPRWindow(int size, int number, char * prefix, float dialFreq) {
   fprintf(stderr, "creating WSPRWindow object\n");
-  init(size, number, prefix, dialFreq, skipSync);
+  init(size, number, prefix, dialFreq);
   fprintf(stderr, "done creating WSPRWindow object\n");
 }
 
@@ -122,52 +119,37 @@ void WSPRWindow::doWork() {
                   }
                 };
   std::thread monitor(reaper);
+  bool firstTime = true;
   while (!done) {
     fprintf(stderr, "Starting a window at %ld\n", time(0) - baseTime);
     // get a Window worth of samples
-    // wait for an odd to even minute transition
-    if (background) {
-      float skipSamples[PERIOD * BASE_BAND * 2];
-      float remainsOf2Min[(PERIOD - PROCESSING_SIZE) * BASE_BAND * 2];
-      // Before entering loop, disard the remaining samples associated with this 2 minute block
-      fprintf(stdout, "Discarding %d unused samples of this 2 minute window\n", (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2);
-      fread(remainsOf2Min, sizeof(float), (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2, stdin);
-      while (background) {
-        // the background thread will set backgroud to 0
-        // skip whole two minute blocks while waiting for bacground to finish
-        fprintf(stdout, "Discarding %d a whole window of data\n", PERIOD * BASE_BAND * 2);
-        if (0 == fread(skipSamples, sizeof(float), PERIOD * BASE_BAND * 2, stdin)) {
-          now = time(0);
-          fprintf(stdout, "Input read was empty, sleeping for a while at %s", ctime(&now));
-          sleep(60.0);
-        }
-      }
+    if (!windows.empty()) {
+      free(windows.front().data);
+      windows.pop();  // remove the first entry if it exists
     }
-    if (! skipSync) {
-      bool currentState = time(0) / 60 & 0x01; // is it an even or odd min?
-      if (currentState == 0) {  // in a even minute, so wait for an odd
-        while (((time(0) / 60) & 0x01) == 0) {
-          fprintf(stderr, "e");
-          float skipSamples[2];
-          fread(skipSamples, sizeof(float), 2, stdin);  // skip samples
-        }
+    while (background || firstTime || windows.empty()) {
+      fprintf(stderr, "first time or there is a background process or the queue is empty\n");
+      if (!firstTime) {
+        float remainsOf2Min[(PERIOD - PROCESSING_SIZE) * BASE_BAND * 2];
+        // Before entering loop, disard the remaining samples associated with this 2 minute block
+        fprintf(stderr, "Discarding %d unused samples of this 2 minute window\n", (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2);
+        fread(remainsOf2Min, sizeof(float), (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2, stdin);
       }
-      while (((time(0) / 60) & 0x01) == 1) {  // in an odd minute, so wait for an even start minute
-        fprintf(stderr, "o");
-        float skipSamples[2];
-        fread(skipSamples, sizeof(float), 2, stdin);  // skip samples
+      fprintf(stderr, "allocating window IQ memory - %d bytes\n", (int)freq  * sizeof(float) * 2 * PROCESSING_SIZE);
+      now = time(0);
+      windows.push({now, reinterpret_cast<float *> (malloc((int)freq * sizeof(float) * 2 * PROCESSING_SIZE))});
+      fprintf(stderr, "\nCollecting %d samples at %ld - %s", sampleBufferSize, now - baseTime, ctime(&now));
+      if ((count = fread(windows.back().data, sizeof(float), PROCESSING_SIZE * BASE_BAND * 2, stdin)) == 0) {
+        fprintf(stderr, "Input read was empty, sleeping for a while at %s", ctime(&now));
+        sleep(60.0);
       }
+      firstTime = false;
     }
-    now = time(0);
-    spotTime = now;
-    fprintf(stderr, "\nCollecting %d samples at %ld - %s", sampleBufferSize, now - baseTime, ctime(&now));
-    fprintf(stdout, "Collecting %d samples at %s", sampleBufferSize, ctime(&now));
 
-    count = fread(windowOfIQData, sizeof(float), sampleBufferSize, stdin);
-    sampleLabel = time(0) - baseTime;
-    fprintf(stderr, "Done collecting samples at %d\n", sampleLabel);
-    now = time(0);
-    fprintf(stdout, "Done collecting samples at %s", ctime(&now));
+    windowOfIQData = windows.front().data;
+    spotTime = windows.front().windowStartTime;
+
+    sampleLabel = spotTime - baseTime;
     if (strlen(prefix) > 0) {
       snprintf(sampleFile, 50, "%s%d.bin", prefix, sampleLabel);
       WSPRUtilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
@@ -460,7 +442,7 @@ int main() {
   char pre[10] = {0};
   float dialFreq = 14095600.0;
   snprintf(pre, sizeof(pre), "%s", "prefix");
-  WSPRWindow testObj(256, 9, pre, dialFreq, true);
+  WSPRWindow testObj(256, 9, pre, dialFreq);
   testObj.doWork();
 }
 #endif
