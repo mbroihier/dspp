@@ -44,16 +44,17 @@ int WSPRUtilities::reportSpot(char * reporterID, char * reporterLocation, float 
   char url[1024];
   CURL * curl;
   int status = 0; //successful
-  snprintf(url, sizeof(url) - 1, "http://wsprnet.org/post?function=wspr&rcall=%s&rgrid=%s&rqrg=%.6f&date=%s&time=%s"
-           "&sig=%.0f&dt=%.1f&tqrg=%.6f&tcall=%s&tgrid=%s&dbm=%s&version=0.2r_wsprd&mode=2",
+  snprintf(url, sizeof(url), "http://wsprnetORG/post?function=wspr&rcall=%s&rgrid=%s&rqrg=%.6f&date=%s&time=%s"
+           "&sig=%s&dt=%.1f&drift=%d&tqrg=%.6f&tcall=%s&tgrid=%s&dbm=%s&version=0.1r_wsprwindow&mode=2",
            reporterID,
            reporterLocation,
-           freq,
+           freq / 1000000.0,
            spotDate,
            spotTime,
            SNR,
            deltaT,
-           freq,
+           (int)drift,
+           freq / 1000000.0,
            callID,
            callLocation,
            callPower);
@@ -64,6 +65,7 @@ int WSPRUtilities::reportSpot(char * reporterID, char * reporterLocation, float 
     CURLcode res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
       fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+      fprintf(stderr, "%s\n", url);
       status = 1;  // operation failed
     }
     curl_easy_cleanup(curl);

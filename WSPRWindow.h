@@ -26,7 +26,11 @@ class WSPRWindow {
   const int BASE_BAND = 375;  // base band frequency width
   const int PROCESSING_SIZE = 116;  // 113 seconds of collection time - enough for 162 FFTs for every shift
   const int FFTS_PER_SHIFT = 164;   // maximum number of FFTs per sample shift (this happens only on the shift of 0)
-  void init(int size, int number, char * prefix, float dialFreq);
+  const float SECONDS_PER_SHIFT = 1.0 / BASE_BAND;
+  const float SECONDS_PER_SYMBOL = 256.0 / BASE_BAND;
+  const float HZ_PER_BIN = BASE_BAND / 256.0;
+  const float SLOPE_TO_DRIFT_UNITS = HZ_PER_BIN / SECONDS_PER_SYMBOL * 60.0; // units are Hz / minute
+  void init(int size, int number, char * prefix, float dialFreq, char * reporterID, char * reporterLocation);
   void remap(std::vector<int> tokens, std::vector<int> &symbols, int mapSelector);
   int * binArray;
   float * mag;
@@ -49,10 +53,13 @@ class WSPRWindow {
   struct SampleRecord { float centroid; float magnitude; int timeStamp; };
   struct WindowOfIQDataT { time_t windowStartTime; float * data; };
   std::queue<WindowOfIQDataT> windows;
-  
+
+  char reporterID[13] = {0};
+  char reporterLocation[7] = {0};
+
  public:
   void doWork(void);
-  WSPRWindow(int size, int number, char * prefix, float dialFreq);
+  WSPRWindow(int size, int number, char * prefix, float dialFreq, char * reporterID, char * reporterLocation);
   ~WSPRWindow(void);
 };
 #endif  // WSPRWINDOW_H_

@@ -1473,9 +1473,10 @@ int dspp::split_stream(char ** paths) {
 
 /* ---------------------------------------------------------------------- */
 
-int dspp::WSPR_window(float centerFrequency, char * prefix, int numberOfCandidates) {
+int dspp::WSPR_window(float centerFrequency, char * prefix, int numberOfCandidates, char * reporterID,
+                      char * reporterLocation) {
   WSPRWindow * WSPRWindowObject;
-  WSPRWindowObject = new WSPRWindow(256, numberOfCandidates, prefix,  centerFrequency);
+  WSPRWindowObject = new WSPRWindow(256, numberOfCandidates, prefix,  centerFrequency, reporterID, reporterLocation);
   WSPRWindowObject->doWork();
   return 0;
 }
@@ -2008,14 +2009,15 @@ int main(int argc, char *argv[]) {
         float dialFrequency = 0.0;
         char prefix[128];
         int numberOfCandidates = 0;
-        if (argc == 5) {
+        if (argc == 7) {
 	  fprintf(stderr, "starting WSPRWindow\n");
           sscanf(argv[2], "%f", &dialFrequency);
           snprintf(prefix, sizeof(prefix), "%s", argv[3]);
           sscanf(argv[4], "%d", &numberOfCandidates);
-          doneProcessing = !dsppInstance.WSPR_window(dialFrequency, prefix, numberOfCandidates);
+          doneProcessing = !dsppInstance.WSPR_window(dialFrequency, prefix, numberOfCandidates,
+                                                     argv[5], argv[6]);
 	} else {
-	  fprintf(stderr, "WSPRWindow should have 3 parameters - error\n");
+	  fprintf(stderr, "WSPRWindow should have 5 parameters - error\n");
 	  doneProcessing = true;
 	}
         break;

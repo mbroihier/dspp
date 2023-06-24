@@ -259,7 +259,8 @@ const std::vector<SpotCandidate::SampleRecord> SpotCandidate::getValidSubvector(
   return aSubvector;
 }
 /* ---------------------------------------------------------------------- */
-void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::vector<int> & tokens, float & snr) {
+void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::vector<int> & tokens, float & snr,
+                             float & slope) {
   tokens.clear();
   SpotCandidate candidate(1000, validVector, 0.0);
   std::vector<float> magnitudeAverages;
@@ -271,7 +272,7 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
     magnitudeAverages.push_back(sum / validVector.size());
   }
   std::vector<float> centroidVector = candidate.getCentroidVector();
-  float slope = candidate.getSlope();
+  slope = candidate.getSlope();
   float base = 0.0;
   base = candidate.getYIntercept() - 1.5;
 #ifdef SELFTEST

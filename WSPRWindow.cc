@@ -25,7 +25,8 @@
 //#define SELFTEST 1
 
 /* ---------------------------------------------------------------------- */
-void WSPRWindow::init(int size, int number, char * prefix, float dialFreq) {
+void WSPRWindow::init(int size, int number, char * prefix, float dialFreq, char * reporterID,
+                      char * reporterLocation) {
   this->size = size;
   this->number = number;
   this->prefix = prefix;
@@ -47,11 +48,18 @@ void WSPRWindow::init(int size, int number, char * prefix, float dialFreq) {
   for (int index = 0; index < size * 2 * FFTS_PER_SHIFT * SHIFTS; index++) {
     fftOverTime[index] = 0.0;
   }
+  snprintf(this->reporterID, sizeof(this->reporterID) - 1, "%s", reporterID);
+  snprintf(this->reporterLocation, sizeof(this->reporterLocation) - 1, "%s", reporterLocation);
+  if (strlen(this->reporterID) != strlen(reporterID) || strlen(this->reporterLocation) != strlen(reporterLocation)) {
+    fprintf(stderr, "Error in reporter parameters\n");
+    exit(-1);
+  }
 }
 
-WSPRWindow::WSPRWindow(int size, int number, char * prefix, float dialFreq) {
+WSPRWindow::WSPRWindow(int size, int number, char * prefix, float dialFreq, char * reporterID,
+                       char * reporterLocation) {
   fprintf(stderr, "creating WSPRWindow object\n");
-  init(size, number, prefix, dialFreq);
+  init(size, number, prefix, dialFreq, reporterID, reporterLocation);
   fprintf(stderr, "done creating WSPRWindow object\n");
 }
 
@@ -164,7 +172,7 @@ void WSPRWindow::doWork() {
       fprintf(stdout, "Starting child\n");
       fanoObject.childAttach();  // attach shared memory
       fftOverTimePtr = fftOverTime;
-      struct info { char * date; char * time; char * callSign; char * power; char * loc; int occurrence; double freq; int shift; float snr; };
+      struct info { char * date; char * time; char * callSign; char * power; char * loc; int occurrence; double freq; int shift; float snr; float drift; };
       std::map<int, info> candidates;
       int numberOfCandidates = 0;
       for (int shift = 0; shift < SHIFTS; shift++) {
@@ -321,7 +329,8 @@ void WSPRWindow::doWork() {
             std::vector<int>  tokens;
             std::vector<int> symbolVector;
             float snr = 0.0;
-            candidate.tokenize(subset, tokens, snr);
+            float slope = 0.0;
+            candidate.tokenize(subset, tokens, snr, slope);
             for (int remapIndex = 0; remapIndex < 1; remapIndex++) {  // can be up to 24
               remap(tokens, symbolVector, remapIndex);
               for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
@@ -366,14 +375,15 @@ void WSPRWindow::doWork() {
                   //        "remapIndex: %d\n",
                   //        call_loc_pow, dialFreq + 1500.0 +
                   //        candidate.getFrequency(), currentPeakIndex, currentPeakBin, shift, remapIndex);
-                  fprintf(stderr, "spot: %s at frequency %15.0f, currentPeakIndex: %d, bin: %d shift: %d, "
-                          "remapIndex: %d\n",
+                  fprintf(stderr, "spot: %s at frequency %1.0f, currentPeakIndex: %d, bin: %d shift: %d, "
+                          "remapIndex: %d, symbol set: %d, delta time: %2.1f\n",
                           call_loc_pow, dialFreq + 1500.0 +
-                          candidate.getFrequency(), currentPeakIndex, currentPeakBin, shift, remapIndex);
+                          candidate.getFrequency(), currentPeakIndex, currentPeakBin, shift, remapIndex, symbolSet,
+                          (symbolSet * 256 + shift) * SECONDS_PER_SHIFT - 1.0);
                   bool newCand = true;
                   for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
                     if ((strcmp((*iter).second.callSign, callsign) == 0) &&
-                        (fabs((*iter).second.freq - (dialFreq + 1500.0 + candidate.getFrequency())) < 1.0)) {
+                        (fabs((*iter).second.freq - (dialFreq + 1500.0 + candidate.getFrequency())) < 3.0)) {
                       newCand = false;
                       (*iter).second.occurrence++;
                       if (snr > (*iter).second.snr) {
@@ -392,8 +402,10 @@ void WSPRWindow::doWork() {
                     char * cs = strdup(callsign);
                     char * p = strdup(pwr);
                     char * l = strdup(loc);
+                    int normalizedShift = symbolSet * 256 + shift;
                     candidates[numberOfCandidates] = { d, t, cs, p, l, 1,
-                                                       dialFreq + 1500.0 + candidate.getFrequency(), shift, snr };
+                                                       dialFreq + 1500.0 + candidate.getFrequency(), normalizedShift,
+                                                       snr, slope * SLOPE_TO_DRIFT_UNITS };
                     numberOfCandidates++;
                   }
                   break;
@@ -413,11 +425,19 @@ void WSPRWindow::doWork() {
           int iP = 0;
           sscanf((*iter).second.power, "%d", &iP);
           float p = exp10f((float) iP / 10.0) / 1000.0;
+          char charSNR[4];
+          snprintf(charSNR, sizeof(charSNR), "%.0f", (*iter).second.snr);
           fprintf(stdout, "%s %s: Candidate %d (%s) was seen %d times at %1.0f Hz with best SNR of %4.3f dB,\n"
-                  " with transmitter power of %4.3f W, and location of %s\n",
+                  " with transmitter power of %4.3f W, location of %s, drift of %3.2f, and delta time of %2.1f\n",
                   (*iter).second.date, (*iter).second.time,
                   (*iter).first, (*iter).second.callSign, (*iter).second.occurrence, (*iter).second.freq,
-                  (*iter).second.snr, p, (*iter).second.loc);
+                  (*iter).second.snr, p, (*iter).second.loc,
+                  (*iter).second.drift,
+                  (*iter).second.shift * SECONDS_PER_SHIFT - 1.0);
+          WSPRUtilities::reportSpot(reporterID, reporterLocation, (*iter).second.freq, (*iter).second.shift *
+                                    SECONDS_PER_SHIFT - 1.0, (*iter).second.drift, (*iter).second.callSign,
+                                    (*iter).second.loc, (*iter).second.power, charSNR, (*iter).second.date,
+                                    (*iter).second.time);
         }
       }
       fprintf(stdout, "Child process complete\n");
@@ -440,9 +460,13 @@ WSPRWindow::~WSPRWindow(void) {
 #ifdef SELFTEST
 int main() {
   char pre[10] = {0};
+  char id[13] = {0};
+  char loc[7] = {0};
   float dialFreq = 14095600.0;
   snprintf(pre, sizeof(pre), "%s", "prefix");
-  WSPRWindow testObj(256, 9, pre, dialFreq);
+  snprintf(id, sizeof(id), "%s", "KG5YJE/P");
+  snprintf(loc, sizeof(loc), "%s", "EM13");
+  WSPRWindow testObj(256, 9, pre, dialFreq, id, loc );
   testObj.doWork();
 }
 #endif
