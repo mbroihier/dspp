@@ -88,7 +88,7 @@ void WSPRWindow::remap(std::vector<int> tokens, std::vector<int> &symbols, int m
                                 3, 1, 0, 2,
                                 3, 1, 2, 0,
                                 3, 2, 0, 1,
-                                3, 2, 1, 1 };
+                                3, 2, 1, 0 };
   int offset = mapSelector * 4;
   symbols.clear();
   for (auto element : tokens) {
@@ -158,13 +158,13 @@ void WSPRWindow::doWork() {
     spotTime = windows.front().windowStartTime;
 
     sampleLabel = spotTime - baseTime;
-    if (strlen(prefix) > 0) {
-      snprintf(sampleFile, 50, "%s%d.bin", prefix, sampleLabel);
-      WSPRUtilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
-    }
     if (count < sampleBufferSize) {
       done = true;
       continue;
+    }
+    if (strlen(prefix) > 0) {
+      snprintf(sampleFile, 50, "%s%d.bin", prefix, sampleLabel);
+      WSPRUtilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
     }
     fflush(stdout);  // flush standard out to make file output sane
     background = fork();

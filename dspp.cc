@@ -352,15 +352,15 @@ int dspp::shift_frequency_cc(float amount) {
   fprintf(stderr, "cycles per sample correction: %f\n", amount);
   for (;;) {
     count = fread(&f, sizeof(float), BUFFER_SIZE, stdin);
-    if(count < BUFFER_SIZE) {
-      fprintf(stderr, "Short data stream, shift_frequency_cc\n");
+    if(count == 0) {
+      fprintf(stderr, "End of data stream, shift_frequency_cc\n");
       fclose(stdout);
       return 0;
     }
     fptr = f;
     ofptr = of;
 
-    for (int i=0; i < BUFFER_SIZE; i+=2) {
+    for (int i=0; i < count; i+=2) {
       /*
         Assuming I is r*cos(2*PI*fc*t) and
                  Q is -r*sin(2*PI*fc*t)  where fc is the center frequency the signal r is sampled at
@@ -386,7 +386,7 @@ int dspp::shift_frequency_cc(float amount) {
       cosAmount = newCosAmount;
       sinAmount = newSinAmount;
     }
-    fwrite(&of, sizeof(float), BUFFER_SIZE, stdout);
+    fwrite(&of, sizeof(float), count, stdout);
   }
 
   return 0;
