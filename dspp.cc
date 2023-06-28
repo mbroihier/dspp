@@ -69,11 +69,8 @@ static const char USAGE_STR[] = "\n"
         "  limit_real_stream          : limit a floating point stream between -1.0 and 1.0\n"
         "  dc_removal                 : remove average value of the stream\n"
         "  agc                        : automatic gain control, sustain a fixed average level\n"
-        "  find_n_largest_freq        : find N largest magnitude frequencies in a FFT\n"
         "  overlap_samples_n_2        : overlap samples N by 2\n"
         "  split_stream               : split input stream into multiple streams\n"
-        "  WSPR_symbols               : find WSPR symbols by candidate\n"
-        "  WSPR_Pass1                 : find potential WSPR signal\n"
         "  WSPRWindow                 : find WSPR spots in a WSPR window\n"
         "  WindowSample               : Synchronize a sampling window to a clock\n"
         "  convert_f_byte             : convert a float stream to a signed byte stream\n";
@@ -112,11 +109,8 @@ static struct option longOpts[] = {
   { "shift_frequency_uByteuByte", no_argument, NULL, 31 },
   { "convert_uByte_byte"        , no_argument, NULL, 32 },
   { "fsSlash4_byte_byte"        , no_argument, NULL, 33 },
-  { "find_n_largest_freq"       , no_argument, NULL, 34 },
   { "overlap_samples_n_2"       , no_argument, NULL, 35 },
   { "split_stream"              , no_argument, NULL, 36 },
-  { "WSPR_symbols"              , no_argument, NULL, 37 },
-  { "WSPR_Pass1"                , no_argument, NULL, 38 },
   { "WSPRWindow"                , no_argument, NULL, 39 },
   { "WindowSample"              , no_argument, NULL, 40 },
   { "convert_f_byte"            , no_argument, NULL, 41 },
@@ -1085,71 +1079,6 @@ int dspp::agc(float target) {
   return 0;
 }
 
-/* ---------------------------------------------------------------------- */
-/*
- *      fnlf.cc -- DSP Pipe - find N largest frequencies in an FFT
- *
- *      Copyright (C) 2022
- *          Mark Broihier
- *
- */
-
-/* ---------------------------------------------------------------------- */
-int dspp::fnlf(int size, int count) {
-  FindNLargestF * fnlfObject;
-  fnlfObject = new FindNLargestF(size, count);
-  if (! fnlfObject) {
-    fprintf(stderr, "FindNLargestF object creation failed\n");
-  } else {
-    fnlfObject->doWork();
-  }
-  delete fnlfObject;
-  return 0;
-}
-
-/* ---------------------------------------------------------------------- */
-/*
- *      fwspr_sym.cc -- DSP Pipe - find WSPR symbols
- *
- *      Copyright (C) 2022
- *          Mark Broihier
- *
- */
-
-/* ---------------------------------------------------------------------- */
-int dspp::fwspr_sym(int size, int count, char * prefix) {
-  WSPRSymbols * wsprObject;
-  wsprObject = new WSPRSymbols(size, count, prefix);
-  if (! wsprObject) {
-    fprintf(stderr, "WSPRSymbols object creation failed\n");
-  } else {
-    wsprObject->doWork();
-  }
-  delete wsprObject;
-  return 0;
-}
-
-/* ---------------------------------------------------------------------- */
-/*
- *      fwspr.cc -- DSP Pipe - find potential WSPR signals
- *
- *      Copyright (C) 2023
- *          Mark Broihier
- *
- */
-
-/* ---------------------------------------------------------------------- */
-int dspp::fwspr(int size, int count, char * prefix) {
-  WSPRPass1 * wsprPass1Object;
-  wsprPass1Object = new WSPRPass1(size, count, prefix);
-  if (! wsprPass1Object) {
-    fprintf(stderr, "WSPR Pass 1 object creation failed\n");
-  } else {
-    wsprPass1Object->doWork();
-  }
-  delete wsprPass1Object;
-  return 0;
-}
 
 /* ---------------------------------------------------------------------- */
 /*
@@ -1941,20 +1870,6 @@ int main(int argc, char *argv[]) {
 	  }
           break;
       }
-      case 34: {
-        int size = 0;
-        int count = 0;
-        if (argc == 4) {
-	  fprintf(stderr, "starting find_n_largest_freq\n");
-          sscanf(argv[2], "%d", &size);
-          sscanf(argv[3], "%d", &count);
-          doneProcessing = !dsppInstance.fnlf(size, count);
-	} else {
-	  fprintf(stderr, "find_n_largest_frea should have 2 parameters - error\n");
-	  doneProcessing = true;
-	}
-        break;
-      }
       case 35: {
         int size = 0;
         if (argc == 3) {
@@ -1973,34 +1888,6 @@ int main(int argc, char *argv[]) {
           doneProcessing = !dsppInstance.split_stream(argv);
 	} else {
 	  fprintf(stderr, "split_stream needs at least two pipes - error\n");
-	  doneProcessing = true;
-	}
-        break;
-      }
-      case 37: {
-        int size = 0;
-        int count = 0;
-        if (argc == 5) {
-	  fprintf(stderr, "starting WSPR_symbols\n");
-          sscanf(argv[2], "%d", &size);
-          sscanf(argv[3], "%d", &count);
-          doneProcessing = !dsppInstance.fwspr_sym(size, count, argv[4]);
-	} else {
-	  fprintf(stderr, "WSPR_symbols should have 3 parameters - error\n");
-	  doneProcessing = true;
-	}
-        break;
-      }
-      case 38: {
-        int size = 0;
-        int count = 0;
-        if (argc == 5) {
-	  fprintf(stderr, "starting WSPR_Pass1\n");
-          sscanf(argv[2], "%d", &size);
-          sscanf(argv[3], "%d", &count);
-          doneProcessing = !dsppInstance.fwspr(size, count, argv[4]);
-	} else {
-	  fprintf(stderr, "WSPR_Pass1 should have 3 parameters - error\n");
 	  doneProcessing = true;
 	}
         break;

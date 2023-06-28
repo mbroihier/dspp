@@ -19,9 +19,6 @@
 #include "SFIRFilter.h"
 #include "CFilter.h"
 #include "AGC.h"
-#include "FindNLargestF.h"
-#include "WSPRSymbols.h"
-#include "WSPRPass1.h"
 #include "WSPRWindow.h"
 #include "WindowSample.h"
 /* ---------------------------------------------------------------------- */
@@ -62,9 +59,6 @@ class dspp {
   int limit_real_stream();
   int dc_removal(float * buffer, int size);
   int agc(float target);
-  int fnlf(int size, int count);
-  int fwspr_sym(int size, int count, char * prefix);
-  int fwspr(int size, int count, char * prefix);
   int overlap_samples_n_2(int size);
   int split_stream(char ** paths);
   int WSPR_window(float dialFrequency, char * prefix, int numberOfCandidates, char * reporterID,
