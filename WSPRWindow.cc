@@ -331,7 +331,7 @@ void WSPRWindow::doWork() {
             float snr = 0.0;
             float slope = 0.0;
             candidate.tokenize(subset, tokens, snr, slope);
-            for (int remapIndex = 0; remapIndex < 1; remapIndex++) {  // can be up to 24
+            for (int remapIndex = 0; remapIndex < 4; remapIndex += 3) {  // can be up to 24, now only 0 and 3
               remap(tokens, symbolVector, remapIndex);
               for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
                 symbols[index] = symbolVector[index];
@@ -377,15 +377,20 @@ void WSPRWindow::doWork() {
                   //        candidate.getFrequency(), currentPeakIndex, currentPeakBin, shift, remapIndex);
                   fprintf(stderr, "spot: %s at frequency %1.0f, currentPeakIndex: %d, bin: %d shift: %d, "
                           "remapIndex: %d, symbol set: %d, delta time: %2.1f\n",
-                          call_loc_pow, dialFreq + 1500.0 +
-                          candidate.getFrequency(), currentPeakIndex, currentPeakBin, shift, remapIndex, symbolSet,
+                          call_loc_pow, dialFreq + 1500.0 + ((remapIndex == 0) ? 1: -1) * candidate.getFrequency() +
+                          3.0 * deltaFreq,
+                          currentPeakIndex, currentPeakBin, shift, remapIndex, symbolSet,
                           (symbolSet * 256 + shift) * SECONDS_PER_SHIFT - 1.0);
                   bool newCand = true;
                   for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
                     if ((strcmp((*iter).second.callSign, callsign) == 0) &&
-                        (fabs((*iter).second.freq - (dialFreq + 1500.0 + candidate.getFrequency())) < 3.0)) {
+                        (fabs((*iter).second.freq - (dialFreq + 1500.0 +
+                                                     ((remapIndex == 0) ? 1: -1) *
+                                                     candidate.getFrequency() + 3.0 * deltaFreq) < 3.0))) {
                       newCand = false;
                       (*iter).second.occurrence++;
+                      int normalizedShift = symbolSet * 256 + shift;
+                      (*iter).second.shift += normalizedShift;
                       if (snr > (*iter).second.snr) {
                         (*iter).second.snr = snr;
                       }
@@ -404,7 +409,9 @@ void WSPRWindow::doWork() {
                     char * l = strdup(loc);
                     int normalizedShift = symbolSet * 256 + shift;
                     candidates[numberOfCandidates] = { d, t, cs, p, l, 1,
-                                                       dialFreq + 1500.0 + candidate.getFrequency(), normalizedShift,
+                                                       dialFreq + 1500.0 + ((remapIndex == 0) ? 1: -1) *
+                                                       candidate.getFrequency() + 3.0 * deltaFreq,
+                                                       normalizedShift,
                                                        snr, slope * SLOPE_TO_DRIFT_UNITS };
                     numberOfCandidates++;
                   }
@@ -433,9 +440,10 @@ void WSPRWindow::doWork() {
                   (*iter).first, (*iter).second.callSign, (*iter).second.occurrence, (*iter).second.freq,
                   (*iter).second.snr, p, (*iter).second.loc,
                   (*iter).second.drift,
-                  (*iter).second.shift * SECONDS_PER_SHIFT - 1.0);
+                  (*iter).second.shift * SECONDS_PER_SHIFT / (*iter).second.occurrence - 2.0);
           WSPRUtilities::reportSpot(reporterID, reporterLocation, (*iter).second.freq, (*iter).second.shift *
-                                    SECONDS_PER_SHIFT - 1.0, (*iter).second.drift, (*iter).second.callSign,
+                                    SECONDS_PER_SHIFT / (*iter).second.occurrence - 2.0,
+                                    (*iter).second.drift, (*iter).second.callSign,
                                     (*iter).second.loc, (*iter).second.power, charSNR, (*iter).second.date,
                                     (*iter).second.time);
         }
