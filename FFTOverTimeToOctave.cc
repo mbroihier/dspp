@@ -60,6 +60,13 @@ int main(int argc, char *argv[]) {
   fprintf(stdout, "view(0,90);\n");
   fprintf(stdout, "title(\"%d\")\n", graph++);
   fprintf(stdout, "drawnow;\n");
+  fprintf(stdout, "m = max(max(mag));\n");
+  fprintf(stdout, "ind = (mag > 0.5 * m);\n");
+  fprintf(stdout, "b = (1:%d) - 1;\n", size / 2);
+  fprintf(stdout, "nb = (-flip(b)) - 1;\n");
+  fprintf(stdout, "b = horzcat(b, nb);\n");
+  fprintf(stdout, "b = b * %lld / %d;\n", freq, size);
+  fprintf(stdout, "b(ind(:,%d:%d))\n", duration / 2, duration / 2);
   return 0;
 }
 
