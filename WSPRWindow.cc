@@ -169,6 +169,7 @@ void WSPRWindow::doWork() {
     fflush(stdout);  // flush standard out to make file output sane
     background = fork();
     if (background == 0) {  // this is the child process, so continue this processing in "background"
+      float stdOfNoise = 0.0;
       fprintf(stdout, "Starting child\n");
       fanoObject.childAttach();  // attach shared memory
       fftOverTimePtr = fftOverTime;
@@ -206,6 +207,24 @@ void WSPRWindow::doWork() {
           magPtr++;
         }
       }
+      // calculate bacground average
+      int outOfRange = size*0.46/2;  // bins outside of +/- 100 Hz
+      float workingValue = 0.0;
+      float sumOfNoise = 0.0;
+      float sumOfNoiseSq = 0.0;
+      int numberOfNoiseSamples = 0;
+      for (int i = size/2 - outOfRange; i < size/2 + outOfRange; i++) {
+        workingValue = magAcc[i]/FFTS_PER_SHIFT;
+        sumOfNoise += workingValue;
+        sumOfNoiseSq += workingValue * workingValue;
+        numberOfNoiseSamples++;
+      }
+      stdOfNoise = sqrt((numberOfNoiseSamples * sumOfNoiseSq - sumOfNoise * sumOfNoise) /
+                              (numberOfNoiseSamples * (numberOfNoiseSamples - 1)));
+      fprintf(stderr, "background sumOfNoise: %f, sumOfNoiseSq: %f, number of samples: %d\n",
+              sumOfNoise, sumOfNoiseSq, numberOfNoiseSamples);
+      fprintf(stderr, "background std: %10.5f, dB: %5.2f, power dB: %5.2f\n", stdOfNoise, 10 * log10(stdOfNoise),
+              20 * log10(stdOfNoise));
       float peak = 0.0;
       for (int i = 0; i < size; i++) {
         if (magAcc[i] > peak) {
@@ -330,7 +349,7 @@ void WSPRWindow::doWork() {
             std::vector<int> symbolVector;
             float snr = 0.0;
             float slope = 0.0;
-            candidate.tokenize(subset, tokens, snr, slope);
+            candidate.tokenize(subset, tokens, snr, slope, stdOfNoise);
             for (int remapIndex = 0; remapIndex < 4; remapIndex += 3) {  // can be up to 24, now only 0 and 3
               remap(tokens, symbolVector, remapIndex);
               for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {

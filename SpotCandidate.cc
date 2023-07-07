@@ -260,7 +260,7 @@ const std::vector<SpotCandidate::SampleRecord> SpotCandidate::getValidSubvector(
 }
 /* ---------------------------------------------------------------------- */
 void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::vector<int> & tokens, float & snr,
-                             float & slope) {
+                             float & slope, float & backgroundNoise) {
   tokens.clear();
   SpotCandidate candidate(1000, validVector, 0.0);
   std::vector<float> magnitudeAverages;
@@ -443,6 +443,10 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
   fprintf(stderr, "SNR in dB = %10.7f\n", snr);
   float altSNR = 10.0 * log10f(signalAverage) - 10.0 * log10f(noiseAverage);
   fprintf(stderr, "SNR signal in dB - noise in dB is %10.7f / %10.7f\n", altSNR, altSNR - 26.3);
+  float altSNR2 = 10.0 * log10f(signalAverage) - 10.0 * log10f(backgroundNoise);
+  fprintf(stderr, "SNR signal in dB - overall background noise in dB is %10.7f / %10.7f\n", altSNR2, altSNR2 - 26.3);
+  // supercede snr calculated above by the second alternative for now
+  snr = altSNR2 - 26.3;
 }
 /* ---------------------------------------------------------------------- */
 std::vector<float> SpotCandidate::getCentroidVector(void) {
