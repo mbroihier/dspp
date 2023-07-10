@@ -38,6 +38,31 @@ int WSPRUtilities::writeFile(char * fileName, float * buffer, int size) {
 }
 
 /* ---------------------------------------------------------------------- */
+int WSPRUtilities::readFile(char * fileName, float * buffer, int size) {
+  char info[15] = {};  // fake header
+  uint32_t type = 0;
+  uint64_t freq = 0;
+  FILE * fd = NULL;
+
+  if (size < BUFFER_SIZE) {
+    fprintf(stderr, "illegal buffer size - static buffer size: %d, input buffer size: %d\n", BUFFER_SIZE, size);
+    return -1;
+  }
+  fd = fopen(fileName, "rb");
+  if (fd) {
+    fread(&info, sizeof(char), 14, fd);
+    fread(&type, sizeof(uint32_t), 1, fd);
+    fread(&freq, sizeof(uint64_t), 1, fd);
+    fread(buffer, sizeof(float), BUFFER_SIZE, fd);
+    fclose(fd);
+  } else {
+    fprintf(stderr, "could not open file %s\n", fileName);
+    return -1;
+  }
+  return 0;
+}
+
+/* ---------------------------------------------------------------------- */
 int WSPRUtilities::reportSpot(char * reporterID, char * reporterLocation, float freq, float deltaT, float drift,
                               char * callID, char * callLocation, char * callPower, char * SNR, char * spotDate,
                               char * spotTime) {

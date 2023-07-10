@@ -16,10 +16,11 @@
 /* ---------------------------------------------------------------------- */
 class WSPRUtilities {
  private:
-  static const int BUFFER_SIZE = 2 * 116 * 375;
   static const int FILLER = 2 * 4 * 375;
  public:
+  static const int BUFFER_SIZE = 2 * 116 * 375;
   static int writeFile(char * fileName, float * buffer, int size);
+  static int readFile(char * fileName, float * buffer, int size);
   static int reportSpot(char * reporterID, char * reporterLocation, float freq, float deltaT, float drift,
                         char * callID, char * callLocation, char * callPower, char * SNR, char * spotDate, char * spotTime);
 };
