@@ -57,9 +57,9 @@ SpotCandidate::SpotCandidate(int ID, const std::vector<SampleRecord> input, floa
     slope = fitInfo->getSlope();
     yIntercept = fitInfo->getYIntercept();
     if (ID > 127) {
-      freq = (yIntercept + (ID - 256)) * deltaFreq;  // NEED TO MAKE DYNAMIC
+      freq = ((yIntercept - HALF_WINDOW) + (ID - 256)) * deltaFreq;  // NEED TO MAKE DYNAMIC
     } else {
-      freq = (yIntercept + ID) * deltaFreq;
+      freq = ((yIntercept - HALF_WINDOW) + ID) * deltaFreq;
     }
     minCentroid = fitInfo->getMinCentroid();
     maxCentroid = fitInfo->getMaxCentroid();
@@ -466,7 +466,7 @@ std::vector<float> SpotCandidate::getMagnitudeVector(void) {
 }
 /* ---------------------------------------------------------------------- */
 void SpotCandidate::printReport(void) {
-  fprintf(stderr, "Potential Candidate %d Report - samples: %5d, longest sequence: %5d, status: %s, slope: %7.4f, y-intercept: %7.2f, center frequency of spot: %8.5f\n",
+  fprintf(stderr, "Potential Candidate %d Report - samples: %5d, longest sequence: %5d, status: %s, slope: %7.4f, y-intercept: %7.2f, uncompensated center frequency of spot: %8.5f\n",
           ID, count, longestSequence, valid?"  valid":"invalid", slope, yIntercept, freq);
   int i = 0;
   if (candidateVector.size() < 1) {

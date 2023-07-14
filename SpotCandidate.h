@@ -19,6 +19,7 @@ class SpotCandidate {
   struct SampleRecord { float centroid; float magnitude; std::vector<float> r; std::vector<float> i;
     std::vector<float> magSlice; int timeStamp; float timeSeconds; };
   static const int WINDOW = 7;
+  static const int HALF_WINDOW = 3;
  private:
   int ID;
   int count;

@@ -325,6 +325,7 @@ void WSPRWindow::doWork() {
               candidateInfo.push_back(sr);
               fprintf(stderr, "Error - should always be able to generate a centroid\n");
               fprintf(stderr, "FFT sample %d, in shift %d\n", t, shift);
+              fprintf(stderr, "currentPeakIndex: %d, currentPeakBin: %d\n", currentPeakIndex, currentPeakBin);
               break;
             }
           }
@@ -396,16 +397,16 @@ void WSPRWindow::doWork() {
                   //        candidate.getFrequency(), currentPeakIndex, currentPeakBin, shift, remapIndex);
                   fprintf(stderr, "spot: %s at frequency %1.0f, currentPeakIndex: %d, bin: %d shift: %d, "
                           "remapIndex: %d, symbol set: %d, delta time: %2.1f\n",
-                          call_loc_pow, dialFreq + 1500.0 + ((remapIndex == 0) ? 1: -1) * candidate.getFrequency() +
-                          3.0 * deltaFreq,
+                          call_loc_pow, dialFreq + 1500.0 + ((remapIndex == 0) ? 1: -1) * candidate.getFrequency(),
                           currentPeakIndex, currentPeakBin, shift, remapIndex, symbolSet,
                           (symbolSet * 256 + shift) * SECONDS_PER_SHIFT - 1.0);
                   bool newCand = true;
+                  candidate.printReport();
                   for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
                     if ((strcmp((*iter).second.callSign, callsign) == 0) &&
                         (fabs((*iter).second.freq - (dialFreq + 1500.0 +
                                                      ((remapIndex == 0) ? 1: -1) *
-                                                     candidate.getFrequency() + 3.0 * deltaFreq) < 3.0))) {
+                                                     candidate.getFrequency())) < 3.0)) {
                       newCand = false;
                       (*iter).second.occurrence++;
                       int normalizedShift = symbolSet * 256 + shift;
@@ -429,7 +430,7 @@ void WSPRWindow::doWork() {
                     int normalizedShift = symbolSet * 256 + shift;
                     candidates[numberOfCandidates] = { d, t, cs, p, l, 1,
                                                        dialFreq + 1500.0 + ((remapIndex == 0) ? 1: -1) *
-                                                       candidate.getFrequency() + 3.0 * deltaFreq,
+                                                       candidate.getFrequency(),
                                                        normalizedShift,
                                                        snr, slope * SLOPE_TO_DRIFT_UNITS };
                     numberOfCandidates++;
