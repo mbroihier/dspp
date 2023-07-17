@@ -53,6 +53,9 @@ tools:
 	$(CC) $(CFLAGS) FFTOverTimeToOctavePipe.cc -o FFTOverTimeToOctavePipe.o
 	$(CC) $(LDFLAGS) FFTOverTimeToOctavePipe.o -o FFTOverTimeToOctavePipe -lm
 
+	$(CC) $(CFLAGS) baseBandWSPR.cc -o baseBandWSPR.o
+	$(CC) $(LDFLAGS) baseBandWSPR.o -o baseBandWSPR -lm
+
 
 $(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(BASICOBJ)
 	$(CC) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(BASICOBJ) -o dspp $(LDFLAGS)

@@ -40,12 +40,18 @@ int main(int argc, char *argv[]) {
   float toneGain = 0.5;
   float driftRate = 0.0;  // Hz/min
   float driftDelta = 0.0;
+  float drift = 0.0;
+  float noiseGain = 0.1;
   if (argc == 4) {
     sscanf(argv[1], "%f", &offset);
     sscanf(argv[2], "%f", &driftRate);
     sscanf(argv[3], "%f", &toneGain);
-    driftDelta = driftRate / 60.0 * SAMPLING_FREQUENCY / 256.0; // Hz/sample
+    driftDelta = driftRate / 60.0 / SAMPLING_FREQUENCY; // Hz/sample
   }
+  double noiseFrequency = -DEVIATION * 100.0;
+  double noiseFrequencyDelta = DEVIATION;
+  const double NOISE_FREQUENCY_LIMIT = 100.0 * DEVIATION; 
+  std::complex<double> noise = 2 * M_PI * noiseFrequency * I;
   std::complex<double> omega0 = 2 * M_PI * (-DEVIATION*3/2 + offset) * I;
   std::complex<double> omega1 = 2 * M_PI * (-DEVIATION/2 + offset) * I;
   std::complex<double> omega2 = 2 * M_PI * (DEVIATION/2 + offset) * I;
@@ -55,17 +61,29 @@ int main(int argc, char *argv[]) {
   float realPart;
   float imagPart;
   std::complex<double> toneGainC = std::complex<double>(toneGain + 0.0 * I);
+  std::complex<double> noiseGainC = std::complex<double>(noiseGain + 0.0 * I);
   while (t < DURATION) {
+    noise = 2 * M_PI * noiseFrequency * I;
+    omega0 = 2 * M_PI * (-DEVIATION*3/2 + offset + drift) * I;
+    omega1 = 2 * M_PI * (-DEVIATION/2 + offset + drift) * I;
+    omega2 = 2 * M_PI * (DEVIATION/2 + offset + drift) * I;
+    omega3 = 2 * M_PI * (DEVIATION*3/2 + offset + drift) * I;
     signal = toneGainC * (((decodedSignalAtT[index] == 0) * 1.0) * exp(omega0 * t) +
-                                 ((decodedSignalAtT[index] == 1) * 1.0) * exp(omega1 * t) +
-                                 ((decodedSignalAtT[index] == 2) * 1.0) * exp(omega2 * t) +
-                                 ((decodedSignalAtT[index] == 3) * 1.0) * exp(omega3 * t)); 
+                          ((decodedSignalAtT[index] == 1) * 1.0) * exp(omega1 * t) +
+                          ((decodedSignalAtT[index] == 2) * 1.0) * exp(omega2 * t) +
+                          ((decodedSignalAtT[index] == 3) * 1.0) * exp(omega3 * t)) +
+      noiseGainC * exp(noise * t); 
 
     realPart = real(signal);
     imagPart = imag(signal);
     fwrite(&realPart, sizeof(float), 1, stdout);
     fwrite(&imagPart, sizeof(float), 1, stdout);
     t += deltaT;
+    drift += driftDelta;
+    noiseFrequency += noiseFrequencyDelta;
+    if (noiseFrequency > NOISE_FREQUENCY_LIMIT) {
+      noiseFrequency = -DEVIATION * 100.0;
+    }
     index++;
   }
   return 0;
