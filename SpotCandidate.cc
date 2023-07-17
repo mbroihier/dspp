@@ -259,8 +259,8 @@ const std::vector<SpotCandidate::SampleRecord> SpotCandidate::getValidSubvector(
   return aSubvector;
 }
 /* ---------------------------------------------------------------------- */
-void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::vector<int> & tokens, float & snr,
-                             float & slope, float & backgroundNoise) {
+void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::vector<int> & tokens,
+                             float & slope) {
   tokens.clear();
   SpotCandidate candidate(1000, validVector, 0.0);
   std::vector<float> magnitudeAverages;
@@ -310,16 +310,6 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
   float two = 0.0;
   float three = 0.0;
   float zero = 0.0;
-  float sumOfSignal = 0.0;
-  float sumOfSignalSq = 0.0;
-  float sumOfNoise = 0.0;
-  float sumOfNoiseSq = 0.0;
-  int numberOfSignalSamples = 0;
-  int numberOfNoiseSamples = 0;
-  float stdOfNoise = 0.0;
-  float stdOfSignal = 0.0;
-  float signalAverage = 0.0;
-  float noiseAverage = 0.0;
   for (size_t syncIndex = 0; syncIndex < centroidVector.size(); syncIndex++) {
     int sliceIndexZero = (int) (base - 0.5);
     int sliceIndexOne = sliceIndexZero + 1;
@@ -338,115 +328,21 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
     //        interleavedSync[syncIndex]);
     if (zero > one && zero > two && zero > three) {
       token = 0;
-      sumOfSignal += validVector[syncIndex].magSlice[sliceIndexZero];
-      sumOfSignalSq += validVector[syncIndex].magSlice[sliceIndexZero] *
-        validVector[syncIndex].magSlice[sliceIndexZero];
-      numberOfSignalSamples++;
-      sumOfNoise += validVector[syncIndex].magSlice[sliceIndexOne];
-      sumOfNoiseSq += validVector[syncIndex].magSlice[sliceIndexOne] *
-        validVector[syncIndex].magSlice[sliceIndexOne];
-      numberOfNoiseSamples++;
-      sumOfNoise += validVector[syncIndex].magSlice[sliceIndexTwo];
-      sumOfNoiseSq += validVector[syncIndex].magSlice[sliceIndexTwo] *
-        validVector[syncIndex].magSlice[sliceIndexTwo];
-      numberOfNoiseSamples++;
-      sumOfNoise += validVector[syncIndex].magSlice[sliceIndexThree];
-      sumOfNoiseSq += validVector[syncIndex].magSlice[sliceIndexThree] *
-        validVector[syncIndex].magSlice[sliceIndexThree];
-      numberOfNoiseSamples++;
     } else {
       if (one > zero && one > two && one > three) {
         token = 1;
-        sumOfSignal += validVector[syncIndex].magSlice[sliceIndexOne];
-        sumOfSignalSq += validVector[syncIndex].magSlice[sliceIndexOne] *
-          validVector[syncIndex].magSlice[sliceIndexOne];
-        numberOfSignalSamples++;
-        sumOfNoise += validVector[syncIndex].magSlice[sliceIndexZero];
-        sumOfNoiseSq += validVector[syncIndex].magSlice[sliceIndexZero] *
-          validVector[syncIndex].magSlice[sliceIndexZero];
-        numberOfNoiseSamples++;
-        sumOfNoise += validVector[syncIndex].magSlice[sliceIndexTwo];
-        sumOfNoiseSq += validVector[syncIndex].magSlice[sliceIndexTwo] *
-          validVector[syncIndex].magSlice[sliceIndexTwo];
-        numberOfNoiseSamples++;
-        sumOfNoise += validVector[syncIndex].magSlice[sliceIndexThree];
-        sumOfNoiseSq += validVector[syncIndex].magSlice[sliceIndexThree] *
-          validVector[syncIndex].magSlice[sliceIndexThree];
-        numberOfNoiseSamples++;
       } else {
         if (two > zero && two > one && two > three) {
           token = 2;
-          sumOfSignal += validVector[syncIndex].magSlice[sliceIndexTwo];
-          sumOfSignalSq += validVector[syncIndex].magSlice[sliceIndexTwo] *
-            validVector[syncIndex].magSlice[sliceIndexTwo];
-          numberOfSignalSamples++;
-          sumOfNoise += validVector[syncIndex].magSlice[sliceIndexOne];
-          sumOfNoiseSq += validVector[syncIndex].magSlice[sliceIndexOne] *
-            validVector[syncIndex].magSlice[sliceIndexOne];
-          numberOfNoiseSamples++;
-          sumOfNoise += validVector[syncIndex].magSlice[sliceIndexZero];
-          sumOfNoiseSq += validVector[syncIndex].magSlice[sliceIndexZero] *
-            validVector[syncIndex].magSlice[sliceIndexZero];
-          numberOfNoiseSamples++;
-          sumOfNoise += validVector[syncIndex].magSlice[sliceIndexThree];
-          sumOfNoiseSq += validVector[syncIndex].magSlice[sliceIndexThree] *
-            validVector[syncIndex].magSlice[sliceIndexThree];
-          numberOfNoiseSamples++;
         } else {
           token = 3;
-          sumOfSignal += validVector[syncIndex].magSlice[sliceIndexThree];
-          sumOfSignalSq += validVector[syncIndex].magSlice[sliceIndexThree] *
-            validVector[syncIndex].magSlice[sliceIndexThree];
-          numberOfSignalSamples++;
-          sumOfNoise += validVector[syncIndex].magSlice[sliceIndexOne];
-          sumOfNoiseSq += validVector[syncIndex].magSlice[sliceIndexOne] *
-            validVector[syncIndex].magSlice[sliceIndexOne];
-          numberOfNoiseSamples++;
-          sumOfNoise += validVector[syncIndex].magSlice[sliceIndexTwo];
-          sumOfNoiseSq += validVector[syncIndex].magSlice[sliceIndexTwo] *
-            validVector[syncIndex].magSlice[sliceIndexTwo];
-          numberOfNoiseSamples++;
-          sumOfNoise += validVector[syncIndex].magSlice[sliceIndexZero];
-          sumOfNoiseSq += validVector[syncIndex].magSlice[sliceIndexZero] *
-            validVector[syncIndex].magSlice[sliceIndexZero];
-          numberOfNoiseSamples++;
         }
       }
     }
     //fprintf(stderr, " token: %3d\n", token);
     tokens.push_back(token);
     base += slope;
-    for (int windowIndex = 0; windowIndex < WINDOW; windowIndex++) {
-      if (windowIndex < sliceIndexZero || windowIndex > sliceIndexThree) {
-        sumOfNoise += validVector[syncIndex].magSlice[windowIndex];
-        sumOfNoiseSq += validVector[syncIndex].magSlice[windowIndex] * validVector[syncIndex].magSlice[windowIndex];
-        numberOfNoiseSamples++;
-      }
-    }
   }
-  stdOfNoise = sqrt((numberOfNoiseSamples * sumOfNoiseSq - sumOfNoise * sumOfNoise) /
-                    (numberOfNoiseSamples * (numberOfNoiseSamples - 1)));
-  stdOfSignal = sqrt((numberOfSignalSamples * sumOfSignalSq - sumOfSignal * sumOfSignal) /
-                    (numberOfSignalSamples * (numberOfSignalSamples - 1)));
-  noiseAverage = sumOfNoise / numberOfNoiseSamples;
-  signalAverage = sumOfSignal / numberOfSignalSamples;
-  if (signalAverage > noiseAverage) {
-    snr = 10.0 * log10f((signalAverage - noiseAverage)/stdOfNoise) - 26.3;
-  } else {
-    snr = -100.0;
-  }
-  fprintf(stderr, "number of signal samples = %d, number of noise samples = %d\n",
-          numberOfSignalSamples, numberOfNoiseSamples);
-  fprintf(stderr, "std of signal = %10.7f, std of noise = %10.7f\n", stdOfSignal, stdOfNoise);
-  fprintf(stderr, "average of signal = %10.7f, average of noise = %10.7f\n", signalAverage, noiseAverage);
-  fprintf(stderr, "signal above background = %10.7f\n", signalAverage - noiseAverage);
-  fprintf(stderr, "SNR in dB = %10.7f\n", snr);
-  float altSNR = 10.0 * log10f(signalAverage) - 10.0 * log10f(noiseAverage);
-  fprintf(stderr, "SNR signal in dB - noise in dB is %10.7f / %10.7f\n", altSNR, altSNR - 26.3);
-  float altSNR2 = 10.0 * log10f(signalAverage) - 10.0 * log10f(backgroundNoise);
-  fprintf(stderr, "SNR signal in dB - overall background noise in dB is %10.7f / %10.7f\n", altSNR2, altSNR2 - 26.3);
-  // supercede snr calculated above by the second alternative for now
-  snr = altSNR2 - 26.3;
 }
 /* ---------------------------------------------------------------------- */
 std::vector<float> SpotCandidate::getCentroidVector(void) {

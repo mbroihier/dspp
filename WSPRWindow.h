@@ -35,6 +35,7 @@ class WSPRWindow {
   int * binArray;
   float * mag;
   float * magAcc;
+  float * sortedMag;
   float slope;
   float yIntercept;
   int sampleBufferSize;
@@ -50,12 +51,18 @@ class WSPRWindow {
   DsppFFT * fftObject;
   Fano fanoObject;
 
+  struct SNRInfo { float magnitude; int bin; float SNR; };
+  SNRInfo * SNRData;
   struct SampleRecord { float centroid; float magnitude; int timeStamp; };
   struct WindowOfIQDataT { time_t windowStartTime; float * data; };
   std::queue<WindowOfIQDataT> windows;
 
   char reporterID[13] = {0};
   char reporterLocation[7] = {0};
+
+  static int SNRCompare(const void * a, const void * b);
+  void calculateSNR(float * accumulatedMagnitude);
+  float getSNR(int bin);
 
  public:
   void doWork(void);

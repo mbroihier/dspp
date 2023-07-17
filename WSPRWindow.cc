@@ -36,11 +36,13 @@ void WSPRWindow::init(int size, int number, char * prefix, float dialFreq, char 
   deltaFreq = freq / size;
   fprintf(stderr, "allocating binArray memory\n");
   binArray = reinterpret_cast<int *>(malloc(number * sizeof(int)));
+  SNRData = reinterpret_cast<SNRInfo *>(malloc(number * sizeof(SNRInfo)));
   fprintf(stderr, "allocating FFT memory - %d bytes\n", size * sizeof(float) * 2 * FFTS_PER_SHIFT * SHIFTS);
   fftOverTime = reinterpret_cast<float *> (malloc(size * sizeof(float) * 2 * FFTS_PER_SHIFT * SHIFTS));
   windowOfIQData = NULL;
   fprintf(stderr, "allocating mag memory\n");
   mag = reinterpret_cast<float *>(malloc(size * sizeof(float)));
+  sortedMag = reinterpret_cast<float *>(malloc(size * sizeof(float)));
   magAcc = reinterpret_cast<float *>(malloc(size * sizeof(float)));
   sampleBufferSize = (int) freq * PROCESSING_SIZE * 2;
   tic = 0;
@@ -95,6 +97,7 @@ void WSPRWindow::remap(std::vector<int> tokens, std::vector<int> &symbols, int m
     symbols.push_back(tokenToSymbol[element + offset] << 6);
   }
 }
+
 void WSPRWindow::doWork() {
   pid_t background = 0;
 
@@ -149,7 +152,7 @@ void WSPRWindow::doWork() {
       fprintf(stderr, "\nCollecting %d samples at %ld - %s", sampleBufferSize, now - baseTime, ctime(&now));
       if ((count = fread(windows.back().data, sizeof(float), PROCESSING_SIZE * BASE_BAND * 2, stdin)) == 0) {
         fprintf(stderr, "Input read was empty, sleeping for a while at %s", ctime(&now));
-        sleep(60.0);
+        sleep(5.0);
       }
       firstTime = false;
     }
@@ -169,7 +172,6 @@ void WSPRWindow::doWork() {
     fflush(stdout);  // flush standard out to make file output sane
     background = fork();
     if (background == 0) {  // this is the child process, so continue this processing in "background"
-      float stdOfNoise = 0.0;
       fprintf(stdout, "Starting child\n");
       fanoObject.childAttach();  // attach shared memory
       fftOverTimePtr = fftOverTime;
@@ -207,24 +209,6 @@ void WSPRWindow::doWork() {
           magPtr++;
         }
       }
-      // calculate bacground average
-      int outOfRange = size*0.46/2;  // bins outside of +/- 100 Hz
-      float workingValue = 0.0;
-      float sumOfNoise = 0.0;
-      float sumOfNoiseSq = 0.0;
-      int numberOfNoiseSamples = 0;
-      for (int i = size/2 - outOfRange; i < size/2 + outOfRange; i++) {
-        workingValue = magAcc[i]/FFTS_PER_SHIFT;
-        sumOfNoise += workingValue;
-        sumOfNoiseSq += workingValue * workingValue;
-        numberOfNoiseSamples++;
-      }
-      stdOfNoise = sqrt((numberOfNoiseSamples * sumOfNoiseSq - sumOfNoise * sumOfNoise) /
-                              (numberOfNoiseSamples * (numberOfNoiseSamples - 1)));
-      fprintf(stderr, "background sumOfNoise: %f, sumOfNoiseSq: %f, number of samples: %d\n",
-              sumOfNoise, sumOfNoiseSq, numberOfNoiseSamples);
-      fprintf(stderr, "background std: %10.5f, dB: %5.2f, power dB: %5.2f\n", stdOfNoise, 10 * log10(stdOfNoise),
-              20 * log10(stdOfNoise));
       float peak = 0.0;
       for (int i = 0; i < size; i++) {
         if (magAcc[i] > peak) {
@@ -256,7 +240,9 @@ void WSPRWindow::doWork() {
           fprintf(stderr, "%3d: %12.0f\n", i, magAcc[i]);
         }
       }
-  
+
+      calculateSNR(magAcc);
+
       memset(magAcc, 0, size * sizeof(float));  // clear magnitude accumulation for next cycle
 
       // Scan sequences of FFTs looking for WSPR signal
@@ -350,8 +336,10 @@ void WSPRWindow::doWork() {
             std::vector<int> symbolVector;
             float snr = 0.0;
             float slope = 0.0;
-            candidate.tokenize(subset, tokens, snr, slope, stdOfNoise);
-            for (int remapIndex = 0; remapIndex < 4; remapIndex += 3) {  // can be up to 24, now only 0 and 3
+            //candidate.tokenize(subset, tokens, snr, slope, stdOfNoise);
+            candidate.tokenize(subset, tokens, slope);
+            snr = getSNR(currentPeakBin);
+            for (int remapIndex = 0; remapIndex < 1; remapIndex += 1) {  // can be up to 24, now only 0
               remap(tokens, symbolVector, remapIndex);
               for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
                 symbols[index] = symbolVector[index];
@@ -401,7 +389,7 @@ void WSPRWindow::doWork() {
                           currentPeakIndex, currentPeakBin, shift, remapIndex, symbolSet,
                           (symbolSet * 256 + shift) * SECONDS_PER_SHIFT - 1.0);
                   bool newCand = true;
-                  candidate.printReport();
+                  //candidate.printReport();
                   for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
                     if ((strcmp((*iter).second.callSign, callsign) == 0) &&
                         (fabs((*iter).second.freq - (dialFreq + 1500.0 +
@@ -477,12 +465,69 @@ void WSPRWindow::doWork() {
   fprintf(stderr, "leaving doWork within WSPRWindow\n");
 }
 
+// compare for qsort
+int WSPRWindow::SNRCompare(const void * a, const void * b) {
+  if ((*(const SNRInfo *)a).magnitude < (*(const SNRInfo *)b).magnitude) {
+    return -1;
+  } else {
+    return (*(const SNRInfo *)a).magnitude > (*(const SNRInfo *)b).magnitude;
+  }
+}
+void WSPRWindow::calculateSNR(float * accumulatedMagnitude) {
+  int regionOfInterestCount = 0;
+  int regionSize = 75.0 * size / BASE_BAND;
+  int bound0 = (size - regionSize) / 2;
+  int bound1 = (size + regionSize) / 2;
+  SNRInfo * working = reinterpret_cast<SNRInfo *>(malloc(sizeof(SNRInfo) * size));
+  for (int magIndex = 0; magIndex < size; magIndex++) {
+    if (magIndex < bound0 || magIndex > bound1) {
+      working[regionOfInterestCount].magnitude = accumulatedMagnitude[magIndex];
+      working[regionOfInterestCount].bin = magIndex;
+      working[regionOfInterestCount++].SNR = -100.0;
+    }
+  }
+  fprintf(stderr, "sorting %d magnitudes\n", regionOfInterestCount);
+  qsort(working, regionOfInterestCount, sizeof(SNRInfo), SNRCompare);
+  float noisePower = working[(int)(0.30 * regionOfInterestCount)].magnitude;
+  float noisePowerdB = 20 * log10(noisePower);
+  fprintf(stderr, "noisePower: %f, dB: %5.2f, power dB: %5.2f\n", noisePower, 10 * log10(noisePower),
+          20 * log10(noisePower));
+  for (int i = 0; i < regionOfInterestCount; i++) {
+    fprintf(stderr, "sortedMag[%3d]: %10.0f\n", i, working[i].magnitude);
+  }
+  for (int i = 0; i < number; i++) {
+    SNRData[i].magnitude = working[regionOfInterestCount - i - 1].magnitude;
+    SNRData[i].bin = working[regionOfInterestCount - i - 1].bin;
+    SNRData[i].SNR = 20 * log10(working[regionOfInterestCount - i - 1].magnitude) - noisePowerdB - 26.3;
+    fprintf(stderr, "SNRData[%2d]: %10.0f, bin: %d, SNR: %f dB\n", i, SNRData[i].magnitude, SNRData[i].bin,
+            SNRData[i].SNR);
+    fprintf(stderr, "SNRAlt[%2d]: %10.0f, bin: %d, SNR: %f dB\n", i, SNRData[i].magnitude, SNRData[i].bin,
+            10 * log10(working[regionOfInterestCount - i - 1].magnitude) - 10 * log10(noisePower) - 26.3);
+    
+  }
+  free(working);
+}
+
+float WSPRWindow::getSNR(int bin) {
+  float ret = -100.0;
+  SNRInfo rec;
+  for (int i = 0; i < number; i++) {
+    rec = SNRData[i];
+    if (rec.bin == bin) {
+      return rec.SNR;
+    }
+  }
+  return ret;
+}
+
 WSPRWindow::~WSPRWindow(void) {
   fprintf(stderr, "destructing WSPRWindow\n");
   if (fftOverTime) free(fftOverTime);
   if (mag) free(mag);
+  if (sortedMag) free(sortedMag);
   if (magAcc) free(magAcc);
   if (binArray) free(binArray);
+  if (SNRData) free(SNRData);
 }
 
 #ifdef SELFTEST
