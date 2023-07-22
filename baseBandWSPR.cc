@@ -25,15 +25,6 @@ int main(int argc, char *argv[]) {
   const double deltaT = 1.0 / SAMPLING_FREQUENCY;  // seconds
   const int DURATION = 120;
   std::complex<double> signal;
-  int decodedSignalAtT[DURATION * SAMPLING_FREQUENCY] = {0};
-  int startSignalAt = 0.5 * SAMPLING_FREQUENCY;
-  int index = 0;
-  for (auto token : testInput) {
-    for (int sym = 0; sym < 256; sym++) {
-      decodedSignalAtT[startSignalAt + index] = token;
-      index++;
-    }
-  }
   const float DEVIATION = 1.4648; // Hz
 
   float offset = 50.0;
@@ -42,11 +33,22 @@ int main(int argc, char *argv[]) {
   float driftDelta = 0.0;
   float drift = 0.0;
   float noiseGain = 0.1;
-  if (argc == 4) {
+  float startSignalAtF = 0.5;
+  if (argc == 5) {
     sscanf(argv[1], "%f", &offset);
     sscanf(argv[2], "%f", &driftRate);
     sscanf(argv[3], "%f", &toneGain);
+    sscanf(argv[4], "%f", &startSignalAtF);
     driftDelta = driftRate / 60.0 / SAMPLING_FREQUENCY; // Hz/sample
+  }
+  int decodedSignalAtT[DURATION * SAMPLING_FREQUENCY] = {0};
+  int startSignalAt = startSignalAtF * SAMPLING_FREQUENCY;
+  int index = 0;
+  for (auto token : testInput) {
+    for (int sym = 0; sym < 256; sym++) {
+      decodedSignalAtT[startSignalAt + index] = token;
+      index++;
+    }
   }
   double noiseFrequency = -DEVIATION * 100.0;
   double noiseFrequencyDelta = DEVIATION;
@@ -56,7 +58,8 @@ int main(int argc, char *argv[]) {
   std::complex<double> omega1 = 2 * M_PI * (-DEVIATION/2 + offset) * I;
   std::complex<double> omega2 = 2 * M_PI * (DEVIATION/2 + offset) * I;
   std::complex<double> omega3 = 2 * M_PI * (DEVIATION*3/2 + offset) * I;
-  fprintf(stderr, "signal offset: %f, drift rate: %2.1f, tone gain %5.2f\n", offset, driftRate, toneGain);
+  fprintf(stderr, "signal offset: %f, drift rate: %2.1f, tone gain %5.2f, start signal at: %f\n",
+          offset, driftRate, toneGain, startSignalAtF);
   index = 0;
   float realPart;
   float imagPart;
