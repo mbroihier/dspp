@@ -65,10 +65,10 @@ WSPRWindow::WSPRWindow(int size, int number, char * prefix, float dialFreq, char
   fprintf(stderr, "done creating WSPRWindow object\n");
 }
 
-void WSPRWindow::remap(std::vector<int> tokens, std::vector<int> &symbols, int mapSelector) {
+int WSPRWindow::remap(std::vector<int> tokens, std::vector<int> &symbols, int mapSelector) {
   // map tokens to the possible symbol sets
   const int tokenToSymbol[] = { 0, 1, 2, 3,
-                                0, 1, 3, 1,
+                                0, 1, 3, 2,
                                 0, 2, 1, 3,
                                 0, 2, 3, 1,
                                 0, 3, 1, 2,
@@ -78,7 +78,7 @@ void WSPRWindow::remap(std::vector<int> tokens, std::vector<int> &symbols, int m
                                 1, 2, 0, 3,
                                 1, 2, 3, 0,
                                 1, 3, 0, 2,
-                                1, 3, 2, 1,
+                                1, 3, 2, 0,
                                 2, 0, 1, 3,
                                 2, 0, 3, 1,
                                 2, 1, 0, 3,
@@ -91,11 +91,26 @@ void WSPRWindow::remap(std::vector<int> tokens, std::vector<int> &symbols, int m
                                 3, 1, 2, 0,
                                 3, 2, 0, 1,
                                 3, 2, 1, 0 };
+
+  const int interleavedSync [] = { 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0,
+                                   0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1,
+                                   0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1,
+                                   1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1,
+                                   0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0,
+                                   0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1,
+                                   0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1,
+                                   0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0,
+                                   0, 0 };
+
   int offset = mapSelector * 4;
   symbols.clear();
+  int metric = 0;
+  int index = 0;
   for (auto element : tokens) {
+    if ((tokenToSymbol[element + offset] & 0x01) == interleavedSync[index++]) metric++;
     symbols.push_back(tokenToSymbol[element + offset] << 6);
   }
+  return metric;
 }
 
 void WSPRWindow::doWork() {
@@ -339,8 +354,11 @@ void WSPRWindow::doWork() {
             //candidate.tokenize(subset, tokens, snr, slope, stdOfNoise);
             candidate.tokenize(subset, tokens, slope);
             snr = getSNR(currentPeakBin);
-            for (int remapIndex = 0; remapIndex < 1; remapIndex += 1) {  // can be up to 24, now only 0
-              remap(tokens, symbolVector, remapIndex);
+            for (int remapIndex = 0; remapIndex < 24; remapIndex += 1) {  // can be up to 24, now only 0
+              int symbolMetric = remap(tokens, symbolVector, remapIndex);
+              fprintf(stderr, "symbol metric after remap(%d): %d, peak bin: %d\n", remapIndex, symbolMetric,
+                      currentPeakBin);
+              if (symbolMetric < 100) continue;  // if match is not good enough, go to next remapping
               for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
                 symbols[index] = symbolVector[index];
               }
@@ -384,16 +402,15 @@ void WSPRWindow::doWork() {
                   //        call_loc_pow, dialFreq + 1500.0 +
                   //        candidate.getFrequency(), currentPeakIndex, currentPeakBin, shift, remapIndex);
                   fprintf(stderr, "spot: %s at frequency %1.0f, currentPeakIndex: %d, bin: %d shift: %d, "
-                          "remapIndex: %d, symbol set: %d, delta time: %2.1f\n",
-                          call_loc_pow, dialFreq + 1500.0 + ((remapIndex == 0) ? 1: -1) * candidate.getFrequency(),
+                          "remapIndex: %d, symbol set: %d, delta time: %2.1f, symbolMetric: %d\n",
+                          call_loc_pow, dialFreq + 1500.0 +  candidate.getFrequency(),
                           currentPeakIndex, currentPeakBin, shift, remapIndex, symbolSet,
-                          (symbolSet * 256 + shift) * SECONDS_PER_SHIFT - 1.0);
+                          (symbolSet * 256 + shift) * SECONDS_PER_SHIFT - 2.0, symbolMetric);
                   bool newCand = true;
                   //candidate.printReport();
                   for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
                     if ((strcmp((*iter).second.callSign, callsign) == 0) &&
                         (fabs((*iter).second.freq - (dialFreq + 1500.0 +
-                                                     ((remapIndex == 0) ? 1: -1) *
                                                      candidate.getFrequency())) < 3.0)) {
                       newCand = false;
                       (*iter).second.occurrence++;
@@ -417,8 +434,7 @@ void WSPRWindow::doWork() {
                     char * l = strdup(loc);
                     int normalizedShift = symbolSet * 256 + shift;
                     candidates[numberOfCandidates] = { d, t, cs, p, l, 1,
-                                                       dialFreq + 1500.0 + ((remapIndex == 0) ? 1: -1) *
-                                                       candidate.getFrequency(),
+                                                       dialFreq + 1500.0 + candidate.getFrequency(),
                                                        normalizedShift,
                                                        snr, slope * SLOPE_TO_DRIFT_UNITS };
                     numberOfCandidates++;

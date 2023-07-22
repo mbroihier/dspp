@@ -31,7 +31,7 @@ class WSPRWindow {
   const float HZ_PER_BIN = BASE_BAND / 256.0;
   const float SLOPE_TO_DRIFT_UNITS = HZ_PER_BIN / SECONDS_PER_SYMBOL * 60.0; // units are Hz / minute
   void init(int size, int number, char * prefix, float dialFreq, char * reporterID, char * reporterLocation);
-  void remap(std::vector<int> tokens, std::vector<int> &symbols, int mapSelector);
+  int remap(std::vector<int> tokens, std::vector<int> &symbols, int mapSelector);
   int * binArray;
   float * mag;
   float * magAcc;

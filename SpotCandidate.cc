@@ -275,7 +275,7 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
   slope = candidate.getSlope();
   float base = 0.0;
   base = candidate.getYIntercept() - 1.5;
-#ifdef SELFTEST
+
   int interleavedSync [] = { 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0,
                              0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1,
                              0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1,
@@ -286,6 +286,7 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
                              0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0,
                              0, 0 };
 
+#ifdef SELFTEST
   // the vector below should result in a call sign of KG5YJE, a location of EM13 and power of 10
   int testInput[] = {3, 3, 2, 2, 2, 2, 2, 2, 3, 0, 2, 0, 3, 1, 1, 0, 0, 0, 1, 2, 2, 1, 2, 1, 1, 1, 3, 0, 0, 2,
                      2, 2, 2, 2, 1, 0, 2, 3, 0, 1, 0, 0, 0, 0, 0, 2, 1, 0, 3, 3, 2, 0, 1, 3, 2, 3, 2, 2, 2, 3,
@@ -310,6 +311,7 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
   float two = 0.0;
   float three = 0.0;
   float zero = 0.0;
+  int metric = 0;
   for (size_t syncIndex = 0; syncIndex < centroidVector.size(); syncIndex++) {
     int sliceIndexZero = (int) (base - 0.5);
     int sliceIndexOne = sliceIndexZero + 1;
@@ -342,7 +344,11 @@ void SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::v
     //fprintf(stderr, " token: %3d\n", token);
     tokens.push_back(token);
     base += slope;
+    if (interleavedSync[syncIndex] == (tokens[syncIndex] & 0x01)) {
+      metric++;
+    }
   }
+  fprintf(stderr, "Tokens metric: %d\n", metric);
 }
 /* ---------------------------------------------------------------------- */
 std::vector<float> SpotCandidate::getCentroidVector(void) {
