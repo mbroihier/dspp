@@ -465,11 +465,12 @@ void WSPRWindow::doWork() {
                   (*iter).second.snr, p, (*iter).second.loc,
                   (*iter).second.drift,
                   (*iter).second.shift * SECONDS_PER_SHIFT / (*iter).second.occurrence - 2.0);
-          WSPRUtilities::reportSpot(reporterID, reporterLocation, (*iter).second.freq, (*iter).second.shift *
-                                    SECONDS_PER_SHIFT / (*iter).second.occurrence - 2.0,
-                                    (*iter).second.drift, (*iter).second.callSign,
-                                    (*iter).second.loc, (*iter).second.power, charSNR, (*iter).second.date,
-                                    (*iter).second.time);
+          if (strlen(reporterID)) WSPRUtilities::reportSpot(reporterID, reporterLocation, (*iter).second.freq,
+                                                            (*iter).second.shift *
+                                                            SECONDS_PER_SHIFT / (*iter).second.occurrence - 2.0,
+                                                            (*iter).second.drift, (*iter).second.callSign,
+                                                            (*iter).second.loc, (*iter).second.power, charSNR,
+                                                            (*iter).second.date, (*iter).second.time);
         }
       }
       fprintf(stdout, "Child process complete\n");

@@ -69,7 +69,7 @@ int WSPRUtilities::reportSpot(char * reporterID, char * reporterLocation, float 
   char url[1024];
   CURL * curl;
   int status = 0; //successful
-  snprintf(url, sizeof(url), "http://wsprnetORG/post?function=wspr&rcall=%s&rgrid=%s&rqrg=%.6f&date=%s&time=%s"
+  snprintf(url, sizeof(url), "http://wsprnet.org/post?function=wspr&rcall=%s&rgrid=%s&rqrg=%.6f&date=%s&time=%s"
            "&sig=%s&dt=%.1f&drift=%d&tqrg=%.6f&tcall=%s&tgrid=%s&dbm=%s&version=0.1r_wsprwindow&mode=2",
            reporterID,
            reporterLocation,
