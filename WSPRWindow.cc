@@ -32,7 +32,6 @@ void WSPRWindow::init(int size, int number, char * prefix, float dialFreq, char 
   this->prefix = prefix;
   this->dialFreq = dialFreq;
   freq = BASE_BAND;
-  //fftObject = new DsppFFT(size);
   deltaFreq = freq / size;
   fprintf(stderr, "allocating binArray memory\n");
   binArray = reinterpret_cast<int *>(malloc(number * sizeof(int)));
@@ -414,20 +413,24 @@ void WSPRWindow::doWork() {
                       }
                       candidates.clear();
                       fprintf(stdout, "search process complete\n");
+                      windowsMutex.lock();
                       if (!windows.empty()) {
                         free(windows.front().data);
                         windows.pop();  // remove the first entry (this should be the one being processed)
                       }
                       background = 0;
+                      windowsMutex.unlock();
                     } else {
                       //fprintf(stderr, "waiting to start\n");
                       sleep(0.3);
                     }
                   }
+                  delete fftObject;
                 };
   std::thread process(search);
-  //sleep(1.0);
   bool firstTime = true;
+  WindowOfIQDataT entry;
+  int queueLen = 0;
   while (!done) {
     fprintf(stderr, "Starting a window at %ld\n", time(0) - baseTime);
     // get a Window worth of samples
@@ -435,34 +438,54 @@ void WSPRWindow::doWork() {
       fprintf(stderr, "first time or there is a background process or the queue is empty\n");
       if (!firstTime) {
         float remainsOf2Min[(PERIOD - PROCESSING_SIZE) * BASE_BAND * 2];
-        // Before entering loop, disard the remaining samples associated with this 2 minute block
-        fprintf(stderr, "Discarding %d unused samples of this 2 minute window\n", (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2);
+        // Before reading another sample set, disard the remaining samples associated with the previous 2 minute block
+        fprintf(stderr, "Discarding %d unused samples of last 2 minute window\n",
+                (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2);
         fread(remainsOf2Min, sizeof(float), (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2, stdin);
       }
       fprintf(stderr, "allocating window IQ memory - %d bytes\n", (int)freq  * sizeof(float) * 2 * PROCESSING_SIZE);
       now = time(0);
-      windows.push({now, reinterpret_cast<float *> (malloc((int)freq * sizeof(float) * 2 * PROCESSING_SIZE))});
+      entry = {now, reinterpret_cast<float *> (malloc((int)freq * sizeof(float) * 2 * PROCESSING_SIZE))};
       fprintf(stderr, "\nCollecting %d samples at %ld - %s", sampleBufferSize, now - baseTime, ctime(&now));
-      if ((count = fread(windows.back().data, sizeof(float), PROCESSING_SIZE * BASE_BAND * 2, stdin)) == 0) {
+      if ((count = fread(entry.data, sizeof(float), PROCESSING_SIZE * BASE_BAND * 2, stdin)) == 0) {
         fprintf(stderr, "Input read was empty, sleeping for a while at %s", ctime(&now));
-        sleep(1.0);
+        sleep(1.0); 
+        if (background == 0) { // kick off a queued buffer
+          windowsMutex.lock();
+          queueLen = windows.size();
+          windowsMutex.unlock();
+          if (queueLen > 0) {
+            fprintf(stderr,"No new data, but releasing a window that has been queued.  Size now %d\n", queueLen);
+            count = sampleBufferSize;
+          }
+          break;
+        }
+      } else {
+        windowsMutex.lock();
+        windows.push(entry);
+        fprintf(stderr, "Queue now has %d entries\n", windows.size());
+        windowsMutex.unlock();
       }
       firstTime = false;
     }
 
-    windowOfIQData = windows.front().data;
-    spotTime = windows.front().windowStartTime;
-
-    sampleLabel = spotTime - baseTime;
     if (count < sampleBufferSize) {
       done = true;
       continue;
     }
+
+    windowsMutex.lock();
+    windowOfIQData = windows.front().data;
+    spotTime = windows.front().windowStartTime;
+    windowsMutex.unlock();
+
+    sampleLabel = spotTime - baseTime;
     if (strlen(prefix) > 0) {
       snprintf(sampleFile, 50, "%s%d.bin", prefix, sampleLabel);
       WSPRUtilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
     }
     fflush(stdout);  // flush standard out to make file output sane
+    assert(background == 0); // this should always be the case
     background = 1;  // signal search to start
   }
   terminate = true;

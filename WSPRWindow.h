@@ -11,6 +11,7 @@
 /* ---------------------------------------------------------------------- */
 #include <vector>
 #include <map>
+#include <mutex>
 #include <math.h>
 #include <sys/types.h>
 #include <time.h>
@@ -56,7 +57,8 @@ class WSPRWindow {
   struct SampleRecord { float centroid; float magnitude; int timeStamp; };
   struct WindowOfIQDataT { time_t windowStartTime; float * data; };
   std::queue<WindowOfIQDataT> windows;
-
+  std::mutex windowsMutex;
+  
   char reporterID[13] = {0};
   char reporterLocation[7] = {0};
 
