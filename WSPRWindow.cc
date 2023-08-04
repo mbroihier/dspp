@@ -168,24 +168,9 @@ void WSPRWindow::doWork() {
                           magPtr++;
                         }
                       }
-                      float peak = 0.0;
-                      for (int i = 0; i < size; i++) {
-                        if (magAcc[i] > peak) {
-                          peak = magAcc[i];
-                          binArray[0] = i;
-                        }
-                      }
-                      float threshold = peak;
-                      for (int i = 1; i < number; i++) {
-                        peak = 0.0;
-                        for (int j = 0; j < size; j++) {
-                          if (magAcc[j] > peak && magAcc[j] < threshold) {
-                            peak = magAcc[j];
-                            binArray[i] = j;
-                          }
-                        }
-                        threshold = peak;
-                      }
+
+                      calculateSNR(magAcc); // also sets binArray
+
                       for (int i = 0; i < size; i++) {
                         bool inBinArray = false;
                         for (int j = 0; j < number; j++) {
@@ -199,8 +184,6 @@ void WSPRWindow::doWork() {
                           fprintf(stderr, "%3d: %12.0f\n", i, magAcc[i]);
                         }
                       }
-
-                      calculateSNR(magAcc);
 
                       memset(magAcc, 0, size * sizeof(float));  // clear magnitude accumulation for next cycle
 
@@ -281,7 +264,7 @@ void WSPRWindow::doWork() {
                             float slope = 0.0;
                             //candidate.tokenize(subset, tokens, snr, slope, stdOfNoise);
                             candidate.tokenize(subset, tokens, slope);
-                            snr = getSNR(currentPeakBin);
+                            snr = SNRData[currentPeakIndex].SNR;
                             for (int remapIndex = 0; remapIndex < 24; remapIndex += 1) {
                               int symbolMetric = remap(tokens, symbolVector, remapIndex);
                               fprintf(stderr, "symbol metric after remap(%d): %d, peak bin: %d\n",
@@ -526,6 +509,7 @@ void WSPRWindow::calculateSNR(float * accumulatedMagnitude) {
   for (int i = 0; i < number; i++) {
     SNRData[i].magnitude = working[regionOfInterestCount - i - 1].magnitude;
     SNRData[i].bin = working[regionOfInterestCount - i - 1].bin;
+    binArray[i] = SNRData[i].bin;
     SNRData[i].SNR = 20 * log10(working[regionOfInterestCount - i - 1].magnitude) - noisePowerdB - 26.3;
     fprintf(stderr, "SNRData[%2d]: %10.0f, bin: %d, SNR: %f dB\n", i, SNRData[i].magnitude, SNRData[i].bin,
             SNRData[i].SNR);
