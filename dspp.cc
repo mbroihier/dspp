@@ -31,89 +31,83 @@
 
 static const char USAGE_STR[] = "\n"
         "Usage: %s <command> [ parameter 1 [ ... parameter n]]\n"
-        "  -h                         : help\n"
-        "  convert_byte_sInt16        : convert little endian byte stream to internal short ints\n"
-        "  convert_byte_f             : convert a signed byte stream to internal floating point\n"
-        "  convert_uByte_f            : convert a unsigned byte stream to internal floating point\n"
-        "  convert_uByte_byte         : convert a unsigned byte stream to a signed byte stream\n"
-        "  shift_frequency_cc         : recenter a signal by x cycles per sample\n"
-        "  shift_frequency_uByteuByte : recenter a signal (raw RTL) by x cycles per sample\n"
-        "  fsSlash4_byte_byte         : mix / shift frequency by fs/4\n"
-        "  decimate_cc                : replace every n samples with 1 (complex)\n"
-        "  fmdemod_cf                 : demodulate FM signal\n"
-        "  decimate_ff                : replace every n samples with 1 (real)\n"
-        "  convert_f_uInt16           : convert a float(real) stream into an unsigned short stream\n"
-        "  convert_f_sInt16           : convert a float(real) stream into an signed short stream\n"
-        "  convert_tcp_byte           : convert a tcp stream into an unsigned/generic byte stream\n"
-        "  convert_byte_tcp           : convert a byte stream to a tcp byte stream\n"
-        "  custom_fir_ff              : FIR filter a real stream\n"
-        "  custom_fir_cc              : FIR filter a complex stream\n"
-        "  sfir_cc                    : Smooth FIR filter a complex stream\n"
-        "  comb_cc                    : Comb filter a complex stream\n"
-        "  sfir_ff                    : Smooth FIR filter a real stream\n"
-        "  real_to_complex_fc         : real stream to complex stream\n"
-        "  real_of_complex_fc         : real part of complex stream\n"
-        "  fmmod_fc                   : real stream FM modulated quadrature (I/Q) stream\n"
-        "  head                       : take first n bytes of stream\n"
-        "  tail                       : take bytes after n bytes of stream\n"
-        "  convert_sInt16_f           : convert a signed short stream to a float(real) stream\n"
-        "  fft_cc                     : convert a complex stream to a complex stream in the frequency domain\n"
-        "  tee                        : tee stream to another stream\n"
-        "  sfir_cc                    : smooth fir filter, complex stream to complex stream\n"
-        "  sfir_ff                    : smooth fir filter, float(real) stream to float stream\n"
-        "  real_of_complex_cf         : real(float) part of complex stream to float stream\n"
-        "  direct_to_iq               : direct stream of bytes to iq bytes\n"
-        "  comb_cc                    : comb filter complex stream to complex stream\n"
-        "  mag_cf                     : magnitude of complex number\n"
-        "  gain                       : multiply float/complex by scalar\n"
-        "  limit_real_stream          : limit a floating point stream between -1.0 and 1.0\n"
-        "  dc_removal                 : remove average value of the stream\n"
-        "  agc                        : automatic gain control, sustain a fixed average level\n"
-        "  overlap_samples_n_2        : overlap samples N by 2\n"
-        "  split_stream               : split input stream into multiple streams\n"
-        "  WSPRWindow                 : find WSPR spots in a WSPR window\n"
-        "  WindowSample               : Synchronize a sampling window to a clock\n"
-        "  convert_f_byte             : convert a float stream to a signed byte stream\n";
+        "  -h                          : help\n"
+        "  convert_byte_sInt16         : convert little endian byte stream to internal short ints\n"
+        "  convert_byte_f              : convert a signed byte stream to internal floating point\n"
+        "  convert_uByte_f             : convert a unsigned byte stream to internal floating point\n"
+        "  convert_uByte_byte          : convert a unsigned byte stream to a signed byte stream\n"
+        "  shift_frequency_cc          : recenter a signal by x cycles per sample\n"
+        "  shift_frequency_uByte_uByte : recenter a signal (raw RTL) by x cycles per sample\n"
+        "  fsSlash4_byte_byte          : mix / shift frequency by fs/4\n"
+        "  decimate_cc                 : replace every n samples with 1 (complex)\n"
+        "  fmdemod_cf                  : demodulate FM signal\n"
+        "  decimate_ff                 : replace every n samples with 1 (real)\n"
+        "  convert_f_uInt16            : convert a float(real) stream into an unsigned short stream\n"
+        "  convert_f_sInt16            : convert a float(real) stream into an signed short stream\n"
+        "  convert_tcp_byte            : convert a tcp stream into an unsigned/generic byte stream\n"
+        "  convert_byte_tcp            : convert a byte stream to a tcp byte stream\n"
+        "  custom_fir_ff               : FIR filter a real stream\n"
+        "  custom_fir_cc               : FIR filter a complex stream\n"
+        "  sfir_cc                     : Smooth FIR filter a complex stream\n"
+        "  comb_byte_c                 : Comb filter a complex stream\n"
+        "  sfir_ff                     : Smooth FIR filter a real stream\n"
+        "  real_to_complex_fc          : real stream to complex stream\n"
+        "  fmmod_fc                    : real stream FM modulated quadrature (I/Q) stream\n"
+        "  head                        : take first n bytes of stream\n"
+        "  tail                        : take bytes after n bytes of stream\n"
+        "  convert_sInt16_f            : convert a signed short stream to a float(real) stream\n"
+        "  fft_cc                      : convert a complex stream to a complex stream in the frequency domain\n"
+        "  tee                         : tee stream to another stream\n"
+        "  sfir_cc                     : smooth fir filter, complex stream to complex stream\n"
+        "  sfir_ff                     : smooth fir filter, float(real) stream to float stream\n"
+        "  real_of_complex_cf          : real(float) part of complex stream to float stream\n"
+        "  mag_cf                      : magnitude of complex number\n"
+        "  gain                        : multiply float/complex by scalar\n"
+        "  limit_real_stream           : limit a floating point stream between -1.0 and 1.0\n"
+        "  dc_removal                  : remove average value of the stream\n"
+        "  agc                         : automatic gain control, sustain a fixed average level\n"
+        "  split_stream                : split input stream into multiple streams\n"
+        "  WSPRWindow                  : find WSPR spots in a WSPR window\n"
+        "  WindowSample                : Synchronize a sampling window to a clock\n"
+        "  convert_f_byte              : convert a float stream to a signed byte stream\n";
 
 static struct option longOpts[] = {
-  { "convert_byte_sInt16"       , no_argument, NULL, 1 },
-  { "convert_byte_f"            , no_argument, NULL, 2 },
-  { "convert_uByte_f"           , no_argument, NULL, 3 },
-  { "shift_frequency_cc"        , no_argument, NULL, 4 },
-  { "decimate_cc"               , no_argument, NULL, 5 },
-  { "fmdemod_cf"                , no_argument, NULL, 6 },
-  { "decimate_ff"               , no_argument, NULL, 7 },
-  { "convert_f_uInt16"          , no_argument, NULL, 8 },
-  { "convert_f_sInt16"          , no_argument, NULL, 9 },
-  { "convert_tcp_byte"          , no_argument, NULL, 10 },
-  { "convert_byte_tcp"          , no_argument, NULL, 11 },
-  { "custom_fir_ff"             , no_argument, NULL, 12 },
-  { "custom_fir_cc"             , no_argument, NULL, 13 },
-  { "real_to_complex_fc"        , no_argument, NULL, 14 },
-  { "fmmod_fc"                  , no_argument, NULL, 15 },
-  { "head"                      , no_argument, NULL, 16 },
-  { "tail"                      , no_argument, NULL, 17 },
-  { "convert_sInt16_f"          , no_argument, NULL, 18 },
-  { "fft_cc"                    , no_argument, NULL, 19 },
-  { "tee"                       , no_argument, NULL, 20 },
-  { "sfir_cc"                   , no_argument, NULL, 21 },
-  { "sfir_ff"                   , no_argument, NULL, 22 },
-  { "real_of_complex_cf"        , no_argument, NULL, 23 },
-  { "direct_to_iq"              , no_argument, NULL, 24 },
-  { "comb_cc"                   , no_argument, NULL, 25 },
-  { "mag_cf"                    , no_argument, NULL, 26 },
-  { "gain"                      , no_argument, NULL, 27 },
-  { "limit_real_stream"         , no_argument, NULL, 28 },
-  { "dc_removal"                , no_argument, NULL, 29 },
-  { "agc"                       , no_argument, NULL, 30 },
-  { "shift_frequency_uByteuByte", no_argument, NULL, 31 },
-  { "convert_uByte_byte"        , no_argument, NULL, 32 },
-  { "fsSlash4_byte_byte"        , no_argument, NULL, 33 },
-  { "overlap_samples_n_2"       , no_argument, NULL, 35 },
-  { "split_stream"              , no_argument, NULL, 36 },
-  { "WSPRWindow"                , no_argument, NULL, 39 },
-  { "WindowSample"              , no_argument, NULL, 40 },
-  { "convert_f_byte"            , no_argument, NULL, 41 },
+  { "convert_byte_sInt16"        , no_argument, NULL, 1 },
+  { "convert_byte_f"             , no_argument, NULL, 2 },
+  { "convert_uByte_f"            , no_argument, NULL, 3 },
+  { "shift_frequency_cc"         , no_argument, NULL, 4 },
+  { "decimate_cc"                , no_argument, NULL, 5 },
+  { "fmdemod_cf"                 , no_argument, NULL, 6 },
+  { "decimate_ff"                , no_argument, NULL, 7 },
+  { "convert_f_uInt16"           , no_argument, NULL, 8 },
+  { "convert_f_sInt16"           , no_argument, NULL, 9 },
+  { "convert_tcp_byte"           , no_argument, NULL, 10 },
+  { "convert_byte_tcp"           , no_argument, NULL, 11 },
+  { "custom_fir_ff"              , no_argument, NULL, 12 },
+  { "custom_fir_cc"              , no_argument, NULL, 13 },
+  { "real_to_complex_fc"         , no_argument, NULL, 14 },
+  { "fmmod_fc"                   , no_argument, NULL, 15 },
+  { "head"                       , no_argument, NULL, 16 },
+  { "tail"                       , no_argument, NULL, 17 },
+  { "convert_sInt16_f"           , no_argument, NULL, 18 },
+  { "fft_cc"                     , no_argument, NULL, 19 },
+  { "tee"                        , no_argument, NULL, 20 },
+  { "sfir_cc"                    , no_argument, NULL, 21 },
+  { "sfir_ff"                    , no_argument, NULL, 22 },
+  { "real_of_complex_cf"         , no_argument, NULL, 23 },
+  { "comb_byte_c"                , no_argument, NULL, 25 },
+  { "mag_cf"                     , no_argument, NULL, 26 },
+  { "gain"                       , no_argument, NULL, 27 },
+  { "limit_real_stream"          , no_argument, NULL, 28 },
+  { "dc_removal"                 , no_argument, NULL, 29 },
+  { "agc"                        , no_argument, NULL, 30 },
+  { "shift_frequency_uByte_uByte", no_argument, NULL, 31 },
+  { "convert_uByte_byte"         , no_argument, NULL, 32 },
+  { "fsSlash4_byte_byte"         , no_argument, NULL, 33 },
+  { "split_stream"               , no_argument, NULL, 36 },
+  { "WSPRWindow"                 , no_argument, NULL, 39 },
+  { "WindowSample"               , no_argument, NULL, 40 },
+  { "convert_f_byte"             , no_argument, NULL, 41 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -1214,84 +1208,6 @@ int dspp::tee(char * otherStream) {
 }
 /* ---------------------------------------------------------------------- */
 /*
- *      overlap_sample_n_2.cc -- DSP Pipe - overlap samples n by 2
- *
- *      Copyright (C) 2022
- *          Mark Broihier
- *
- */
-
-/* ---------------------------------------------------------------------- */
-
-int dspp::overlap_samples_n_2(int size) {
-  int count = 0;
-  bool firstPass = true;
-  float * buffer = reinterpret_cast<float *>(malloc(size * sizeof(float) * 2));
-  const int HALF = size * sizeof(float);
-  const int FULL = HALF * 2;
-  for (;;) {
-    if (firstPass) {
-      firstPass = false;
-      count = fread(buffer, sizeof(char), FULL, stdin);
-      if (count < FULL) {
-        free(buffer);
-        return 0;
-      }
-    } else {
-      memcpy(buffer, buffer+HALF, HALF);
-      count = fread(buffer, sizeof(char), HALF, stdin);
-      if (count < HALF) {
-        free(buffer);
-        return 0;
-      }
-    }
-    fwrite(buffer, sizeof(unsigned char), count, stdout);
-  }
-  fprintf(stderr, "Internal error path - should not get here, tail\n");
-  fclose(stdout);
-  return 0;
-}
-/* ---------------------------------------------------------------------- */
-/*
- *      direct_to_iq.cc -- DSP Pipe - direct sample to IQ sample
- *
- *      Copyright (C) 2022
- *          Mark Broihier
- *
- */
-
-/* ---------------------------------------------------------------------- */
-
-int dspp::direct_to_iq() {
-  const int BUFFER_SIZE = 4096;
-  int count = 0;
-  signed char bytes[BUFFER_SIZE];
-  signed char data[BUFFER_SIZE];
-  for (;;) {
-    count = fread(&bytes, sizeof(signed char), BUFFER_SIZE, stdin);
-    if(count != BUFFER_SIZE) {
-      fprintf(stderr, "Short data stream, direct to IQ\n");
-      fclose(stdout);
-      return 0;
-    }
-    for (int i = 0; i < BUFFER_SIZE; i += 8) {
-      data[i + 0] = 0;
-      data[i + 1] = bytes[i + 1];
-      data[i + 2] = bytes[i + 2];
-      data[i + 3] = 0;
-      data[i + 4] = 0;
-      data[i + 5] = - bytes[i + 5];
-      data[i + 6] = - bytes[i + 6];
-      data[i + 7] = 0;
-    }
-    fwrite(&data, sizeof(signed char), count, stdout);
-  }
-  fprintf(stderr, "Internal error path - should not get here, direct_to_iq\n");
-  fclose(stdout);
-  return 0;
-}
-/* ---------------------------------------------------------------------- */
-/*
  *      split_stream.cc -- DSP Pipe - copy input stream to multiple output
  *                         streams
  *
@@ -1764,17 +1680,6 @@ int main(int argc, char *argv[]) {
 	}
         break;
       }
-      case 24: {
-	if (argc == 2) {
-          fprintf(stderr, "direct to complex IQ\n");
-          doneProcessing = !dsppInstance.direct_to_iq();
-	} else {
-	  fprintf(stderr, "direct to comple IQ parameter error\n");
-          fprintf(stderr, "%d\n", argc);
-	  doneProcessing = true;
-	}
-        break;
-      }
       case 25: {
         int decimation = 1;
         if (argc == 3) {
@@ -1869,18 +1774,6 @@ int main(int argc, char *argv[]) {
 	    doneProcessing = true;
 	  }
           break;
-      }
-      case 35: {
-        int size = 0;
-        if (argc == 3) {
-	  fprintf(stderr, "starting overlap_samples_n_2\n");
-          sscanf(argv[2], "%d", &size);
-          doneProcessing = !dsppInstance.overlap_samples_n_2(size);
-	} else {
-	  fprintf(stderr, "overlap_samples_n_2 should have 1 parameter - error\n");
-	  doneProcessing = true;
-	}
-        break;
       }
       case 36: {
         if (argc >= 3) {

@@ -55,11 +55,9 @@ class dspp {
   int convert_sInt16_f();
   int fft_cc(int numberOfComplexSamples);
   int tee(char * otherStream);
-  int direct_to_iq();
   int limit_real_stream();
   int dc_removal(float * buffer, int size);
   int agc(float target);
-  int overlap_samples_n_2(int size);
   int split_stream(char ** paths);
   int WSPR_window(float dialFrequency, char * prefix, int numberOfCandidates, char * reporterID,
                   char * reporterLocation);
