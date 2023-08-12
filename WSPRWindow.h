@@ -25,8 +25,8 @@ class WSPRWindow {
   const int NOMINAL_NUMBER_OF_SYMBOLS = 162;
   const int SHIFTS = 375;
   const int BASE_BAND = 375;  // base band frequency width
-  const int PROCESSING_SIZE = 116;  // 113 seconds of collection time - enough for 162 FFTs for every shift
-  const int FFTS_PER_SHIFT = 164;   // maximum number of FFTs per sample shift (this happens only on the shift of 0)
+  const int PROCESSING_SIZE = 116;  // 116 seconds of collection time - allows for ~6 secconds of time error
+  const int FFTS_PER_SHIFT = 162;   // maximum number of FFTs per sample shift (this used to be 164)
   const float SECONDS_PER_SHIFT = 1.0 / BASE_BAND;
   const float SECONDS_PER_SYMBOL = 256.0 / BASE_BAND;
   const float HZ_PER_BIN = BASE_BAND / 256.0;
