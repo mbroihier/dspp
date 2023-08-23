@@ -40,11 +40,14 @@ class FIRFilter {
 
   FIRFilter(float cutoffFrequency, int M, int decimation, int N, WindowType windowType);
   FIRFilter(float cutoffFrequency, int M, int decimation, int N, WindowType windowType, bool real);
+  FIRFilter(int decimation);
   FIRFilter(const char * filePath, int M, int N, WindowType windowType);
   FIRFilter(const char * filePath, int M, int N, WindowType windowType, bool real);
 
   void filterSignal();
   void filterReal();
+  void filterRealWindow();
+  void maxRealWindow();
 
   ~FIRFilter(void);
     

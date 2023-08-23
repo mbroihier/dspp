@@ -56,6 +56,9 @@ tools:
 	$(CC) $(CFLAGS) baseBandWSPR.cc -o baseBandWSPR.o
 	$(CC) $(LDFLAGS) baseBandWSPR.o -o baseBandWSPR -lm
 
+	$(CC) $(CFLAGS) MorseDecoder.cc -o MorseDecoder.o
+	$(CC) $(LDFLAGS) MorseDecoder.o -o MorseDecoder -lm
+
 
 $(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(BASICOBJ)
 	$(CC) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(BASICOBJ) -o dspp $(LDFLAGS)

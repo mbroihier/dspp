@@ -189,6 +189,40 @@ FIRFilter::FIRFilter(float cutoffFrequency, int M, int decimation, int N, Window
 
 };
 
+FIRFilter::FIRFilter(int decimation) {  // Average real filter decimation
+  this->decimation = decimation;
+  this->M = decimation;
+  this->N = 1;
+  this->real = true;
+
+  INPUT_BUFFER_SIZE =  decimation * sizeof(float);
+  SIGNAL_BUFFER_SIZE = decimation * sizeof(float);
+  fprintf(stderr, "INPUT_BUFFER_SIZE = %d, SIGNAL_BUFFER_SIZE = %d\n", INPUT_BUFFER_SIZE, SIGNAL_BUFFER_SIZE);
+  OUTPUT_BUFFER_SIZE = 1 * sizeof(float);
+  signalBuffer = (float *) malloc(SIGNAL_BUFFER_SIZE);
+  outputBuffer = (float *) malloc(OUTPUT_BUFFER_SIZE);
+  inputBuffer = signalBuffer; // buffer start for read
+  int diff = inputBuffer - signalBuffer;
+  fprintf(stderr, "inputBuffer location: %p, signalBuffer location: %p, difference: %d\n", inputBuffer, signalBuffer, diff);
+  inputToDelay = inputBuffer + (INPUT_BUFFER_SIZE - (M - 1) * sizeof(float)) / sizeof(float);
+  coefficients = (float *) malloc(sizeof(float)*M);
+
+  float * coefficientReference = coefficients;
+  for (int i = 0; i < M; i++) {
+    *coefficientReference++ = 1.0 / decimation;
+  }
+  coefficientReference = coefficients;
+  for (int i = 0; i < M; i++) {
+    signalBuffer[i] = 0.0;
+  }
+  fprintf(stderr, "FIR filter initialized\n");
+
+  for (int i = 0; i < M; i++) {
+    fprintf(stderr, "%d: %f\n", i, coefficients[i]);
+  }
+
+};
+
 FIRFilter::FIRFilter(const char * filePath, int M, int N, WindowType windowType) {
   this->decimation = 1;
   this->M = M;
@@ -419,6 +453,79 @@ void FIRFilter::filterReal(){
     // after copy, the end of the copied data should match up with the beginning of the input buffer, so
     // look at it after the read
     //fprintf(stderr, "filtered a buffer\n");
+  }
+};
+
+void FIRFilter::filterRealWindow(){
+
+  float * I;
+  float * coefficientPtr;
+  float * output;
+  float sumI;
+
+  //
+  // Filter with this current buffer of input
+  //
+
+  if (!real) {
+    fprintf(stderr, "Object is not initialized for real filter processing.\n");
+    exit(-1);
+  }
+  for (;;) {
+    // read one block of data that will be averaged and sent out as one output
+    if (readSignalPipe() != INPUT_BUFFER_SIZE) {
+      fprintf(stderr, "Short read....\n");
+      exit(-1);
+    }
+    I = signalBuffer;
+    output = outputBuffer;
+    coefficientPtr = coefficients;
+    //fprintf(stderr, "doing sample %d of %d, output pointer is at: %p\n", i, N + extra, output);
+    sumI = 0.0;
+    coefficientPtr = coefficients;
+    for (int j = 0; j < M; j++) {
+      //fprintf(stderr, "j is: %d, I is pointing at: %p, value is: %f\n", j, I, *I);
+      sumI += *coefficientPtr * *I;
+      coefficientPtr++;
+      I += 1;
+    }
+    *output++ = sumI;
+
+    writeSignalPipe();
+  }
+};
+
+void FIRFilter::maxRealWindow(){
+
+  float * I;
+  float * output;
+  float maxI;
+
+  //
+  // Output the max of this current window
+  //
+
+  if (!real) {
+    fprintf(stderr, "Object is not initialized for real filter processing.\n");
+    exit(-1);
+  }
+  for (;;) {
+    // read one block of data that will be averaged and sent out as one output
+    if (readSignalPipe() != INPUT_BUFFER_SIZE) {
+      fprintf(stderr, "Short read MAX\n");
+      exit(-1);
+    }
+    I = signalBuffer;
+    output = outputBuffer;
+    //fprintf(stderr, "doing sample %d of %d, output pointer is at: %p\n", i, N + extra, output);
+    maxI = 0.0;
+    for (int j = 0; j < M; j++) {
+      if (*I > maxI) maxI = *I;  // store maximum of this window
+      I += 1;
+    }
+    *output++ = maxI;
+
+    writeSignalPipe();
   }
 };
 

@@ -623,9 +623,20 @@ int dspp::fmdemod_cf() {
 
 int dspp::decimate_ff(float cutOffFrequency, int M, int amount, int N, const char * window) {
 
-  FIRFilter filter(cutOffFrequency, M, amount, N, FIRFilter::HAMMING, true);
-  filter.filterReal();
-  
+  if (strcmp(window, "HAMMING") == 0) {
+    FIRFilter filter(cutOffFrequency, M, amount, N, FIRFilter::HAMMING, true);
+    filter.filterReal();
+  } else {
+    if (strcmp(window, "AVERAGE") == 0) {
+      FIRFilter filter(amount);
+      filter.filterRealWindow();
+    } else if (strcmp(window, "MAX") == 0) {
+      FIRFilter filter(amount);
+      filter.maxRealWindow();
+    } else {
+      fprintf(stderr, "Unsupported decimate_ff window type: %s\n");
+    }
+  }
   return 0;
 
 }
@@ -1445,7 +1456,11 @@ int main(int argc, char *argv[]) {
             sscanf(argv[4], "%d", &amount);
 	    sscanf(argv[5], "%d", &N);
             doneProcessing = !dsppInstance.decimate_ff(cutOffFrequency, M, amount, N, argv[6]);
+          } else if (argc == 4) {
+            sscanf(argv[2], "%d", &amount);
+            doneProcessing = !dsppInstance.decimate_ff(0.0, 0, amount, 0, argv[3]);
 	  } else {
+	    fprintf(stderr, "decimate_ff parameter error\n");
 	    doneProcessing = true;
 	  }
           break;
