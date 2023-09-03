@@ -56,6 +56,9 @@ tools:
 	$(CC) $(CFLAGS) baseBandWSPR.cc -o baseBandWSPR.o
 	$(CC) $(LDFLAGS) baseBandWSPR.o -o baseBandWSPR -lm
 
+	$(CC) $(CFLAGS) morseBaseBand.cc -o morseBaseBand.o
+	$(CC) $(LDFLAGS) morseBaseBand.o -o morseBaseBand -lm
+
 	$(CC) $(CFLAGS) MorseDecoder.cc -o MorseDecoder.o
 	$(CC) $(LDFLAGS) MorseDecoder.o -o MorseDecoder -lm
 
