@@ -210,17 +210,11 @@ int main(int argc, char ** argv) {
   int decodedSignalAtT[DURATION * SAMPLING_FREQUENCY] = {0};
   int startSignalAt = startSignalAtF * SAMPLING_FREQUENCY;
   int index = 0;
-  int indexEncodedMessage = 0;
+  size_t indexEncodedMessage = 0;
   int16_t data;
   fprintf(stderr, "Filling on/off buffer\n");
-  //int newIndex = -1;
   while (t < DURATION) {
     indexEncodedMessage = index * deltaT / secondsPerDit;
-    //if (indexEncodedMessage != newIndex) {
-    //  fprintf(stderr, "indexEncodedMessage: %d, value: %d, time: %f\n", indexEncodedMessage,
-    //          transmissionBuffer[indexEncodedMessage], t);
-    //  newIndex = indexEncodedMessage;
-    //}
     if (indexEncodedMessage >= messageLen) indexEncodedMessage = messageLen - 1;
     decodedSignalAtT[startSignalAt + index] = transmissionBuffer[indexEncodedMessage];
     index++;
@@ -229,7 +223,6 @@ int main(int argc, char ** argv) {
   t = 0.0;
   double noiseFrequency = -DEVIATION * 100.0;
   double noiseFrequencyDelta = DEVIATION;
-  const double NOISE_FREQUENCY_LIMIT = 100.0 * DEVIATION; 
   std::complex<double> noise = 2 * M_PI * noiseFrequency * I;
   std::complex<double> omega0 = 2 * M_PI * offset * I;
   fprintf(stderr, "signal offset: %f, drift rate: %2.1f, tone gain %5.2f, start signal at: %f\n",
@@ -258,11 +251,6 @@ int main(int argc, char ** argv) {
     t += deltaT;
     drift += driftDelta;
     noiseFrequency += noiseFrequencyDelta;
-    if (noiseFrequency > NOISE_FREQUENCY_LIMIT) {
-      //fprintf(stderr, "reseting noise frequency a time %f - was %f,", t, noiseFrequency);
-      noiseFrequency = -DEVIATION * 100.0;
-      //fprintf(stderr, " now %f\n", noiseFrequency);
-    }
     noiseFrequency = (rand() - HALF) / RAND_MAX * 100.0;
     index++;
   }
