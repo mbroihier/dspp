@@ -26,6 +26,13 @@ class MorseDecoder {
   bool spaceClassifier[MAX_DAH] = {false};
   bool characterClassifier[MAX_DAH] = {false};
   bool wordClassifier[MAX_DAH] = {false};
+  static const int PATTERN_BUFFER_SIZE = 10;
+  char pattern[PATTERN_BUFFER_SIZE] = {0};
+  int patternIndex = 0;
+  static const int MESSAGE_BUFFER_SIZE = 100;
+  char message[MESSAGE_BUFFER_SIZE] = {0};
+  int messageIndex = 0;
+  
   enum ENTITY_TYPE {DIT, DAH, SPACE, CHARACTER_SEPARATION, WORD_SEPARATION, ERROR};
   int intervalCount;
   float threshold;
@@ -83,9 +90,13 @@ class MorseDecoder {
   const char * toText(ENTITY_TYPE);
   const char toChar(char * ditDah);
   ENTITY_TYPE classify(int plusCount, int minuseCount);
+  void addToPattern(const char c);
+  void resetPattern(void);
+  void addToMessage(const char c);
   
  public:
-  void generateClassifier(void);
+  int generateClassifier(bool justRead);
+  void decodeBuffer(int count);
   MorseDecoder(void);
   ~MorseDecoder(void);
 };
