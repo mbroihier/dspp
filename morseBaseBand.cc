@@ -152,6 +152,8 @@ int main(int argc, char ** argv) {
   const char * message = 0;
   bool wave = false;
 
+  float noiseGain = 0.25;
+
   if (argc != 4 && argc != 5) {
     fprintf(stderr, "Usage: ./morseBaseBand <frequency offset> <transmission rate> <message - in quotes> [-w]\n");
     exit(-1);
@@ -164,8 +166,10 @@ int main(int argc, char ** argv) {
     if (strncmp(argv[4], "-w", 2) == 0) {
       wave = true;
     } else {
-      fprintf(stderr, "Usage: ./morseBaseBand <frequency offset> <transmission rate> <message - in quotes> [-w]\n");
-      exit(-1);
+      if (sscanf(argv[4], "%f", &noiseGain) != 1) {
+        fprintf(stderr, "Usage: ./morseBaseBand <frequency offset> <transmission rate> <message - in quotes> [-w]\n");
+        exit(-1);
+      }
     }
   }
   size_t messageLen = strlen(message) * 7 * 4;  // 7 dit dahs, 4 bytes per dit dah (maximum)
@@ -177,7 +181,6 @@ int main(int argc, char ** argv) {
   const double deltaT = 1.0 / SAMPLING_FREQUENCY;  // seconds
   const int DURATION = 120;  // 2 min transmission
   std::complex<double> signal;
-  const float DEVIATION = 1.4648; // Hz
 
   struct wav_header header;
   
@@ -205,7 +208,6 @@ int main(int argc, char ** argv) {
   float driftRate = 0.0;  // Hz/min
   float driftDelta = 0.0;
   float drift = 0.0;
-  float noiseGain = 0.1;
   float startSignalAtF = 2.0;
   int decodedSignalAtT[DURATION * SAMPLING_FREQUENCY] = {0};
   int startSignalAt = startSignalAtF * SAMPLING_FREQUENCY;
@@ -221,12 +223,11 @@ int main(int argc, char ** argv) {
     t = (startSignalAt + index) * deltaT;
   }
   t = 0.0;
-  double noiseFrequency = -DEVIATION * 100.0;
-  double noiseFrequencyDelta = DEVIATION;
-  std::complex<double> noise = 2 * M_PI * noiseFrequency * I;
-  std::complex<double> omega0 = 2 * M_PI * offset * I;
-  fprintf(stderr, "signal offset: %f, drift rate: %2.1f, tone gain %5.2f, start signal at: %f\n",
-          offset, driftRate, toneGain, startSignalAtF);
+  double noiseFrequency = 0.0;
+  std::complex<double> noise = 2.0 * M_PI * noiseFrequency * I;
+  std::complex<double> omega0 = 2.0 * M_PI * offset * I;
+  fprintf(stderr, "signal offset: %f, drift rate: %2.1f, tone gain %5.2f, noise gain %5.2f, start signal at: %f\n",
+          offset, driftRate, toneGain, noiseGain, startSignalAtF);
   index = 0;
   float realPart;
   float imagPart;
@@ -235,14 +236,13 @@ int main(int argc, char ** argv) {
   fprintf(stderr, "Message transmission started.\n");
   float HALF = (RAND_MAX / 2.0);
   while (t < DURATION) {
-    noise = 2 * M_PI * noiseFrequency * I;
-    omega0 = 2 * M_PI * (offset + drift) * I;
+    noise = 2.0 * M_PI * noiseFrequency * I;
+    omega0 = 2.0 * M_PI * (offset + drift) * I;
     signal = toneGainC * ((decodedSignalAtT[index] == 1) * 1.0) * exp(omega0 * t) + noiseGainC * exp(noise * t);
     realPart = real(signal);
     imagPart = imag(signal);
     if (wave) {
-      data = std::min(sqrt(realPart * realPart + imagPart * imagPart), 1.0) * 32767.0 *
-        (((realPart * imagPart) > 0) ? 1.0 : -1.0);
+      data = 2.0* (std::min(sqrt(realPart * realPart + imagPart * imagPart), 1.0) * 32767.0 - 16383.5);
       fwrite(&data, sizeof(int16_t), 1, stdout);
     } else {
       fwrite(&realPart, sizeof(float), 1, stdout);
@@ -250,8 +250,7 @@ int main(int argc, char ** argv) {
     }
     t += deltaT;
     drift += driftDelta;
-    noiseFrequency += noiseFrequencyDelta;
-    noiseFrequency = (rand() - HALF) / RAND_MAX * 100.0;
+    noiseFrequency = (rand() - HALF) / RAND_MAX * 200.0;
     index++;
   }
   free(transmissionBuffer);

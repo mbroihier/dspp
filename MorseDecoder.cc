@@ -13,21 +13,69 @@
 #include "MorseDecoder.h"
 
 /* ---------------------------------------------------------------------- */
-int  MorseDecoder::generateClassifier(bool justRead=false) {
+void  MorseDecoder::resetClassifierInfo(void) {
+  for (int i = 0 ; i < MAX_DAH; i++) {
+    classificationHistogramPlus[i] = 0;
+    classificationHistogramMinus[i] = 0;
+    ditClassifier[i] = false;
+    dahClassifier[i] = false;
+    spaceClassifier[i] = false;
+    characterClassifier[i] = false;
+    wordClassifier[i] = false;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+int  MorseDecoder::generateClassifier(float &threshold, bool justRead=false) {
   int count;
-  threshold = 0.0;
+  float peak = 0.0;
   float average = 0.0;
-  count = fread(signal, sizeof(float), BUFFER_SIZE, stdin);
+  if (justRead) {
+    fprintf(stderr, "Reading a buffer\n");
+    count = fread(signal, sizeof(float), BUFFER_SIZE, stdin);
+    lastBufferSizeRead = count;
+    return count;
+  }
+  if (deltaThreshold == 0.0 || threshold == 0.0) {
+    fprintf(stderr, "Reading a buffer\n");
+    count = fread(signal, sizeof(float), BUFFER_SIZE, stdin);
+    lastBufferSizeRead = count;
+    deltaThreshold = 0.0;
+  } else {
+    count = lastBufferSizeRead;
+  }
+  float sample = signal[0];
   if (count > 0  && ! justRead) {
+    resetClassifierInfo();
+    if (threshold == 0.0) {
+      if (historicalThreshold == 0.0) {
+        threshold = sample * THRESHOLD_GAIN;
+      } else {
+        threshold = historicalThreshold;
+      }
+      peak = sample;
+    } else {
+      threshold += deltaThreshold;
+    }
     for (int i = 0; i < count; i++) {
-      float sample = signal[i];
-      if (threshold == 0.0) threshold = sample * THRESHOLD_GAIN;
+      sample = signal[i];
+      if (sample > peak) peak = sample;
       if (sample < threshold) {
         average = 0.9 * average + 0.1 * sample;
       }
     }
-    threshold = THRESHOLD_GAIN * average;
-    fprintf(stderr, "Threhold set to: %f\n", threshold);
+    if (threshold > peak) {
+      fprintf(stderr, "Threshold has been set above peak value, peak %f, threshold %f\n", peak, threshold);
+      return 0;  // exit when threshold too high
+    }
+    if (deltaThreshold == 0.0) {
+      //threshold = THRESHOLD_GAIN * average;
+      deltaThreshold = (peak - average) / 20.0;
+      threshold = average + deltaThreshold;
+      historicalThreshold = threshold;
+      fprintf(stderr, "Peak = %f, average = %f, delta threshold = %f\n", peak, average, deltaThreshold);
+    }
+    fprintf(stderr, "Threshold was: %f\n", threshold);
       
     bool countingPluses = false;
     bool countingMinuses = false;
@@ -115,6 +163,15 @@ int  MorseDecoder::generateClassifier(bool justRead=false) {
     for (int i = 0; i < MAX_DAH; i++) {
       fprintf(stderr, "dahClassifier[%3d]: %d\n", i, dahClassifier[i] ? 1:0);
     }
+    for (int i = 0; i < MAX_DAH; i++) {
+      if (ditClassifier[i] && dahClassifier[i]) {  // check for overlap
+        fprintf(stderr, "overlap of dit dah found, try next threshold\n");
+        count = generateClassifier(threshold);
+        fprintf(stderr, "popping recursion\n");
+        return count;
+      }
+    }
+    fprintf(stderr, "so far, so good\n");
     // The minus classification histogram should have spaces, character separators, and words separators in it.
     // From this, we want to make three classifiers that can be used to classify the three entities.
 
@@ -165,7 +222,7 @@ int  MorseDecoder::generateClassifier(bool justRead=false) {
   return count;
 }
 
-void MorseDecoder::decodeBuffer(int count) {
+bool MorseDecoder::decodeBuffer(int count) {
   bool countingPluses = false;
   bool countingMinuses = false;
   int pluses = 0;
@@ -247,9 +304,18 @@ void MorseDecoder::decodeBuffer(int count) {
       minuses = 0;
     }
   }
-  fprintf(stdout, "Message(%d, %d): %s\n", strlen(message), count, message);
+  fprintf(stdout, "Message(%d, %d, %5.2f): %s\n", strlen(message), count, threshold, message);
+  bool status = false; // don't freeze, continue threshold adjustment
+  if (strlen(message) > 2 && strncmp(message, lastMessage, strlen(message)) == 0) {
+    fprintf(stdout, "Messages match, freeze thrshold and advance to another record\n");
+    lastMessage[0] = 0;
+    status = true;
+  } else {
+    if (strlen(message)) strncpy(lastMessage, message, MESSAGE_BUFFER_SIZE);
+  }
   message[0] = 0;
   messageIndex = 0;
+  return status;
 }
 
 const char * MorseDecoder::toText(ENTITY_TYPE entity) {
@@ -349,10 +415,19 @@ int main() {
   int count = 0;
   MorseDecoder morseObj;
   bool justRead = false;
+  bool frozen = false;
+  float threshold = 0.0;
   do {
-    count = morseObj.generateClassifier(justRead);
-    if (count) morseObj.decodeBuffer(count);
-    //justRead = true;
+    count = morseObj.generateClassifier(threshold, justRead);
+    morseObj.setThreshold(threshold);
+    if (count) {
+      frozen = justRead = (morseObj.decodeBuffer(count) || frozen);
+    } else {
+      if (threshold != 0.0) {
+        threshold = 0.0;
+        count = 1;  // read next record if it is there
+      }
+    }
   } while (count > 0);
 }
 #endif

@@ -18,7 +18,7 @@ class MorseDecoder {
 
   static const int BUFFER_SIZE = 4096;
   static const int MAX_DAH = 64;
-  static constexpr float THRESHOLD_GAIN = 5.0;
+  static constexpr float THRESHOLD_GAIN = 1.25;
   int classificationHistogramPlus[MAX_DAH] = {0};
   int classificationHistogramMinus[MAX_DAH] = {0};
   bool ditClassifier[MAX_DAH] = {false};
@@ -31,11 +31,15 @@ class MorseDecoder {
   int patternIndex = 0;
   static const int MESSAGE_BUFFER_SIZE = 100;
   char message[MESSAGE_BUFFER_SIZE] = {0};
+  char lastMessage[MESSAGE_BUFFER_SIZE] = {0};
   int messageIndex = 0;
+  int lastBufferSizeRead = 0;
   
   enum ENTITY_TYPE {DIT, DAH, SPACE, CHARACTER_SEPARATION, WORD_SEPARATION, ERROR};
   int intervalCount;
+  float deltaThreshold = 0.0;
   float threshold;
+  float historicalThreshold = 0.0;
 
 // morse code translation table taken from morse.cpp in https://github.com/F5OEO/rpitx
 #define MORSECODES 37
@@ -95,8 +99,10 @@ class MorseDecoder {
   void addToMessage(const char c);
   
  public:
-  int generateClassifier(bool justRead);
-  void decodeBuffer(int count);
+  void setThreshold(float threshold) { this->threshold = threshold; };
+  void resetClassifierInfo(void);
+  int generateClassifier(float & threshold, bool justRead);
+  bool decodeBuffer(int count);
   MorseDecoder(void);
   ~MorseDecoder(void);
 };
