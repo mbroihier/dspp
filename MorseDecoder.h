@@ -97,6 +97,7 @@ class MorseDecoder {
   void addToPattern(const char c);
   void resetPattern(void);
   void addToMessage(const char c);
+  bool blanks(char * c);
   
  public:
   void setThreshold(float threshold) { this->threshold = threshold; };

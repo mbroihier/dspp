@@ -306,7 +306,7 @@ bool MorseDecoder::decodeBuffer(int count) {
   }
   fprintf(stdout, "Message(%d, %d, %5.2f): %s\n", strlen(message), count, threshold, message);
   bool status = false; // don't freeze, continue threshold adjustment
-  if (strlen(message) > 2 && strncmp(message, lastMessage, strlen(message)) == 0) {
+  if (strlen(message) > 2 && strcmp(message, lastMessage) == 0 && (! blanks(message))) {
     fprintf(stdout, "Messages match, freeze thrshold and advance to another record\n");
     lastMessage[0] = 0;
     status = true;
@@ -316,6 +316,13 @@ bool MorseDecoder::decodeBuffer(int count) {
   message[0] = 0;
   messageIndex = 0;
   return status;
+}
+
+bool MorseDecoder::blanks(char * message) {
+  while(*message != 0) {
+    if (*message++ != ' ') return false;
+  }
+  return true;
 }
 
 const char * MorseDecoder::toText(ENTITY_TYPE entity) {
