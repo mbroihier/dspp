@@ -66,7 +66,7 @@ int  MorseDecoder::generateClassifier(float &threshold, bool justRead=false) {
     }
     if (threshold > peak) {
       fprintf(stderr, "Threshold has been set above peak value, peak %f, threshold %f\n", peak, threshold);
-      return 0;  // exit when threshold too high
+      return -1;  // exit when threshold too high, read new buffer
     }
     if (deltaThreshold == 0.0) {
       //threshold = THRESHOLD_GAIN * average;
@@ -321,6 +321,10 @@ bool MorseDecoder::decodeBuffer(int count) {
     message[0] = 0;
     messageIndex = 0;
     count = generateClassifier(threshold, frozen);
+    if (count == -1) { // force a read of a new buffer
+      threshold = 0.0;
+      count = generateClassifier(threshold, frozen);
+    }
     if (count == 0) processMoreData = false;
   }
   return status;
