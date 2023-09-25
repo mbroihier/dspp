@@ -228,93 +228,101 @@ bool MorseDecoder::decodeBuffer(int count) {
   int pluses = 0;
   int minuses = 0;
   bool dataObserved = false;
-  for (int i = 0; i < count; i++) {
-    if (signal[i] < threshold) {
-      if (countingMinuses) {
-        minuses++;
-        if (pluses != 0) fprintf(stderr, "ERROR - pluses not zero, %d\n", pluses);
-        if (WORD_SEPARATION == classify(pluses, minuses)  && dataObserved) {
+  bool processMoreData = true;
+  bool frozen = false;
+  bool status = false; // don't freeze, continue threshold adjustment
+  while (processMoreData) {
+    for (int i = 0; i < count; i++) {
+      if (signal[i] < threshold) {
+        if (countingMinuses) {
+          minuses++;
+          if (pluses != 0) fprintf(stderr, "ERROR - pluses not zero, %d\n", pluses);
+          if (WORD_SEPARATION == classify(pluses, minuses)  && dataObserved) {
+            addToPattern(' ');
+            addToMessage(toChar(pattern));
+            addToMessage(' ');
+            fprintf(stderr, "End of data, %s, %d, %c\n", pattern, minuses, toChar(pattern));
+            resetPattern();
+            countingPluses = false;
+            countingMinuses = false;
+            pluses = 0;
+            minuses = 0;
+            dataObserved = false;
+          }
+        } else if (countingPluses) {
+          dataObserved = true;
+          // transition - classify as dit or dah
+          fprintf(stderr, "transition observed + to - : %s\n", toText(classify(pluses, minuses)));
+          if (DAH == classify(pluses, minuses)) {
+            fprintf(stderr, "Saw a %s\n", toText(DAH));
+            addToPattern('-');
+          } else if (DIT == classify(pluses, minuses)) {
+            fprintf(stderr, "Saw a %s\n", toText(DIT));
+            addToPattern('.');
+          } else {
+            fprintf(stderr, "Plus to minus transition error\n");
+          }
+          countingPluses = false;
+          countingMinuses = true;
+          pluses = 0;
+          minuses++;
+        } else {  // flags were both off, this is first minus
+          countingPluses = false;
+          countingMinuses = true;
+          pluses = 0;
+          minuses++;
+        }
+      } else if (countingPluses) {
+        pluses++;
+        if (minuses != 0) fprintf(stderr, "ERROR - minuses not zero, %d\n", minuses);
+      } else if (countingMinuses) {
+        // transition
+        fprintf(stderr, "transition observed - to +: %s\n", toText(classify(pluses, minuses)));
+        if (WORD_SEPARATION == classify(pluses, minuses)) {
           addToPattern(' ');
           addToMessage(toChar(pattern));
           addToMessage(' ');
-          fprintf(stderr, "End of data, %s, %d, %c\n", pattern, minuses, toChar(pattern));
-          resetPattern();
-          countingPluses = false;
-          countingMinuses = false;
-          pluses = 0;
-          minuses = 0;
-          dataObserved = false;
-        }              
-      } else if (countingPluses) {
-        dataObserved = true;
-        // transition - classify as dit or dah
-        fprintf(stderr, "transition observed + to - : %s\n", toText(classify(pluses, minuses)));
-        if (DAH == classify(pluses, minuses)) {
-          fprintf(stderr, "Saw a %s\n", toText(DAH));
-          addToPattern('-');
-        } else if (DIT == classify(pluses, minuses)) {
-          fprintf(stderr, "Saw a %s\n", toText(DIT));
-          addToPattern('.');
-        } else {
-          fprintf(stderr, "Plus to minus transition error\n");
-        }
-        countingPluses = false;
-        countingMinuses = true;
-        pluses = 0;
-        minuses++;
-      } else {  // flags were both off, this is first minus
-        countingPluses = false;
-        countingMinuses = true;
-        pluses = 0;
-        minuses++;
-      }
-    } else if (countingPluses) {
-      pluses++;
-      if (minuses != 0) fprintf(stderr, "ERROR - minuses not zero, %d\n", minuses);
-    } else if (countingMinuses) {
-      // transition
-      fprintf(stderr, "transition observed - to +: %s\n", toText(classify(pluses, minuses)));
-      if (WORD_SEPARATION == classify(pluses, minuses)) {
-        addToPattern(' ');
-        addToMessage(toChar(pattern));
-        addToMessage(' ');
-        fprintf(stderr, "Saw a %s, %s, %c\n", toText(WORD_SEPARATION), pattern, toChar(pattern));
-        resetPattern();
-      } else {
-        if (SPACE == classify(pluses, minuses)) {
-          fprintf(stderr, "Saw a %s\n", toText(SPACE));
-        } else if (CHARACTER_SEPARATION == classify(pluses, minuses)) {
-          addToPattern(' ');
-          addToMessage(toChar(pattern));
-          fprintf(stderr, "Saw a %s, %s, %c\n", toText(CHARACTER_SEPARATION), pattern, toChar(pattern));
+          fprintf(stderr, "Saw a %s, %s, %c\n", toText(WORD_SEPARATION), pattern, toChar(pattern));
           resetPattern();
         } else {
-          fprintf(stderr, "Start of data, %s, %d, nothing to add\n", pattern, minuses);
-          resetPattern();
+          if (SPACE == classify(pluses, minuses)) {
+            fprintf(stderr, "Saw a %s\n", toText(SPACE));
+          } else if (CHARACTER_SEPARATION == classify(pluses, minuses)) {
+            addToPattern(' ');
+            addToMessage(toChar(pattern));
+            fprintf(stderr, "Saw a %s, %s, %c\n", toText(CHARACTER_SEPARATION), pattern, toChar(pattern));
+            resetPattern();
+          } else {
+            fprintf(stderr, "Start of data, %s, %d, nothing to add\n", pattern, minuses);
+            resetPattern();
+          }
         }
+        countingPluses = true;
+        countingMinuses = false;
+        pluses++;
+        minuses = 0;
+      } else {  // flags were both off so first plus
+        countingPluses = true;
+        countingMinuses = false;
+        pluses++;
+        minuses = 0;
       }
-      countingPluses = true;
-      countingMinuses = false;
-      pluses++;
-      minuses = 0;
-    } else {  // flags were both off so first plus
-      countingPluses = true;
-      countingMinuses = false;
-      pluses++;
-      minuses = 0;
     }
+    
+    fprintf(stdout, "Message(%d, %d, %5.2f): %s\n", strlen(message), count, threshold, message);
+    if (strlen(message) > 2 && strcmp(message, lastMessage) == 0 && (! blanks(message))) {
+      fprintf(stdout, "Messages match, freeze thrshold and advance to another record\n");
+      lastMessage[0] = 0;
+      status = true;
+    } else {
+      if (strlen(message)) strncpy(lastMessage, message, MESSAGE_BUFFER_SIZE);
+    }
+    frozen = frozen || status;
+    message[0] = 0;
+    messageIndex = 0;
+    count = generateClassifier(threshold, frozen);
+    if (count == 0) processMoreData = false;
   }
-  fprintf(stdout, "Message(%d, %d, %5.2f): %s\n", strlen(message), count, threshold, message);
-  bool status = false; // don't freeze, continue threshold adjustment
-  if (strlen(message) > 2 && strcmp(message, lastMessage) == 0 && (! blanks(message))) {
-    fprintf(stdout, "Messages match, freeze thrshold and advance to another record\n");
-    lastMessage[0] = 0;
-    status = true;
-  } else {
-    if (strlen(message)) strncpy(lastMessage, message, MESSAGE_BUFFER_SIZE);
-  }
-  message[0] = 0;
-  messageIndex = 0;
   return status;
 }
 
@@ -421,20 +429,9 @@ MorseDecoder::~MorseDecoder(void) {
 int main() {
   int count = 0;
   MorseDecoder morseObj;
-  bool justRead = false;
-  bool frozen = false;
   float threshold = 0.0;
-  do {
-    count = morseObj.generateClassifier(threshold, justRead);
-    morseObj.setThreshold(threshold);
-    if (count) {
-      frozen = justRead = (morseObj.decodeBuffer(count) || frozen);
-    } else {
-      if (threshold != 0.0) {
-        threshold = 0.0;
-        count = 1;  // read next record if it is there
-      }
-    }
-  } while (count > 0);
+  count = morseObj.generateClassifier(threshold);
+  morseObj.setThreshold(threshold);
+  morseObj.decodeBuffer(count);
 }
 #endif
