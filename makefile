@@ -21,6 +21,7 @@ LDFLAGS= $(PARAMS_LIBS)
 SOURCES= dspp.cc 
 OBJECTS=$(SOURCES:.cc=.o)
 
+FT8SRC = FT8Window.cc FT8Window.h FT8SpotCandidate.cc FT8SpotCandidate.h unpack.cc libldpc.cc 
 WSPRSRC = WSPRUtilities.cc WSPRUtilities.h WindowSample.cc WindowSample.h WSPRWindow.cc WSPRWindow.h Fano.cc Fano.h SpotCandidate.cc SpotCandidate.h
 AGCSRC = AGC.cc AGC.h
 RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h RTLTCPServer.cc RTLTCPServer.h
@@ -28,6 +29,7 @@ FIRFILTSRC = FIRFilter.cc FIRFilter.h SFIRFilter.cc SFIRFilter.h CFilter.cc CFil
 MODSRC = FMMod.cc FMMod.h
 FFTSRC = DsppFFT.cc DsppFFT.h
 BASICSRC = Regression.cc Regression.h
+FT8OBJ = FT8Window.o FT8SpotCandidate.o unpack.o libldpc.o
 WSPROBJ = WSPRUtilities.o WindowSample.o WSPRWindow.o Fano.o SpotCandidate.o
 AGCOBJ = AGC.o
 RTLTCPOBJ = RTLTCPClient.o RTLTCPServer.o
@@ -56,6 +58,9 @@ tools:
 	$(CC) $(CFLAGS) baseBandWSPR.cc -o baseBandWSPR.o
 	$(CC) $(LDFLAGS) baseBandWSPR.o -o baseBandWSPR -lm
 
+	$(CC) $(CFLAGS) baseBandFT8.cc -o baseBandFT8.o
+	$(CC) $(LDFLAGS) baseBandFT8.o -o baseBandFT8 -lm
+
 	$(CC) $(CFLAGS) morseBaseBand.cc -o morseBaseBand.o
 	$(CC) $(LDFLAGS) morseBaseBand.o -o morseBaseBand -lm
 
@@ -63,10 +68,12 @@ tools:
 	$(CC) $(LDFLAGS) MorseDecoder.o -o MorseDecoder -lm
 
 
-$(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(BASICOBJ)
-	$(CC) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(BASICOBJ) -o dspp $(LDFLAGS)
+$(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(FT8OBJ) $(BASICOBJ)
+	$(CC) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(FT8OBJ) $(BASICOBJ) -o dspp $(LDFLAGS)
 
 $(BASICOBJ) : $(BASICSRC)
+	$(CC) $(CFLAGS) $*.cc -o $@
+$(FT8OBJ) : $(FT8SRC)
 	$(CC) $(CFLAGS) $*.cc -o $@
 $(WSPROBJ) : $(WSPRSRC)
 	$(CC) $(CFLAGS) $*.cc -o $@

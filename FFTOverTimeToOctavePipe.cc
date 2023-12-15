@@ -50,52 +50,15 @@ int main(int argc, char *argv[]) {
   fprintf(octaveFH, "trange = linspace(1, %d, %d);\n", duration, duration);
   fprintf(octaveFH, "[X, Y] = meshgrid(trange, frange);\n");
   for (;;) {
-    if (timeSample < duration) {
-      while (timeSample < duration) {
-        for (int j=0; j<size; j++) {
-          if ((fread(&f, sizeof(float), 1, stdin)) < 1) {
-            fprintf(stderr, "Too little data\n");
-            return 0;
-          }
-          r = f*f;
-          if ((fread(&f, sizeof(float), 1, stdin)) < 1) {
-            fprintf(stderr, "Too little data\n");
-            return 0;
-          }
-          i = f*f;
-          mag = sqrt(r+i);
-          if (j < half) {
-            index = j + half;
-          } else {
-            index = j - half;
-          }
-          bins[index] = mag;
-        }
-        if (timeSample == 0) fprintf(octaveFH, "mag = [");
-        for (int j=0; j<size; j++) {
-          fprintf(octaveFH, "%f ", bins[j]);
-        }          
-        timeSample++;
-      }
-      fprintf(octaveFH, "];\n");
-      fprintf(octaveFH, "mag = reshape(mag, %d, %d);\n", size, duration);
-      //fprintf(octaveFH, "waterfall(mag);\n");
-      //fprintf(octaveFH, "surf(X, Y, mag);\n");
-      fprintf(octaveFH, "waterfall(X, Y, mag);\n");
-      fprintf(octaveFH, "title(\"%d\")\n", graph++);
-      fprintf(octaveFH, "view(0,90);\n");
-      //fprintf(octaveFH, "colormap(colorcube);\n");
-      //fprintf(octaveFH, "drawnow;\nhold on;\n");
-      fprintf(octaveFH, "drawnow;\n");
-    } else {
+    while (timeSample < duration) {
       for (int j=0; j<size; j++) {
         if ((fread(&f, sizeof(float), 1, stdin)) < 1) {
-          fprintf(stderr, "Too little data, FFTOverTimeToOctavePipe\n");
+          fprintf(stderr, "Too little data\n");
           return 0;
         }
         r = f*f;
         if ((fread(&f, sizeof(float), 1, stdin)) < 1) {
-          fprintf(stderr, "Too little data, FTTOverTimeToOctavePipe\n");
+          fprintf(stderr, "Too little data\n");
           return 0;
         }
         i = f*f;
@@ -107,22 +70,19 @@ int main(int argc, char *argv[]) {
         }
         bins[index] = mag;
       }
-      fprintf(octaveFH, "column = [");
+      if (timeSample == 0) fprintf(octaveFH, "mag = [");
       for (int j=0; j<size; j++) {
         fprintf(octaveFH, "%f ", bins[j]);
       }          
-      fprintf(octaveFH, "];\n");
-      fprintf(octaveFH, "column = reshape(column, %d, 1);\n", size);
-      fprintf(octaveFH, "mag = mag(1:end,2:end);\n");
-      fprintf(octaveFH, "mag = [mag, column];\n");
-      //fprintf(octaveFH, "waterfall(mag);\n");
-      //fprintf(octaveFH, "surf(X, Y, mag);\n");
-      fprintf(octaveFH, "waterfall(X, Y, mag);\n");
-      fprintf(octaveFH, "view(0,90);\n");
-      fprintf(octaveFH, "title(\"%d\")\n", graph++);
-      //fprintf(octaveFH, "colormap(colorcube);\n");
-      fprintf(octaveFH, "drawnow;\n");
+      timeSample++;
     }
+    timeSample = 0;
+    fprintf(octaveFH, "];\n");
+    fprintf(octaveFH, "mag = reshape(mag, %d, %d);\n", size, duration);
+    fprintf(octaveFH, "waterfall(X, Y, mag);\n");
+    fprintf(octaveFH, "title(\"%d\")\n", graph++);
+    fprintf(octaveFH, "view(0,90);\n");
+    fprintf(octaveFH, "drawnow;\n");
   }
   return 0;
 }
