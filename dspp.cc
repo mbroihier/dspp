@@ -67,6 +67,7 @@ static const char USAGE_STR[] = "\n"
         "  dc_removal                  : remove average value of the stream\n"
         "  agc                         : automatic gain control, sustain a fixed average level\n"
         "  split_stream                : split input stream into multiple streams\n"
+        "  FT8Window                   : find FT8 spots in a FT8 window\n"
         "  WSPRWindow                  : find WSPR spots in a WSPR window\n"
         "  WindowSample                : Synchronize a sampling window to a clock\n"
         "  convert_f_byte              : convert a float stream to a signed byte stream\n";
@@ -108,6 +109,7 @@ static struct option longOpts[] = {
   { "WSPRWindow"                 , no_argument, NULL, 39 },
   { "WindowSample"               , no_argument, NULL, 40 },
   { "convert_f_byte"             , no_argument, NULL, 41 },
+  { "FT8Window"                  , no_argument, NULL, 42 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -1329,6 +1331,24 @@ int dspp::split_stream(char ** paths) {
 
 /* ---------------------------------------------------------------------- */
 
+int dspp::FT8_window(float centerFrequency, char * prefix, int numberOfCandidates, char * reporterID,
+                      char * reporterLocation) {
+  FT8Window * FT8WindowObject;
+  FT8WindowObject = new FT8Window(512, numberOfCandidates, prefix,  centerFrequency, reporterID, reporterLocation);
+  FT8WindowObject->doWork();
+  return 0;
+}
+/* ---------------------------------------------------------------------- */
+/*
+ *      WSPR_window.cc -- DSP Pipe - process a WSPR window to find WSPR spots
+ *
+ *      Copyright (C) 2023
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+
 int dspp::WSPR_window(float centerFrequency, char * prefix, int numberOfCandidates, char * reporterID,
                       char * reporterLocation) {
   WSPRWindow * WSPRWindowObject;
@@ -1835,6 +1855,23 @@ int main(int argc, char *argv[]) {
       }
       case 41: {
         doneProcessing = !dsppInstance.convert_f_byte();
+        break;
+      }
+      case 42: {
+        float dialFrequency = 0.0;
+        char prefix[128];
+        int numberOfCandidates = 0;
+        if (argc == 7) {
+	  fprintf(stderr, "starting FT8Window\n");
+          sscanf(argv[2], "%f", &dialFrequency);
+          snprintf(prefix, sizeof(prefix), "%s", argv[3]);
+          sscanf(argv[4], "%d", &numberOfCandidates);
+          doneProcessing = !dsppInstance.FT8_window(dialFrequency, prefix, numberOfCandidates,
+                                                     argv[5], argv[6]);
+	} else {
+	  fprintf(stderr, "FT8Window should have 5 parameters - error\n");
+	  doneProcessing = true;
+	}
         break;
       }
       default:

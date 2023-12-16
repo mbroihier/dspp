@@ -129,8 +129,8 @@ void FT8Window::doWork() {
                     if (background) {
                       fprintf(stdout, "Starting search thread\n");
                       float * fftOverTimePtr = fftOverTime;
-                      struct info { char * date; char * time; char * callSign; char * power; char * loc;
-                        int occurrence; double freq; int shift; float snr; float drift; };
+                      struct info { char * date; char * time; char * message; int occurrence; double freq;
+                        int shift; float snr; };
                       std::map<int, info> candidates;
                       int numberOfCandidates = 0;
                       for (int shift = 0; shift < SHIFTS; shift++) {
@@ -239,7 +239,6 @@ void FT8Window::doWork() {
                           FT8SpotCandidate candidate(currentPeakBin, candidateInfo, deltaFreq);
                           if (!candidate.isValid()) continue;
                           //if (shift == 0) candidate.printReport();
-                          unsigned int metric;
                           double ll174[174];
                           int p174[174];
                           int status = 0;
@@ -263,9 +262,6 @@ void FT8Window::doWork() {
                               int symbolMetric = remap(tokens, symbolVector, remapIndex, ll174);
                               fprintf(stderr, "symbol metric after remap(%d): %d, peak bin: %d\n",
                                       remapIndex, symbolMetric, currentPeakBin);
-                              if (symbolMetric > 14) fprintf(stdout, "symbol metric after remap(%d): %d, "
-                                                            "peak bin: %d\n",
-                                                            remapIndex, symbolMetric, currentPeakBin);
                               for (auto entry : symbolVector) {
                                 fprintf(stderr, "%2d", entry);
                               }
@@ -320,10 +316,38 @@ void FT8Window::doWork() {
                                   if (!dontMatch) {
                                     fprintf(stderr, "CRCs match!, bin: %d, shift: %d, symbol set %d\n",
                                             currentPeakBin, shift, symbolSet);
-                                    fprintf(stdout, "CRCs match!, bin: %d, shift: %d, symbol set %d\n",
-                                            currentPeakBin, shift, symbolSet);
                                     std::string msg = unpack(p174);
-                                    fprintf(stdout, "got %s\n", msg.c_str());
+                                    bool newCand = true;
+                                    for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
+                                      if ((strcmp((*iter).second.message, msg.c_str()) == 0) &&
+                                          (fabs((*iter).second.freq - (dialFreq + 1500.0 +
+                                                                       candidate.getFrequency())) < 3.0)) {
+                                        newCand = false;
+                                        (*iter).second.occurrence++;
+                                        int normalizedShift = symbolSet * 512 + shift;
+                                        (*iter).second.shift += normalizedShift;
+                                        if (snr > (*iter).second.snr) {
+                                          (*iter).second.snr = snr;
+                                        }
+                                      }
+                                    }
+                                    if (newCand) {
+                                      char * d = reinterpret_cast<char *>(malloc(7)); // date
+                                      char * t = reinterpret_cast<char *>(malloc(7)); // time
+                                      struct tm * gtm;
+                                      gtm = gmtime(&spotTime);
+                                      snprintf(d, 7, "%02d%02d%02d", gtm->tm_year - 100, gtm->tm_mon + 1,
+                                               gtm->tm_mday);
+                                      snprintf(t, 7, "%02d%02d%02d", gtm->tm_hour, gtm->tm_min, gtm->tm_sec / 15 * 15);
+                                      char * message = strdup(msg.c_str());
+                                      int normalizedShift = symbolSet * 256 + shift;
+                                      candidates[numberOfCandidates] = {d, t, message, 1,
+                                                                        dialFreq + 1500.0 + candidate.getFrequency(),
+                                                                        normalizedShift,
+                                                                        snr };
+                                      numberOfCandidates++;
+                                    }
+                                    //fprintf(stdout, "got %s\n", msg.c_str());
                                   }
                                 } else {
                                   fprintf(stderr, "p174 is all zeros\n");
@@ -331,28 +355,20 @@ void FT8Window::doWork() {
                               } else {
                                 fprintf(stderr, "ldpc status is not good enough\n");
                               }
-                              continue;  // skip rest of the stuff that is not modified yet
                             }
                           }
                         }
                       }
                       for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
                         if ((*iter).second.occurrence > 1) {
-                          int iP = 0;
-                          sscanf((*iter).second.power, "%d", &iP);
-                          float p = exp10f((float) iP / 10.0) / 1000.0;
-                          char charSNR[4];
-                          snprintf(charSNR, sizeof(charSNR), "%.0f", (*iter).second.snr);
-                          fprintf(stdout, "%s %s: Candidate %d (%s) was seen %d times at %1.0f Hz "
-                                  "with best SNR of %4.3f dB,\n"
-                                  " with transmitter power of %4.3f W, location of %s, drift of %3.2f, "
+                          fprintf(stdout, "%s %s: Msg %d: %s, was seen %d times at %1.0f Hz "
+                                  "with best SNR of %4.3f dB, "
                                   "and delta time of %2.1f\n",
                                   (*iter).second.date, (*iter).second.time,
-                                  (*iter).first, (*iter).second.callSign, (*iter).second.occurrence,
-                                  (*iter).second.freq,
-                                  (*iter).second.snr, p, (*iter).second.loc,
-                                  (*iter).second.drift,
-                                  (*iter).second.shift * SECONDS_PER_SHIFT / (*iter).second.occurrence - 2.0);
+                                  (*iter).first, (*iter).second.message, (*iter).second.occurrence,
+                                  (*iter).second.freq, (*iter).second.snr,
+                                  (*iter).second.shift * SECONDS_PER_SHIFT / (*iter).second.occurrence - 0.5);
+                          /*
                           if (strlen(reporterID)) {
                             WSPRUtilities::reportSpot(reporterID, reporterLocation, (*iter).second.freq,
                                                       (*iter).second.shift *
@@ -361,15 +377,14 @@ void FT8Window::doWork() {
                                                       (*iter).second.loc, (*iter).second.power, charSNR,
                                                       (*iter).second.date, (*iter).second.time);
                           }
+                          */
                         }
                       }
                       for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
                         // free memory allocated
                         free((*iter).second.date);
                         free((*iter).second.time);
-                        free((*iter).second.callSign);
-                        free((*iter).second.power);
-                        free((*iter).second.loc);
+                        free((*iter).second.message);
                       }
                       candidates.clear();
                       fprintf(stdout, "search process complete\n");
@@ -424,6 +439,7 @@ void FT8Window::doWork() {
         windowsMutex.lock();
         windows.push(entry);
         fprintf(stderr, "Queue now has %d entries\n", windows.size());
+        fprintf(stdout, "Queue now has %d entries\n", windows.size());
         windowsMutex.unlock();
       }
       firstTime = false;
@@ -463,7 +479,8 @@ int FT8Window::SNRCompare(const void * a, const void * b) {
 }
 void FT8Window::calculateSNR(float * accumulatedMagnitude) {
   int regionOfInterestCount = 0;
-  int regionSize = 75.0 * size / BASE_BAND;
+  //int regionSize = 75.0 * size / BASE_BAND;
+  int regionSize = 2800.0 * size / BASE_BAND;  // care about 2800 Hz of the 3200 Hz bandwidth
   int bound0 = (size - regionSize) / 2;
   int bound1 = (size + regionSize) / 2;
   SNRInfo * working = reinterpret_cast<SNRInfo *>(malloc(sizeof(SNRInfo) * size));
@@ -487,11 +504,13 @@ void FT8Window::calculateSNR(float * accumulatedMagnitude) {
     SNRData[i].magnitude = working[regionOfInterestCount - i - 1].magnitude;
     SNRData[i].bin = working[regionOfInterestCount - i - 1].bin;
     binArray[i] = SNRData[i].bin;
-    SNRData[i].SNR = 20 * log10(working[regionOfInterestCount - i - 1].magnitude) - noisePowerdB - 26.3;
+    // note: 17dB constant was calculated the same way WSPR constant of 26.2 (ie 10*log(2500 Hz / 50 Hz))
+    //       2500 Hz bandwith of USB, 50 Hz bandwith of FT8 signal
+    SNRData[i].SNR = 20 * log10(working[regionOfInterestCount - i - 1].magnitude) - noisePowerdB - 17.0;
     fprintf(stderr, "SNRData[%2d]: %10.0f, bin: %d, SNR: %f dB\n", i, SNRData[i].magnitude, SNRData[i].bin,
             SNRData[i].SNR);
     fprintf(stderr, "SNRAlt[%2d]: %10.0f, bin: %d, SNR: %f dB\n", i, SNRData[i].magnitude, SNRData[i].bin,
-            10 * log10(working[regionOfInterestCount - i - 1].magnitude) - 10 * log10(noisePower) - 26.3);
+            10 * log10(working[regionOfInterestCount - i - 1].magnitude) - 10 * log10(noisePower) - 17.0);
     
   }
   free(working);

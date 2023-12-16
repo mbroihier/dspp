@@ -19,6 +19,7 @@
 #include "SFIRFilter.h"
 #include "CFilter.h"
 #include "AGC.h"
+#include "FT8Window.h"
 #include "WSPRWindow.h"
 #include "WindowSample.h"
 /* ---------------------------------------------------------------------- */
@@ -59,6 +60,8 @@ class dspp {
   int dc_removal(float * buffer, int size);
   int agc(float target);
   int split_stream(char ** paths);
+  int FT8_window(float dialFrequency, char * prefix, int numberOfCandidates, char * reporterID,
+                  char * reporterLocation);
   int WSPR_window(float dialFrequency, char * prefix, int numberOfCandidates, char * reporterID,
                   char * reporterLocation);
   int window_sample(int samplesInPeriod, int modulo, int syncTo);
