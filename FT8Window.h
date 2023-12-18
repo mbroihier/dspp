@@ -19,12 +19,13 @@
 #include "DsppFFT.h"
 /* ---------------------------------------------------------------------- */
 class FT8Window {
+public:
+  static const int BASE_BAND = 3200;  // base band frequency width
+  static const int PROCESSING_SIZE = 14;  // 14 seconds of collection time
  private:
   const int PERIOD = 15;  // number of seconds in a WSPR period
   const int NOMINAL_NUMBER_OF_SYMBOLS = 79;
   const int SHIFTS = 512;
-  const int BASE_BAND = 3200;  // base band frequency width
-  const int PROCESSING_SIZE = 14;  // 14 seconds of collection time
   const int FFTS_PER_SHIFT = 92;   // maximum number of FFTs per sample shift (this used to be 164)
   const float SECONDS_PER_SHIFT = 1.0 / BASE_BAND;
   const float SECONDS_PER_SYMBOL = 512.0 / BASE_BAND;

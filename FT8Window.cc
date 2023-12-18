@@ -21,7 +21,7 @@
 #include <string.h>
 #include "FT8SpotCandidate.h"
 #include "FT8Window.h"
-#include "WSPRUtilities.h"
+#include "FT8Utilities.h"
 #include "unpack.h"
 //#define SELFTEST 1
 
@@ -113,7 +113,7 @@ void FT8Window::doWork() {
   time_t now;
   time_t spotTime;
   int count = 0;
-  fprintf(stderr, "Process WSPR Windows\n");
+  fprintf(stderr, "Process FT8 Windows\n");
   bool done = false;
   int baseTime = time(0);
   int sampleLabel = 0;
@@ -359,6 +359,15 @@ void FT8Window::doWork() {
                           }
                         }
                       }
+                      
+                      if (strlen(prefix) > 0) {
+                        if (candidates.size()) {
+                          char sampleFile[100];
+                          snprintf(sampleFile, sizeof(sampleFile), "%s_Signal_%d.bin", prefix, sampleLabel);
+                          FT8Utilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
+                        }
+                      }
+
                       for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
                         if ((*iter).second.occurrence > 1) {
                           fprintf(stdout, "%s %s: Msg %d: %s, was seen %d times at %1.0f Hz "
@@ -408,6 +417,10 @@ void FT8Window::doWork() {
   int queueLen = 0;
   while (!done) {
     fprintf(stderr, "Starting a window at %ld\n", time(0) - baseTime);
+    fprintf(stdout, "Starting a window at %ld, background is %d\n", time(0) - baseTime, background);
+    windowsMutex.lock();
+    queueLen = windows.size();
+    windowsMutex.unlock();
     // get a Window worth of samples
     while (background || firstTime || windows.empty()) {
       fprintf(stderr, "first time or there is a background process or the queue is empty\n");
@@ -424,23 +437,30 @@ void FT8Window::doWork() {
       fprintf(stderr, "\nCollecting %d samples at %ld - %s", sampleBufferSize, now - baseTime, ctime(&now));
       if ((count = fread(entry.data, sizeof(float), PROCESSING_SIZE * BASE_BAND * 2, stdin)) == 0) {
         fprintf(stderr, "Input read was empty, sleeping for a while at %s", ctime(&now));
-        sleep(1.0); 
+        sleep(1.0);
         if (background == 0) { // kick off a queued buffer
           windowsMutex.lock();
           queueLen = windows.size();
           windowsMutex.unlock();
           if (queueLen > 0) {
-            fprintf(stderr,"No new data, but releasing a window that has been queued.  Size now %d\n", queueLen);
+            fprintf(stdout,"No new data, but releasing a window that has been queued.  Before release, size was %d\n",
+                    queueLen);
             count = sampleBufferSize;
           }
           break;
         }
       } else {
-        windowsMutex.lock();
-        windows.push(entry);
-        fprintf(stderr, "Queue now has %d entries\n", windows.size());
-        fprintf(stdout, "Queue now has %d entries\n", windows.size());
-        windowsMutex.unlock();
+        if (windows.size() < 2) {
+          windowsMutex.lock();
+          windows.push(entry);
+          fprintf(stderr, "Queue now has %d entries\n", windows.size());
+          fprintf(stdout, "Queue now has %d entries\n", windows.size());
+          windowsMutex.unlock();
+        } else {
+          fprintf(stderr, "Not queuing the window.\n");
+          fprintf(stdout, "Not queuing the window.\n");
+          free (entry.data);
+        }
       }
       firstTime = false;
     }
@@ -458,7 +478,7 @@ void FT8Window::doWork() {
     sampleLabel = spotTime - baseTime;
     if (strlen(prefix) > 0) {
       snprintf(sampleFile, 50, "%s%d.bin", prefix, sampleLabel);
-      WSPRUtilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
+      FT8Utilities::writeFile(sampleFile, windowOfIQData, sampleBufferSize);
     }
     fflush(stdout);  // flush standard out to make file output sane
     assert(background == 0); // this should always be the case
