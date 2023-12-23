@@ -34,6 +34,7 @@ void FT8Window::init(int size, int number, char * prefix, float dialFreq, char *
   this->dialFreq = dialFreq;
   freq = BASE_BAND;
   deltaFreq = freq / size;
+  fprintf(stderr, "delta frequency: %1.2f\n", deltaFreq);
   fprintf(stderr, "allocating binArray memory\n");
   binArray = reinterpret_cast<int *>(malloc(number * sizeof(int)));
   SNRData = reinterpret_cast<SNRInfo *>(malloc(number * sizeof(SNRInfo)));
@@ -121,6 +122,7 @@ void FT8Window::doWork() {
 
   auto search = [&background, &terminate, &spotTime, &baseTime, &sampleLabel,
                  this]() {
+                  FT8Utilities reporter;
                   float deltaTime = 1.0 / freq * size;
                   float * samplePtr;
                   fftObject = new DsppFFT(size);
@@ -235,7 +237,7 @@ void FT8Window::doWork() {
                               break;
                             }
                           }
-                          FT8SpotCandidate candidate(currentPeakBin, candidateInfo, deltaFreq);
+                          FT8SpotCandidate candidate(currentPeakBin, candidateInfo, deltaFreq, size);
                           if (!candidate.isValid()) continue;
                           //if (shift == 0) candidate.printReport();
                           double ll174[174];
@@ -253,7 +255,7 @@ void FT8Window::doWork() {
                             std::vector<int> symbolVector;
                             float snr = 0.0;
                             float slope = 0.0;
-                            candidate.tokenize(subset, tokens, slope);
+                            candidate.tokenize(size, subset, tokens, slope);
                             fprintf(stderr, "tokenization returned %d tokens\n", tokens.size());
                             if (tokens.size() == 0) continue;
                             snr = SNRData[currentPeakIndex].SNR;
@@ -376,16 +378,13 @@ void FT8Window::doWork() {
                                   (*iter).first, (*iter).second.message, (*iter).second.occurrence,
                                   (*iter).second.freq, (*iter).second.snr,
                                   (*iter).second.shift * SECONDS_PER_SHIFT / (*iter).second.occurrence - 0.5);
-                          /*
+
                           if (strlen(reporterID)) {
-                            WSPRUtilities::reportSpot(reporterID, reporterLocation, (*iter).second.freq,
-                                                      (*iter).second.shift *
-                                                      SECONDS_PER_SHIFT / (*iter).second.occurrence - 2.0,
-                                                      (*iter).second.drift, (*iter).second.callSign,
-                                                      (*iter).second.loc, (*iter).second.power, charSNR,
-                                                      (*iter).second.date, (*iter).second.time);
+                            reporter.reportSpot(reporterID, reporterLocation, (*iter).second.freq,
+                                                spotTime/15*15 + (int) ((*iter).second.shift * SECONDS_PER_SHIFT /
+                                                                        (*iter).second.occurrence - 0.5),
+                                                (*iter).second.snr, (*iter).second.message);
                           }
-                          */
                         }
                       }
                       for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
@@ -429,13 +428,9 @@ void FT8Window::doWork() {
   std::thread process(search);
   bool firstTime = true;
   WindowOfIQDataT entry;
-  int queueLen = 0;
   while (!done) {
-    windowsMutex.lock();
-    queueLen = windows.size();
-    windowsMutex.unlock();
     // get a Window worth of samples
-    while (background || firstTime || windows.empty()) {
+    while ((background || firstTime || windows.empty()) && !done) {
       fprintf(stderr, "first time or there is a background process or the queue is empty\n");
       fprintf(stdout, "Starting a window at %ld, background is %d\n", time(0) - baseTime, background);
       if (!firstTime) {
@@ -452,6 +447,8 @@ void FT8Window::doWork() {
       if ((count = fread(entry.data, sizeof(float), PROCESSING_SIZE * BASE_BAND * 2, stdin)) == 0) {
         fprintf(stderr, "Input read was empty, sleeping for a while at %s", ctime(&now));
         sleep(1.0);
+        done = true;
+        break;
       } else {
         if (windows.size() < 10) {
           windowsMutex.lock();
@@ -468,10 +465,6 @@ void FT8Window::doWork() {
       firstTime = false;
     }
     sleep(0.3);
-    if (count < sampleBufferSize) {
-      done = true;
-      continue;
-    }
 
   }
   terminate = true;
@@ -490,7 +483,7 @@ int FT8Window::SNRCompare(const void * a, const void * b) {
 void FT8Window::calculateSNR(float * accumulatedMagnitude) {
   int regionOfInterestCount = 0;
   //int regionSize = 75.0 * size / BASE_BAND;
-  int regionSize = 2800.0 * size / BASE_BAND;  // care about 2800 Hz of the 3200 Hz bandwidth
+  int regionSize = size - 2800.0 * size / BASE_BAND;  // care about 2800 Hz of the 3200 Hz bandwidth
   int bound0 = (size - regionSize) / 2;
   int bound1 = (size + regionSize) / 2;
   SNRInfo * working = reinterpret_cast<SNRInfo *>(malloc(sizeof(SNRInfo) * size));
