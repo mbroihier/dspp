@@ -63,37 +63,70 @@ int FT8Utilities::readFile(char * fileName, float * buffer, int size) {
 }
 
 /* ---------------------------------------------------------------------- */
-int FT8Utilities::reportSpot(char * reporterID, char * reporterLocation, float freq, float deltaT, float drift,
-                              char * callID, char * callLocation, char * callPower, char * SNR, char * spotDate,
-                              char * spotTime) {
-  char url[1024];
-  CURL * curl;
-  int status = 0; //successful
-  snprintf(url, sizeof(url), "http://wsprnet.org/post?function=wspr&rcall=%s&rgrid=%s&rqrg=%.6f&date=%s&time=%s"
-           "&sig=%s&dt=%.1f&drift=%d&tqrg=%.6f&tcall=%s&tgrid=%s&dbm=%s&version=0.1r_wsprwindow&mode=2",
-           reporterID,
-           reporterLocation,
-           freq / 1000000.0,
-           spotDate,
-           spotTime,
-           SNR,
-           deltaT,
-           (int)drift,
-           freq / 1000000.0,
-           callID,
-           callLocation,
-           callPower);
-  curl = curl_easy_init();
-  if (curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_NOBODY, 1);
-    CURLcode res = curl_easy_perform(curl);
-    if (res != CURLE_OK) {
-      fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-      fprintf(stderr, "%s\n", url);
-      status = 1;  // operation failed
+int FT8Utilities::reportSpot(char * reporterID, char * reporterLocation, float freq, time_t timeStart,
+                             float SNR, char * message) {
+  char * localMessage = strdup(message);
+  char * ptr;
+  char * nextToken;
+  char * firstToken = strtok_r(localMessage, " ", &ptr);
+  if (strncmp(firstToken, "CQ", 2) == 0) {  // this is a CQ, so we might want to report it
+    int numberOfTokens = 0;
+    char * tokens[10];
+    while ((nextToken = strtok_r(NULL, " ", &ptr))) {  // while not null, store away pointers
+      tokens[numberOfTokens++] = nextToken;
+      if (numberOfTokens > 10 ) { // something is wrong
+        fprintf(stderr, "too many tokens\n");
+        free(localMessage);
+        return -1;
+      }
     }
-    curl_easy_cleanup(curl);
+    if (numberOfTokens < 2) {  // there should be at least two tokens
+      fprintf(stdout, "too few tokens: %d\n", numberOfTokens);
+      free(localMessage);
+      return -2;
+    }
+    // the last entry should be a location - starts with 2 characters and then 2 numbers
+    char * location = strdup(tokens[numberOfTokens - 1]);
+    if ((strlen(location) >= 4) &&
+        (location[0] >= 'A' && location[0] <= 'Z') &&
+        (location[1] >= 'A' && location[1] <= 'Z') &&
+        (location[2] >= '0' && location[2] <= '9') &&
+        (location[3] >= '0' && location[3] <= '9')) {
+      // location looks rational, now get call sign of sender
+      char * sender = strdup(tokens[numberOfTokens - 2]);
+      if ((strlen(sender) > 3) && (sender[0] != '<')) {
+        // sender looks rational
+        data.push({strlen(sender), (uint8_t *)sender, freq, timeStart, SNR});
+        data.push({strlen(location), (uint8_t *)location, freq, timeStart, SNR});
+        fprintf(stdout, "will report: %s at location %s, with frequency %1.0f, signal time %d, and SNR of %1.0f\n",
+                sender, location, freq, timeStart, SNR);
+      } else { // rejecting callsign
+        fprintf(stderr, "call sign is suspect, message was %s, sender was %s\n", message, sender);
+        free(sender);
+        free(location);
+        free(localMessage);
+        return -3;
+      }
+    } else { // rejecting location
+      fprintf(stderr, "location didn't parse, message was %s, location was %s\n", message, location);
+      free(location);
+      free(localMessage);
+      return -4;
+    }
+  } else {
+    fprintf(stderr, "not a CQ, message was %s\n", message);
   }
-  return status;
+  if (time(0) > lastTimeReportMade + 300) {  // it's been more than 5 minutes
+    while (!data.empty()) {
+      free(data.front().block);  // release string memory
+      data.pop();
+    }
+    lastTimeReportMade = time(0);
+    fprintf(stderr, "report queue emptied and memory released\n");
+  }
+  free(localMessage);
+  return 0;
+}
+/* ---------------------------------------------------------------------- */
+FT8Utilities::FT8Utilities(void) {
 }
