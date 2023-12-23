@@ -23,6 +23,7 @@ class FT8SpotCandidate {
  private:
   int ID;
   int count;
+  int size;
   int lastTimeStamp;
   bool valid;
   float slope;
@@ -47,15 +48,15 @@ class FT8SpotCandidate {
   const std::vector<SampleRecord> getValidSubvector(int vectorNumber);
   bool isValid(void) { return valid ; };
   void printReport(void);
-  static void tokenize(const std::vector<SampleRecord> validVector, std::vector<int> & tokens,
+  static void tokenize(int size, const std::vector<SampleRecord> validVector, std::vector<int> & tokens,
                        float & slope);
   float getSlope() { return slope; };
   float getYIntercept() { return yIntercept; };
   float getMinCentroid() { return minCentroid; };
   float getMaxCentroid() { return maxCentroid; };
   float getFrequency() { return freq; }
-  FT8SpotCandidate(int ID, float deltaFreq);
-  FT8SpotCandidate(int ID, const std::vector<SampleRecord> input, float deltaFreq);
+  FT8SpotCandidate(int ID, float deltaFreq, int size);
+  FT8SpotCandidate(int ID, const std::vector<SampleRecord> input, float deltaFreq, int size);
   ~FT8SpotCandidate(void);
 };
 #endif  // FT8SPOTCANDIDATE_H_

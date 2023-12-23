@@ -13,7 +13,7 @@
 #include "FT8SpotCandidate.h"
 //#define SELFTEST
 /* ---------------------------------------------------------------------- */
-FT8SpotCandidate::FT8SpotCandidate(int ID, float deltaFreq) {
+FT8SpotCandidate::FT8SpotCandidate(int ID, float deltaFreq, int size) {
   this->ID = ID;
   this->deltaFreq = deltaFreq;
   count = 0;
@@ -24,11 +24,13 @@ FT8SpotCandidate::FT8SpotCandidate(int ID, float deltaFreq) {
   valid = false;
   slope = 0.0;
   yIntercept = 0.0;
+  this->size = size;
 }
 /* ---------------------------------------------------------------------- */
-FT8SpotCandidate::FT8SpotCandidate(int ID, const std::vector<SampleRecord> input, float deltaFreq) {
+FT8SpotCandidate::FT8SpotCandidate(int ID, const std::vector<SampleRecord> input, float deltaFreq, int size) {
   this->ID = ID;
   this->deltaFreq = deltaFreq;
+  this->size = size;
   count = 0;
   longestSequence = 0;
   lastTimeStamp = -2;
@@ -56,10 +58,11 @@ FT8SpotCandidate::FT8SpotCandidate(int ID, const std::vector<SampleRecord> input
     fitInfo = new Regression(getCentroidVector());
     slope = fitInfo->getSlope();
     yIntercept = fitInfo->getYIntercept();
-    if (ID > 255) {
-      freq = ((yIntercept - HALF_WINDOW) + (ID - 512)) * deltaFreq;  // NEED TO MAKE DYNAMIC
+    float bins = ID - WINDOW / 2.0;
+    if (ID > size/2 - 1) {
+      freq = (bins - size) * deltaFreq;
     } else {
-      freq = ((yIntercept - HALF_WINDOW) + ID) * deltaFreq;
+      freq = bins * deltaFreq;
     }
     minCentroid = fitInfo->getMinCentroid();
     maxCentroid = fitInfo->getMaxCentroid();
@@ -93,7 +96,7 @@ const std::vector<FT8SpotCandidate::SampleRecord> FT8SpotCandidate::getValidSubv
   return aSubvector;
 }
 /* ---------------------------------------------------------------------- */
-void FT8SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std::vector<int> & tokens,
+void FT8SpotCandidate::tokenize(int size, const std::vector<SampleRecord> validVector, std::vector<int> & tokens,
                                 float & slope) {
   int metric = 0;
 #ifdef SELFTEST
@@ -115,7 +118,7 @@ void FT8SpotCandidate::tokenize(const std::vector<SampleRecord> validVector, std
   return;
 #endif
   tokens.clear();
-  FT8SpotCandidate candidate(1000, validVector, 0.0);
+  FT8SpotCandidate candidate(1000, validVector, 0.0, size);
   //candidate.printReport();
   std::vector<float> magnitudeAverages;
   for (int i = 0; i < WINDOW; i++) {
