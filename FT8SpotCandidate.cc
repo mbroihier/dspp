@@ -198,7 +198,7 @@ void FT8SpotCandidate::tokenize(int size, const std::vector<SampleRecord> validV
         }
       }
     }
-    fprintf(stderr, " syncIndex: %2d, token: %3d\n", syncIndex, token);
+    fprintf(stderr, " syncIndex: %2ld, token: %3d\n", syncIndex, token);
     tokens.push_back(token);
     base += slope;
   }

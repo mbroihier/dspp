@@ -10,15 +10,29 @@
 
 /* ---------------------------------------------------------------------- */
 #include <cstring>
+#include <netdb.h>
+#include <map>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #include "FT8Window.h"
 /* ---------------------------------------------------------------------- */
 class FT8Utilities {
- private:
+ private:  
   time_t lastTimeReportMade = 0;
-  struct byteBlocks { size_t len; uint8_t * block; float freq; time_t timeStart; float SNR; };
-  std::queue<byteBlocks> data;
+  uint32_t sequenceNumber = 0;
+  uint32_t correlationID = 0;
+  struct addrinfo * result;
+  struct addrinfo * destination;
+  int socketFd = 0;
+  int optionNumber = 0;
+  std::map<std::string, int> observed;
+  
+  struct infoBlock { size_t len1; uint8_t * senderC; size_t len2; uint8_t * locationC; float freq;
+    time_t timeStart; float SNR; };
+  std::queue<infoBlock> data;
  public:
   static const int BUFFER_SIZE = 2 * FT8Window::BASE_BAND * FT8Window::PROCESSING_SIZE;
   static int writeFile(char * fileName, float * buffer, int size);
@@ -26,5 +40,6 @@ class FT8Utilities {
   int reportSpot(char * reporterID, char * reporterLocation, float freq, time_t timeStart,
                         float SNR, char * message);
   FT8Utilities(void);
+  ~FT8Utilities(void);
 };
 #endif  // FT8_UTILITIES_H_

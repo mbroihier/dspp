@@ -38,7 +38,7 @@ void FT8Window::init(int size, int number, char * prefix, float dialFreq, char *
   fprintf(stderr, "allocating binArray memory\n");
   binArray = reinterpret_cast<int *>(malloc(number * sizeof(int)));
   SNRData = reinterpret_cast<SNRInfo *>(malloc(number * sizeof(SNRInfo)));
-  fprintf(stderr, "allocating FFT memory - %d bytes\n", size * sizeof(float) * 2 * FFTS_PER_SHIFT * SHIFTS);
+  fprintf(stderr, "allocating FFT memory - %ld bytes\n", size * sizeof(float) * 2 * FFTS_PER_SHIFT * SHIFTS);
   fftOverTime = reinterpret_cast<float *> (malloc(size * sizeof(float) * 2 * FFTS_PER_SHIFT * SHIFTS));
   windowOfIQData = NULL;
   fprintf(stderr, "allocating mag memory\n");
@@ -101,7 +101,7 @@ int FT8Window::remap(std::vector<int> tokens, std::vector<int> &symbols, int map
     }
     index++;
   }
-  fprintf(stderr, "size of tokens array %d, ll174 index %d\n", tokens.size(), llindex);
+  fprintf(stderr, "size of tokens array %ld, ll174 index %d\n", tokens.size(), llindex);
   assert(llindex == 174);
   return metric;
 }
@@ -244,7 +244,7 @@ void FT8Window::doWork() {
                           int p174[174];
                           int status = 0;
                           int numberOfSymbolSets = candidateInfo.size() - NOMINAL_NUMBER_OF_SYMBOLS + 1;
-                          fprintf(stderr, "number of symbol sets: %d (%d - %d + 1)\n", numberOfSymbolSets,
+                          fprintf(stderr, "number of symbol sets: %d (%ld - %d + 1)\n", numberOfSymbolSets,
                                   candidateInfo.size(), NOMINAL_NUMBER_OF_SYMBOLS);
                           for (int symbolSet = 0; symbolSet < numberOfSymbolSets; symbolSet++) {
                             std::vector<FT8SpotCandidate::SampleRecord> subset;
@@ -256,7 +256,7 @@ void FT8Window::doWork() {
                             float snr = 0.0;
                             float slope = 0.0;
                             candidate.tokenize(size, subset, tokens, slope);
-                            fprintf(stderr, "tokenization returned %d tokens\n", tokens.size());
+                            fprintf(stderr, "tokenization returned %ld tokens\n", tokens.size());
                             if (tokens.size() == 0) continue;
                             snr = SNRData[currentPeakIndex].SNR;
                             for (int remapIndex = 0; remapIndex < 24; remapIndex += 24) {
@@ -322,7 +322,7 @@ void FT8Window::doWork() {
                                     for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
                                       if ((strcmp((*iter).second.message, msg.c_str()) == 0) &&
                                           (fabs((*iter).second.freq - (dialFreq + 1500.0 +
-                                                                       candidate.getFrequency())) < 3.0)) {
+                                                                       candidate.getFrequency())) < 25.0)) {
                                         newCand = false;
                                         (*iter).second.occurrence++;
                                         int normalizedShift = symbolSet * 512 + shift;
@@ -440,7 +440,7 @@ void FT8Window::doWork() {
                 (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2);
         fread(remainsOf2Win, sizeof(float), (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2, stdin);
       }
-      fprintf(stderr, "allocating window IQ memory - %d bytes\n", (int)freq  * sizeof(float) * 2 * PROCESSING_SIZE);
+      fprintf(stderr, "allocating window IQ memory - %ld bytes\n", (int)freq  * sizeof(float) * 2 * PROCESSING_SIZE);
       now = time(0);
       entry = {now, reinterpret_cast<float *> (malloc((int)freq * sizeof(float) * 2 * PROCESSING_SIZE))};
       fprintf(stderr, "\nCollecting %d samples at %ld - %s", sampleBufferSize, now - baseTime, ctime(&now));
@@ -453,8 +453,8 @@ void FT8Window::doWork() {
         if (windows.size() < 10) {
           windowsMutex.lock();
           windows.push(entry);
-          fprintf(stderr, "Queue now has %d entries\n", windows.size());
-          fprintf(stdout, "Queue now has %d entries\n", windows.size());
+          fprintf(stderr, "Queue now has %ld entries\n", windows.size());
+          fprintf(stdout, "Queue now has %ld entries\n", windows.size());
           windowsMutex.unlock();
         } else {  // fell too far behind, don't queue new window
           fprintf(stderr, "Not queuing the window -- fallen too far behind\n");

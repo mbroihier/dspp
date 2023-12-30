@@ -31,8 +31,8 @@ int main(int argc, char *argv[]) {
 
   if (argc == 3 || argc == 4 || argc == 5) {
     sscanf(argv[1], "%d", &size);
-    sscanf(argv[2], "%lld", &freq);
-    fprintf(stderr, "size: %d, frequency: %lld, raw input %s %s\n", size, freq, argv[1], argv[2]);
+    sscanf(argv[2], "%ld", &freq);
+    fprintf(stderr, "size: %d, frequency: %ld, raw input %s %s\n", size, freq, argv[1], argv[2]);
     if (argc == 4) {
       if (strcmp(argv[3], "NOPAUSE") == 0) {
         pause = false;
@@ -84,15 +84,15 @@ int main(int argc, char *argv[]) {
     if (firstTime) {
       firstTime = false;
       fprintf(stdout, "bins = 1:%d;\n", size);
-      fprintf(stdout, "freq = (bins - 1) * %lld / %d;\n", freq, size);
+      fprintf(stdout, "freq = (bins - 1) * %ld / %d;\n", freq, size);
       fprintf(stdout, "for jj = int32(size(bins)(2)/2):size(bins)(2)\n");
-      fprintf(stdout, "freq(jj) = -%lld + freq(jj);\n", freq);
+      fprintf(stdout, "freq(jj) = -%ld + freq(jj);\n", freq);
       fprintf(stdout, "endfor\n");
     }
     fprintf(stdout, "mag = abs(signal);\n");
     fprintf(stdout, "semilogy(freq(bins), mag(bins));\n");
     fprintf(stdout, "peak = max(mag) * 2;\n");
-    fprintf(stdout, "axis([%lld %lld 0.0 peak]);\n", -freq/2, freq/2);
+    fprintf(stdout, "axis([%ld %ld 0.0 peak]);\n", -freq/2, freq/2);
     fprintf(stdout, "title(\"%d\")\n", graph++);
     if (pause) {
       fprintf(stdout, "pause;\n");

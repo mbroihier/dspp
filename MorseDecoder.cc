@@ -309,7 +309,7 @@ bool MorseDecoder::decodeBuffer(int count) {
       }
     }
     
-    fprintf(stdout, "Message(%d, %d, %5.2f): %s\n", strlen(message), count, threshold, message);
+    fprintf(stdout, "Message(%ld, %d, %5.2f): %s\n", strlen(message), count, threshold, message);
     if (strlen(message) > 2 && strcmp(message, lastMessage) == 0 && (! blanks(message))) {
       fprintf(stdout, "Messages match, freeze thrshold and advance to another record\n");
       lastMessage[0] = 0;

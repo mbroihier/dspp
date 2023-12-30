@@ -137,7 +137,7 @@ size_t messageToMorse(const char * message, char * encodedMessage, size_t maxEnc
       exit(-1);
     }
   }
-  fprintf(stderr, "Encoded message(%d, max: %d):\n", encodedMessageIndex, maxEncodedLength);
+  fprintf(stderr, "Encoded message(%d, max: %ld):\n", encodedMessageIndex, maxEncodedLength);
   for (uint32_t index = 0; index < encodedMessageIndex; index++) {
     fprintf(stderr, "%1.1d", encodedMessage[index]);
   }

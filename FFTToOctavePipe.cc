@@ -31,10 +31,10 @@ int main(int argc, char *argv[]) {
 
   if (argc == 5) {
     sscanf(argv[1], "%d", &size);
-    sscanf(argv[2], "%lld", &freq);
-    fprintf(stderr, "size: %d, frequency: %lld, raw input %s %s\n", size, freq, argv[1], argv[2]);
+    sscanf(argv[2], "%ld", &freq);
+    fprintf(stderr, "size: %d, frequency: %ld, raw input %s %s\n", size, freq, argv[1], argv[2]);
     sscanf(argv[3], "%d", &maxPlots);
-    sscanf(argv[4], "%lld", &centerFreq);
+    sscanf(argv[4], "%ld", &centerFreq);
   } else {
     fprintf(stderr,"Usage:  FFToOctavePipe <size of fft (complex)> <sampling frequency> <max plots> <center frequency>\n");
     return -1;
@@ -75,13 +75,13 @@ int main(int argc, char *argv[]) {
     if (firstTime) {
       firstTime = false;
       fprintf(octaveFH, "bins = 1:%d;\n", size);
-      fprintf(octaveFH, "freq = (bins - 1) * %lld / %d;\n", freq, size);
+      fprintf(octaveFH, "freq = (bins - 1) * %ld / %d;\n", freq, size);
       fprintf(octaveFH, "for jj = int32(size(bins)(2)/2):size(bins)(2)\n");
-      fprintf(octaveFH, "freq(jj) = -%lld + freq(jj);\n", freq);
+      fprintf(octaveFH, "freq(jj) = -%ld + freq(jj);\n", freq);
       fprintf(octaveFH, "endfor\n");
       fprintf(octaveFH, "fh = fopen(\"freq.txt\", \"w\");\n");
       fprintf(octaveFH, "for jj = 1:size(bins)(2)\n");
-      fprintf(octaveFH, "freq(jj) = %lld + freq(jj);\n", centerFreq);
+      fprintf(octaveFH, "freq(jj) = %ld + freq(jj);\n", centerFreq);
       fprintf(octaveFH, "fprintf(fh, %s, jj, freq(jj));\n", fmt);
       fprintf(octaveFH, "endfor\n");
       fprintf(octaveFH, "fclose(fh);\n");

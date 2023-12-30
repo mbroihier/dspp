@@ -36,7 +36,7 @@ void WSPRWindow::init(int size, int number, char * prefix, float dialFreq, char 
   fprintf(stderr, "allocating binArray memory\n");
   binArray = reinterpret_cast<int *>(malloc(number * sizeof(int)));
   SNRData = reinterpret_cast<SNRInfo *>(malloc(number * sizeof(SNRInfo)));
-  fprintf(stderr, "allocating FFT memory - %d bytes\n", size * sizeof(float) * 2 * FFTS_PER_SHIFT * SHIFTS);
+  fprintf(stderr, "allocating FFT memory - %ld bytes\n", size * sizeof(float) * 2 * FFTS_PER_SHIFT * SHIFTS);
   fftOverTime = reinterpret_cast<float *> (malloc(size * sizeof(float) * 2 * FFTS_PER_SHIFT * SHIFTS));
   windowOfIQData = NULL;
   fprintf(stderr, "allocating mag memory\n");
@@ -426,7 +426,7 @@ void WSPRWindow::doWork() {
                 (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2);
         fread(remainsOf2Min, sizeof(float), (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2, stdin);
       }
-      fprintf(stderr, "allocating window IQ memory - %d bytes\n", (int)freq  * sizeof(float) * 2 * PROCESSING_SIZE);
+      fprintf(stderr, "allocating window IQ memory - %ld bytes\n", (int)freq  * sizeof(float) * 2 * PROCESSING_SIZE);
       now = time(0);
       entry = {now, reinterpret_cast<float *> (malloc((int)freq * sizeof(float) * 2 * PROCESSING_SIZE))};
       fprintf(stderr, "\nCollecting %d samples at %ld - %s", sampleBufferSize, now - baseTime, ctime(&now));
@@ -446,7 +446,7 @@ void WSPRWindow::doWork() {
       } else {
         windowsMutex.lock();
         windows.push(entry);
-        fprintf(stderr, "Queue now has %d entries\n", windows.size());
+        fprintf(stderr, "Queue now has %ld entries\n", windows.size());
         windowsMutex.unlock();
       }
       firstTime = false;

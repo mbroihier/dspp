@@ -584,7 +584,6 @@ int Fano::unpk(signed char *message, char *call_loc_pow, char *call, char *loc, 
             memset(loc,0,1);
             memset(pwr,0,2+1);
             snprintf(call, sizeOfCall, "%s %2d", callsign, ndbm);
-            snprintf(loc, sizeOfLoc, "");
             snprintf(pwr, sizeOfPwr, "%2d", ndbm);
         }
     } else if ( ntype < 0 ) {

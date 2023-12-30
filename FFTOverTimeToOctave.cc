@@ -27,9 +27,9 @@ int main(int argc, char *argv[]) {
 
   if (argc == 4) {
     sscanf(argv[1], "%d", &size);
-    sscanf(argv[2], "%lld", &freq);
+    sscanf(argv[2], "%ld", &freq);
     sscanf(argv[3], "%d", &duration);
-    fprintf(stderr, "size: %d, frequency: %lld, duration: %d\n", size, freq, duration);
+    fprintf(stderr, "size: %d, frequency: %ld, duration: %d\n", size, freq, duration);
   } else {
     fprintf(stderr,"Usage:  FFTOverTimeToOctave <size of fft (complex)> <sampling frequency> <duration>\n");
     return -1;
@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
   fprintf(stdout, "b = (1:%d) - 1;\n", size / 2);
   fprintf(stdout, "nb = (-flip(b)) - 1;\n");
   fprintf(stdout, "b = horzcat(b, nb);\n");
-  fprintf(stdout, "b = b * %lld / %d;\n", freq, size);
+  fprintf(stdout, "b = b * %ld / %d;\n", freq, size);
   fprintf(stdout, "b(ind(:,%d:%d))\n", duration / 2, duration / 2);
   return 0;
 }
