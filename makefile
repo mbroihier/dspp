@@ -11,7 +11,7 @@ PARAMS_SO = -fpic
 PARAMS_MISC = -Wno-unused-result
 FFTW_PACKAGE = fftw-3.3.3
 
-CC=gcc
+CC=g++
 
 CFLAGS= $(if $(shell uname -a | grep -i armv), -c -Wall -DLE_MACHINE -D_GNU_SOURCE $(PARAMS_LOOPVECT) $(PARAMS_SIMD) $(PARAMS_MISC), -c -Wall -DLE_MACHINE -D_GNU_SOURCE )
 CXX = $(CC)

@@ -112,7 +112,7 @@ int FT8Utilities::reportSpot(char * reporterID, char * reporterLocation, float f
         if (observed.find(std::string(sender)) == observed.end()) {  // if not in the map, log for reporting
           observed[std::string(sender)] = time(0);
           data.push({strlen(sender), (uint8_t *)sender, strlen(location), (uint8_t *) location, freq, timeStart, SNR});
-          fprintf(stdout, "will report: %s at location %s, with frequency %1.0f, signal time %d, and SNR of %1.0f\n",
+          fprintf(stdout, "will report: %s at location %s, with frequency %1.0f, signal time %ld, and SNR of %1.0f\n",
                   sender, location, freq, timeStart, SNR);
         } else {
           fprintf(stdout, "suppressing a spot report of %s\n", sender);
@@ -258,6 +258,7 @@ FT8Utilities::FT8Utilities(void) {
   for (auto rp = result; rp != NULL; rp = rp->ai_next) {
     optionNumber++;
     destination = rp;
+    if (rp->ai_socktype != SOCK_DGRAM) continue;  // only want a UDP socket
     socketFd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
     if (socketFd == -1) continue;
     if (connect(socketFd, rp->ai_addr, rp->ai_addrlen) != -1) {
@@ -266,10 +267,10 @@ FT8Utilities::FT8Utilities(void) {
     }
   }
   if (connectionOK) {
-    fprintf(stderr, "Connection was successful, number of options processed: %d\n", optionNumber);
+    fprintf(stdout, "Connection was successful, number of options processed: %d\n", optionNumber);
     optionNumber--; // point to option to use
   } else {
-    fprintf(stderr, "No connection made\n");
+    fprintf(stdout, "No connection made\n");
   }
 }
 FT8Utilities::~FT8Utilities(void) {
