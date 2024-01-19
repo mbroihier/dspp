@@ -67,6 +67,12 @@ tools:
 	$(CC) $(CFLAGS) MorseDecoder.cc -o MorseDecoder.o
 	$(CC) $(LDFLAGS) MorseDecoder.o -o MorseDecoder -lm
 
+	$(CC) $(CFLAGS) baseBandFT8Wave.cc -o baseBandFT8Wave.o
+	$(CC) $(LDFLAGS) baseBandFT8Wave.o -o baseBandFT8Wave -lm
+
+	$(CC) $(CFLAGS) iqToWave.cc -o iqToWaveWave.o
+	$(CC) $(LDFLAGS) iqToWave.o -o iqToWave -lm -lfftw3
+
 
 $(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(FT8OBJ) $(BASICOBJ)
 	$(CC) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(FT8OBJ) $(BASICOBJ) -o dspp $(LDFLAGS)

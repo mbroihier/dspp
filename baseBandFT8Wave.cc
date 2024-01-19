@@ -1,6 +1,5 @@
 /*
- *      base band FR8 signal - generate FT8 signal to test FT8Windows vs
- *                            ft8mon
+ *      base band FR8 signal - generate FT8 signal to convert to a wave file
  *
  *      Copyright (C) 2024
  *          Mark Broihier
@@ -15,10 +14,12 @@ int main(int argc, char *argv[]) {
 
   // the vector below should result in a call sign of KG5YJE, a location of EM13 and message of CQ
   // ft8_gen can be used to create the tone array (testInput)
+  
   int testInput[] = {3,1,4,0,6,5,2,0,0,0,0,0,0,0,0,1,1,1,2,2,7,4,1,5,3,2,0,5,0,4,7,3,3,0,0,0,
                      3,1,4,0,6,5,2,3,3,3,6,2,1,2,6,0,2,4,4,7,2,7,4,5,1,6,1,2,1,6,6,5,4,3,1,0,
                      3,1,4,0,6,5,2};
-  const int SAMPLING_FREQUENCY = 3200;  // Hz
+  const int IDEAL_SAMPLING_FREQUENCY = 3200;  // Hz
+  const int SAMPLING_FREQUENCY = 8000;  // Hz
   double t = 0.0;  // seconds
   const double deltaT = 1.0 / SAMPLING_FREQUENCY;  // seconds
   const int DURATION = 15;
@@ -44,12 +45,14 @@ int main(int argc, char *argv[]) {
   int decodedSignalAtT[DURATION * SAMPLING_FREQUENCY] = {8};
   int startSignalAt = startSignalAtF * SAMPLING_FREQUENCY;
   int index = 0;
+  int symLimit = 512 * SAMPLING_FREQUENCY/IDEAL_SAMPLING_FREQUENCY;
   for (auto token : testInput) {
-    for (int sym = 0; sym < 512; sym++) {
+    for (int sym = 0; sym < symLimit; sym++) {
       decodedSignalAtT[startSignalAt + index] = token;
       index++;
     }
   }
+  fprintf(stderr, "last index written to was %d out of %d\n", index+startSignalAt, DURATION*SAMPLING_FREQUENCY);
   double noiseFrequency = -DEVIATION * 100.0;
   std::complex<double> noise = 2 * M_PI * noiseFrequency * I;
   std::complex<double> omega0 = 2 * M_PI * (offset + drift) * I;
