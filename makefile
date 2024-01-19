@@ -70,7 +70,7 @@ tools:
 	$(CC) $(CFLAGS) baseBandFT8Wave.cc -o baseBandFT8Wave.o
 	$(CC) $(LDFLAGS) baseBandFT8Wave.o -o baseBandFT8Wave -lm
 
-	$(CC) $(CFLAGS) iqToWave.cc -o iqToWaveWave.o
+	$(CC) $(CFLAGS) iqToWave.cc -o iqToWave.o
 	$(CC) $(LDFLAGS) iqToWave.o -o iqToWave -lm -lfftw3
 
 
