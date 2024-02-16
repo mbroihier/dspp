@@ -305,6 +305,24 @@ void FT4FT8Fields::toOctal(void) const {
   if (fieldBits.size() == bits) {
     int octet = 0;
     bool printed = false;
+    fprintf(stderr, "Octal values\n");
+    for (int i = 0; i < bits; i++) {
+      printed = false;
+      octet |= (fieldBits[i]?1:0) << (2 - (i % 3));
+      if ((i % 3) == 2) {
+        fprintf(stderr, "%d ", octet);
+        octet = 0;
+        printed = true;
+      }
+    }
+    if (printed) {
+      fprintf(stderr, "\n");
+    } else {
+      fprintf(stderr, "%d\n", octet);
+    }
+    printed = false;
+    octet = 0;
+    fprintf(stderr, "Octal values - gray coded\n");
     for (int i = 0; i < bits; i++) {
       printed = false;
       octet |= (fieldBits[i]?1:0) << (2 - (i % 3));
@@ -320,6 +338,32 @@ void FT4FT8Fields::toOctal(void) const {
       fprintf(stderr, "%d\n", octet);
     }
   }
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+std::vector<bool>  FT4FT8Fields::crc(std::vector<bool> message) {
+  const bool div[] = {true, true, false, false, true, true, true, false, true, false, true, false, true, true, true};
+  if (message.size() != 77) {
+    fprintf(stderr, "Message to CRC is not 77 bits, it is %d bits\n", message.size());
+    exit(-1);
+  }
+  // zero pad to 82 bits and then add 14 more zeros that will eventually contain the checksum
+  std::vector<bool> copy = message;
+  for (int i = 0; i < 14+5; i++) {
+    copy.push_back(false);
+  }
+  for (int i = 0; i < message.size()+5; i++) {
+    if (copy[i]) {
+      for (int j = 0; j < 15; j++) {
+        copy[i+j] = copy[i+j] ^ div[j];
+      }
+    }
+  }
+  std::vector<bool> cs;
+  for (int i = message.size()+5; i < copy.size(); i++) {
+    cs.push_back(copy[i]);
+  }
+  return cs;
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
@@ -646,11 +690,12 @@ n3 n3::encode(char * displayFormat) {
   // from Karlis Goba (YL3JG) ft8_lib https://github.com/kgoba/ft8_lib
   uint64_t binary = 0;
   bool status = false;  // error occurred
-  if (strlen(displayFormat) != 1  || displayFormat[0] < '0' || displayFormat[0] > '9') {
+  if (strlen(displayFormat) != 1  || displayFormat[0] < '0' || displayFormat[0] > '5') {
     fprintf(stderr, "Can't encode n3: %s\n", displayFormat);
     status = true;
   } else {
     binary = atoi(displayFormat);
+    fprintf(stderr, "i=3 is encoded to %d\n", binary);
   }
   if (status) {  // if error occurred
     exit(-1);
@@ -730,5 +775,15 @@ int main() {
   FT4FT8Fields type1 = f1 + f2 + f3 + f4 + f5 + f6 + f7;
   type1.print();
   type1.toOctal();
+  std::vector<bool> cks = FT4FT8Fields::crc(type1.getField());
+  FT4FT8Fields f8 = cs14(cks);
+  f8.print();
+  FT4FT8Fields type2 = type1 + f8;
+  type2.print();
+  type2.toOctal();
+  FT4FT8Fields fakeF8 = cs14(0x0004);
+  FT4FT8Fields type3 = type1 + fakeF8;
+  type3.print();
+  type3.toOctal();
   return 0;
 }

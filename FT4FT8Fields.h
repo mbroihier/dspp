@@ -34,6 +34,7 @@ class FT4FT8Fields {
   void toOctal(void) const;
   uint32_t static toGray(uint32_t v) { const uint32_t map[] = {0, 1, 3, 2, 5, 6, 4, 7 }; return map[v]; };
   uint32_t static isIn(char b, const char * a);
+  std::vector<bool> static crc(std::vector<bool> message);
   FT4FT8Fields operator+(FT4FT8Fields & rhs);
   FT4FT8Fields& operator=(FT4FT8Fields & rhs);
 
@@ -314,5 +315,15 @@ class t71 : public  FT4FT8Fields {
   t71(std::vector<bool> data): FT4FT8Fields(71, data){ setType("t71"); };
 
   ~t71(void){};
+};
+/* ---------------------------------------------------------------------- */
+class cs14 : public  FT4FT8Fields {
+ private:
+ public:
+  cs14(void): FT4FT8Fields(14){ setType("cs14"); };
+  cs14(uint64_t data): FT4FT8Fields(14, data){ setType("cs14"); };
+  cs14(std::vector<bool> data): FT4FT8Fields(14, data){ setType("cs14"); };
+
+  ~cs14(void){};
 };
 #endif  //  FT4FT8FIELDS_H_
