@@ -402,6 +402,21 @@ FT4FT8Fields&  FT4FT8Fields::operator=(FT4FT8Fields & rhs) {
   return *this;
 }
 /* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+FT4FT8Fields  FT4FT8Fields::operator=(FT4FT8Fields rhs) {
+  this->fieldBits = rhs.getField();
+  this->fieldTypes = rhs.fieldTypes;
+  this->bits = rhs.bits;
+  this->bytes = rhs.bytes;
+  if (this->fieldBytes) { free(this->fieldBytes); }
+  this->fieldBytes = reinterpret_cast<uint8_t *>(malloc(rhs.bytes));
+  for (int i = 0; i < rhs.bytes; i++) {
+    this->fieldBytes[i] = rhs.fieldBytes[i];
+  };
+  fprintf(stderr, "FT4FT8Fields assignment %p\n", this);
+  return *this;
+}
+/* ---------------------------------------------------------------------- */
 const char A1[] = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const char A2[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const char A3[] = "0123456789";
@@ -772,7 +787,8 @@ int main() {
   FT4FT8Fields f6 = g15::encode(g);
   char one[] = "1";
   FT4FT8Fields f7 = i3::encode(one);
-  FT4FT8Fields type1 = f1 + f2 + f3 + f4 + f5 + f6 + f7;
+  FT4FT8Fields type1(1);
+  type1 = f1 + f2 + f3 + f4 + f5 + f6 + f7;
   type1.print();
   type1.toOctal();
   std::vector<bool> cks = FT4FT8Fields::crc(type1.getField());
@@ -785,5 +801,7 @@ int main() {
   FT4FT8Fields type3 = type1 + fakeF8;
   type3.print();
   type3.toOctal();
+  type3 = type1 + fakeF8;
+  type3.print();
   return 0;
 }

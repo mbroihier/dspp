@@ -37,6 +37,7 @@ class FT4FT8Fields {
   std::vector<bool> static crc(std::vector<bool> message);
   FT4FT8Fields operator+(FT4FT8Fields & rhs);
   FT4FT8Fields& operator=(FT4FT8Fields & rhs);
+  FT4FT8Fields operator=(FT4FT8Fields rhs);
 
   FT4FT8Fields(FT4FT8Fields& orig);
   FT4FT8Fields(const FT4FT8Fields& orig);
