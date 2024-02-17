@@ -7,8 +7,8 @@
  */
 
 /* ---------------------------------------------------------------------- */
-#include <cstring>
 #include <math.h>
+#include <cstring>
 #include "FT4FT8Fields.h"
 
 /* ---------------------------------------------------------------------- */
@@ -22,6 +22,8 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits) {
   this->bytes = bits /8 + (((bits % 8) == 0) ? 0:1);
   fieldBytes = reinterpret_cast<uint8_t *>(malloc(bytes));
   memset(fieldBytes, 0, bytes);
+  fieldIndices.push_back(0);
+  fieldSizes.push_back(bits);
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
@@ -76,6 +78,8 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, uint64_t data) {
   for (int i = bits - 1; i >= 0; i--) {
     fieldBits.push_back(working[i]);
   }
+  fieldIndices.push_back(0);
+  fieldSizes.push_back(bits);
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
@@ -91,6 +95,8 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, uint64_t data, const char * fieldType)
   uint64_t copy = data;
   uint32_t bitsFilled = 0;
   fieldTypes.push_back(fieldType);
+  fieldIndices.push_back(0);
+  fieldSizes.push_back(bits);
   std::vector<bool> working;
   for (int i = bytes - 1; i >= 0; i--) {
     fieldBytes[i] = copy & 0xff;
@@ -131,6 +137,8 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, uint64_t data, const char * fieldType)
   for (int i = bits - 1; i >= 0; i--) {
     fieldBits.push_back(working[i]);
   }
+  fieldIndices.push_back(0);
+  fieldSizes.push_back(bits);
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
@@ -155,10 +163,44 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, std::vector<bool> data) {
     bitIndex++;
     if ((bitIndex % 8) == 0) byteIndex--;
   }
+  fieldIndices.push_back(0);
+  fieldSizes.push_back(bits);
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
 FT4FT8Fields::FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<const char *> fields) {
+  fprintf(stderr, "in base class constructor, setting input: %d bits, vector of boolean data size: %d %p\n", bits,
+          data.size(), this);
+  if (bits != data.size()) {
+    fprintf(stderr, "data vector of size %ld, can't fit in %d bits\n", data.size(), bits);
+    exit(-1);
+  }
+  if (fields.size() != 1) {
+    fprintf(stderr, "There can only be one field defined in the vector for this constructor\n");
+    exit(-1);
+  }
+  this->bits = bits;
+  this->bytes = bits /8 + (((bits % 8) == 0) ? 0:1);
+  for (int i = 0; i < bits; i++) {
+    fieldBits.push_back(data[i]);
+  }
+  fieldBytes = reinterpret_cast<uint8_t *>(malloc(bytes));
+  memset(fieldBytes, 0, bytes);
+  int bitIndex = 0;
+  int byteIndex = bytes - 1;
+  for (int i = bits - 1; i >= 0; i--) {
+    fieldBytes[byteIndex] |= (fieldBits[i] ? 1:0) << (bitIndex % 8);
+    bitIndex++;
+    if ((bitIndex % 8) == 0) byteIndex--;
+  }
+  fieldTypes = fields;
+  fieldIndices.push_back(0);
+  fieldSizes.push_back(bits);
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+FT4FT8Fields::FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<const char *> fields,
+                           std::vector<uint32_t> fieldIndices, std::vector<uint32_t> fieldSizes) {
   fprintf(stderr, "in base class constructor, setting input: %d bits, vector of boolean data size: %d %p\n", bits,
           data.size(), this);
   if (bits != data.size()) {
@@ -179,32 +221,15 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<co
     bitIndex++;
     if ((bitIndex % 8) == 0) byteIndex--;
   }
-  for (auto f : fields) {
-    fieldTypes.push_back(f);
-  }
+  fieldTypes = fields;
+  this->fieldIndices = fieldIndices;
+  this->fieldSizes = fieldSizes;
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
 FT4FT8Fields::~FT4FT8Fields(void) {
   if (fieldBytes) free(fieldBytes);
   fprintf(stderr, "Field object destroyed %p\n", this);
-}
-/* ---------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------- */
-FT4FT8Fields::FT4FT8Fields(FT4FT8Fields& orig) {
-  bits = orig.bits;
-  bytes = orig.bytes;
-  fieldBytes = reinterpret_cast<uint8_t *>(malloc(bytes));
-  for (int i = 0; i < bytes; i++) {
-    fieldBytes[i] = orig.fieldBytes[i];
-  }
-  for (auto b : orig.fieldBits) {
-    fieldBits.push_back(b);
-  }
-  for (auto b : orig.fieldTypes) {
-    fieldTypes.push_back(b);
-  }
-  fprintf(stderr, "Field object copied %p\n", this);
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
@@ -215,12 +240,10 @@ FT4FT8Fields::FT4FT8Fields(const FT4FT8Fields& orig) {
   for (int i = 0; i < bytes; i++) {
     fieldBytes[i] = orig.fieldBytes[i];
   }
-  for (auto b : orig.fieldBits) {
-    fieldBits.push_back(b);
-  }
-  for (auto b : orig.fieldTypes) {
-    fieldTypes.push_back(b);
-  }
+  fieldBits = orig.fieldBits;
+  fieldTypes = orig.fieldTypes;
+  fieldIndices = orig.fieldIndices;
+  fieldSizes = orig.fieldSizes;
   fprintf(stderr, "const Field object copied %p\n", this);
 }
 /* ---------------------------------------------------------------------- */
@@ -232,16 +255,14 @@ c28::c28(const c28& orig) {
   for (int i = 0; i < bytes; i++) {
     fieldBytes[i] = orig.fieldBytes[i];
   }
-  for (auto b : orig.fieldBits) {
-    fieldBits.push_back(b);
-  }
-  for (auto b : orig.fieldTypes) {
-    fieldTypes.push_back(b);
-  }
+  fieldBits = orig.fieldBits;
+  fieldTypes = orig.fieldTypes;
+  fieldIndices = orig.fieldIndices;
+  fieldSizes = orig.fieldSizes;
   fprintf(stderr, "const c28 Field object copied %p\n", this);
 }
 /* ---------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- 
 c28::c28(c28& orig) {
   bits = orig.bits;
   bytes = orig.bytes;
@@ -249,33 +270,32 @@ c28::c28(c28& orig) {
   for (int i = 0; i < bytes; i++) {
     fieldBytes[i] = orig.fieldBytes[i];
   }
-  for (auto b : orig.fieldBits) {
-    fieldBits.push_back(b);
+  fieldBits = orig.fieldBits;
+  fieldTypes = orig.fieldTypes;
+  fieldIndices = orig.fieldIndices;
+  fieldSizes = orig.fieldSizes;
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+c28 c28::convertToC28(const FT4FT8Fields& orig) {
+  c28 newOne;
+  uint8_t * oldBytes = orig.getFieldBytes();
+  if (orig.getBits() == 28) {
+    newOne.bits = orig.getBits();
+    newOne.bytes = orig.getBytes();
+    newOne.fieldBytes = reinterpret_cast<uint8_t *>(malloc(newOne.bytes));
+    for (int i = 0; i < newOne.bytes; i++) {
+      newOne.fieldBytes[i] = oldBytes[i];
+    }
+    newOne.fieldBits = orig.getFieldBits();
+    newOne.fieldTypes = orig.getFieldTypes();
+    newOne.fieldIndices = orig.getFieldIndices();
+    newOne.fieldSizes = orig.getFieldSizes();
+  } else {
+    fprintf(stderr, "Objects can't be overlayed - C28 constructor\n");
+    exit(-1);
   }
-  for (auto b : orig.fieldTypes) {
-    fieldTypes.push_back(b);
-  }
-  fprintf(stderr, "c28 Field object copied %p\n", this);
-}
-/* ---------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------- */
-FT4FT8Fields::FT4FT8Fields(volatile FT4FT8Fields& orig) {
-  fprintf(stderr, "Field object copy volatile - not implemented -  %p\n", this);
-}
-/* ---------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------- */
-FT4FT8Fields::FT4FT8Fields(volatile const FT4FT8Fields& orig) {
-  fprintf(stderr, "Field object copy volatile const - not implemented -  %p\n", this);
-}
-/* ---------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------- */
-c28::c28(volatile c28& orig) {
-  fprintf(stderr, "c28 object copy volatile - not implemented -  %p\n", this);
-}
-/* ---------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------- */
-c28::c28(volatile const c28& orig) {
-  fprintf(stderr, "c28 object copy volatile const - not implemented -  %p\n", this);
+  return newOne;
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
@@ -296,6 +316,16 @@ void FT4FT8Fields::print(void) const {
   fprintf(stderr, "field types in this object: ");
   for (auto t : fieldTypes) {
     fprintf(stderr, "%s ", t);
+  }
+  fprintf(stderr, "\n");
+  fprintf(stderr, "field indices in this object: ");
+  for (auto t : fieldIndices) {
+    fprintf(stderr, "%d ", t);
+  }
+  fprintf(stderr, "\n");
+  fprintf(stderr, "field sizes in this object: ");
+  for (auto t : fieldSizes) {
+    fprintf(stderr, "%d ", t);
   }
   fprintf(stderr, "\n");
 }
@@ -367,11 +397,13 @@ std::vector<bool>  FT4FT8Fields::crc(std::vector<bool> message) {
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
-FT4FT8Fields  FT4FT8Fields::operator+(FT4FT8Fields & rhs) {
+FT4FT8Fields  FT4FT8Fields::operator+(const FT4FT8Fields & rhs) {
   std::vector<bool> rhsFieldBits = rhs.getField();
   std::vector<bool> lhsFieldBits = this->getField();
   std::vector<bool> concatBits;
   std::vector<const char *> concatTypes;
+  std::vector<uint32_t> concatIndices;
+  std::vector<uint32_t> concatSizes;
   for (auto b : lhsFieldBits) {
     concatBits.push_back(b);
   }
@@ -384,37 +416,64 @@ FT4FT8Fields  FT4FT8Fields::operator+(FT4FT8Fields & rhs) {
   for (auto t : rhs.fieldTypes) {
     concatTypes.push_back(t);
   }
-  return FT4FT8Fields(concatBits.size(), concatBits, concatTypes);
+  concatIndices = this->fieldIndices;
+  concatSizes = this->fieldSizes;
+  uint32_t lastIndex = concatIndices.back();
+  uint32_t lastSize = this->fieldSizes.back();
+  for (auto i : rhs.fieldSizes) {
+    concatSizes.push_back(i);
+    concatIndices.push_back(lastIndex+lastSize);
+    lastIndex = concatIndices.back();
+    lastSize = i;
+  }
+  return FT4FT8Fields(concatBits.size(), concatBits, concatTypes, concatIndices, concatSizes);
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
-FT4FT8Fields&  FT4FT8Fields::operator=(FT4FT8Fields & rhs) {
+FT4FT8Fields&  FT4FT8Fields::operator=(const FT4FT8Fields & rhs) {
   this->fieldBits = rhs.getField();
   this->fieldTypes = rhs.fieldTypes;
+  this->fieldIndices = rhs.fieldIndices;
+  this->fieldSizes = rhs.fieldSizes;
   this->bits = rhs.bits;
   this->bytes = rhs.bytes;
   if (this->fieldBytes) { free(this->fieldBytes); }
   this->fieldBytes = reinterpret_cast<uint8_t *>(malloc(rhs.bytes));
   for (int i = 0; i < rhs.bytes; i++) {
     this->fieldBytes[i] = rhs.fieldBytes[i];
-  };
+  }
   fprintf(stderr, "FT4FT8Fields assignment %p\n", this);
   return *this;
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
-FT4FT8Fields  FT4FT8Fields::operator=(FT4FT8Fields rhs) {
-  this->fieldBits = rhs.getField();
-  this->fieldTypes = rhs.fieldTypes;
-  this->bits = rhs.bits;
-  this->bytes = rhs.bytes;
-  if (this->fieldBytes) { free(this->fieldBytes); }
-  this->fieldBytes = reinterpret_cast<uint8_t *>(malloc(rhs.bytes));
-  for (int i = 0; i < rhs.bytes; i++) {
-    this->fieldBytes[i] = rhs.fieldBytes[i];
-  };
-  fprintf(stderr, "FT4FT8Fields assignment %p\n", this);
-  return *this;
+FT4FT8Fields  FT4FT8Fields::operator()(const char * index, uint32_t instance) {
+  bool found = false;
+  uint32_t vectorIndex = 0;
+  for (auto ft : this->fieldTypes) {
+    if ( strcmp(ft, index) == 0 ) {
+      if (instance == 0) {
+        fprintf(stderr, "Type found, we can return a vector, index = %d\n", vectorIndex);
+        found = true;
+        break;
+      } else {
+        instance--;
+      }
+    }
+    vectorIndex++;
+  }
+  if (found) {
+    std::vector<bool> data;
+    std::vector<const char *> fieldType;
+    fieldType.push_back(this->fieldTypes[vectorIndex]);
+    uint32_t startAt = this->fieldIndices[vectorIndex];
+    uint32_t endAt = this->fieldSizes[vectorIndex] + startAt;
+    for (uint32_t i = startAt; i < endAt; i++) {
+      data.push_back(this->fieldBits[i]);
+    }
+    return FT4FT8Fields(this->fieldSizes[vectorIndex], data, fieldType);
+  }
+  return FT4FT8Fields(1, 1);;
 }
 /* ---------------------------------------------------------------------- */
 const char A1[] = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -439,8 +498,9 @@ uint32_t FT4FT8Fields::isIn(char b, const char * a) {
 c28 c28::encode(char * displayFormat) {
   // from Karlis Goba (YL3JG) ft8_lib https://github.com/kgoba/ft8_lib
   uint64_t binary = 0;
+  char * rptr = 0;
   char * copy = strdup(displayFormat);
-  char * token = strtok(copy, " ");
+  char * token = strtok_r(copy, " ", &rptr);
   bool status = false;  // error occurred
   if (strcmp(token, "DE") == 0) {
     binary = 0;
@@ -493,11 +553,11 @@ char * c28::decode(void) {
   }
   bool status = false;  // error occurred
   if (binary == 0) {
-    strcpy(callSign, "DE");
+    snprintf(callSign, sizeof(callSign), "DE");
   } else if (binary == 1) {
-    strcpy(callSign, "QRZ");
+    snprintf(callSign, sizeof(callSign), "QRZ");
   } else if (binary == 2) {
-    strcpy(callSign, "CQ");
+    snprintf(callSign, sizeof(callSign), "CQ");
   } else {  // see if standard call sign
     char working[7];
     memset(working, ' ', 6); working[6] = 0;
@@ -514,7 +574,7 @@ char * c28::decode(void) {
       working[1] = A2[binary % 36];
       binary /= 36;
       working[0] = A1[binary];
-      strcpy(callSign, working);
+      snprintf(callSign, sizeof(callSign), working);
     } else {
       fprintf(stderr, "Can't decode this callsign: %s\n", working);
       status = true;
@@ -569,7 +629,7 @@ char * g15::decode(void) {
   binary /= 18;
   if (binary < 18) {
     working[0] = binary + 'A';
-    strcpy(grid, working);
+    snprintf(grid, sizeof(grid), working);
   } else {
     fprintf(stderr, "Can't decode this grid: %s\n", working);
     status = true;
@@ -622,7 +682,7 @@ char * r1::decode(void) {
   if (status) {  // if error occurred
     exit(-1);
   }
-  strcpy(r1char, working);
+  snprintf(r1char, sizeof(r1char), working);
   return r1char;
 }
 /* ---------------------------------------------------------------------- */
@@ -636,7 +696,7 @@ R1 R1::encode(char * displayFormat) {
     binary = 1;
   } else if (strlen(copy) == 0) {
     binary = 0;
-  } else {  // it is not valide
+  } else {  // it is not valid
     fprintf(stderr, "Can't encode R: %s\n", copy);
     status = true;
   }
@@ -667,7 +727,7 @@ char * R1::decode(void) {
   if (status) {  // if error occurred
     exit(-1);
   }
-  strcpy(R1char, working);
+  snprintf(R1char, sizeof(R1char), working);
   return R1char;
 }
 /* ---------------------------------------------------------------------- */
@@ -732,50 +792,56 @@ char * n3::decode(void) {
 /* ---------------------------------------------------------------------- */
 
 int main() {
-  fprintf(stderr, "----------------------------------------------------------\n");
+  fprintf(stderr, "----------------------------1-----------------------------\n");
   t71 at71;
   at71.print();
-  fprintf(stderr, "----------------------------------------------------------\n");
+  fprintf(stderr, "----------------------------2-----------------------------\n");
   t71 bt71(0x010203);
   bt71.print();
-  fprintf(stderr, "----------------------------------------------------------\n");
+  fprintf(stderr, "----------------------------3-----------------------------\n");
   t71 ct71(0xaaaaaaaaaaaaaaaa);
   ct71.print();
-  fprintf(stderr, "----------------------------------------------------------\n");
+  fprintf(stderr, "----------------------------4-----------------------------\n");
   t71 dt71(ct71.getField());
   dt71.print();
-  fprintf(stderr, "----------------------------------------------------------\n");
+  fprintf(stderr, "----------------------------5-----------------------------\n");
   t71 et71(bt71.getField());
   et71.print();
-  fprintf(stderr, "----------------------------------------------------------\n");
+  fprintf(stderr, "----------------------------6-----------------------------\n");
   FT4FT8Fields cat = bt71 + bt71;
   cat.print();
-  fprintf(stderr, "----------------------------------------------------------\n");
+  fprintf(stderr, "----------------------------7-----------------------------\n");
   char cs[] = "KG5YJE";
   fprintf(stderr, "in main creating a c28 callSign object with nothing in it\n");
   c28 callSign;
   callSign.print();
+  fprintf(stderr, "----------------------------8-----------------------------\n");
   fprintf(stderr, "in main, about to call encode and will assign the result to callsign\n");
   c28 x = c28::encode(cs);
   fprintf(stderr, "back in main after encode\n");
   x.print();
+  fprintf(stderr, "----------------------------9-----------------------------\n");
   fprintf(stderr, "in main about to assign callSign to copy\n");
   c28 copy = x;
   fprintf(stderr, "in main about to print copy\n");
   copy.print();
+  fprintf(stderr, "----------------------------10-----------------------------\n");
   FT4FT8Fields a = copy + copy;
   a.print();
+  fprintf(stderr, "----------------------------11-----------------------------\n");
   fprintf(stderr, "Decoded callSign: %s\n", x.decode());
   char g[] = "EM13";
   g15 grid = g15::encode(g);
   fprintf(stderr, "Decoded grid: %s\n", grid.decode());
   FT4FT8Fields b = copy + grid;
   b.print();
+  fprintf(stderr, "----------------------------12-----------------------------\n");
   char r[] = "/R";
   r1 r1stuff = r1::encode(r);
   fprintf(stderr, "Decoded r: %s\n", r1stuff.decode());
   FT4FT8Fields c = b + r1stuff;
   c.print();
+  fprintf(stderr, "----------------------------13-----------------------------\n");
   // lets make a full type 1 message of c28 r1 c28 r1 R1 g15
   char cq[] = "CQ";
   char empty[] = "";
@@ -791,17 +857,33 @@ int main() {
   type1 = f1 + f2 + f3 + f4 + f5 + f6 + f7;
   type1.print();
   type1.toOctal();
+  fprintf(stderr, "----------------------------14-----------------------------\n");
   std::vector<bool> cks = FT4FT8Fields::crc(type1.getField());
   FT4FT8Fields f8 = cs14(cks);
   f8.print();
   FT4FT8Fields type2 = type1 + f8;
   type2.print();
   type2.toOctal();
+  fprintf(stderr, "----------------------------15-----------------------------\n");
   FT4FT8Fields fakeF8 = cs14(0x0004);
   FT4FT8Fields type3 = type1 + fakeF8;
   type3.print();
   type3.toOctal();
+  fprintf(stderr, "----------------------------16-----------------------------\n");
   type3 = type1 + fakeF8;
   type3.print();
+  fprintf(stderr, "----------------------------17-----------------------------\n");
+  FT4FT8Fields type4 = type3("c28", 0);
+  type4.print();
+  fprintf(stderr, "----------------------------18-----------------------------\n");
+  type4 = type3("c28", 1);
+  type4.print();
+  c28 type5 = c28::convertToC28(type4);
+  type5.print();
+  fprintf(stderr, "decoded c28: %s\n", type5.decode());
+  fprintf(stderr, "----------------------------19-----------------------------\n");
+  type4 = type3("c28", 2);
+  type4.print();
+  fprintf(stderr, "----------------------------20-----------------------------\n");
   return 0;
 }
