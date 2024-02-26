@@ -98,13 +98,13 @@ class c28 : public FT4FT8Fields {
  public:
   c28(void): FT4FT8Fields(28) { setType("c28"); }
   explicit c28(uint64_t data): FT4FT8Fields(28, data) { setType("c28");
-    fprintf(stderr, "c28 constructor with data %llu %p\n", data, this); }
+    /* fprintf(stderr, "c28 constructor with data %llu %p\n", data, this); */ }
   explicit c28(std::vector<bool> data): FT4FT8Fields(28, data) { setType("c28"); }
   static c28 encode(char * displayFormat);
   char * decode();
   c28 static convertToC28(const FT4FT8Fields& orig);
   c28(const c28& orig);
-  ~c28(void) { fprintf(stderr, "in c28 destructor: %p\n", this); }
+  ~c28(void) { /* fprintf(stderr, "in c28 destructor: %p\n", this); */ }
 };
 /* ---------------------------------------------------------------------- */
 class c58 : public FT4FT8Fields {
@@ -344,5 +344,17 @@ class ldpc83 : public  FT4FT8Fields {
   explicit ldpc83(std::vector<bool> data): FT4FT8Fields(83, data) { setType("ldpc83"); }
 
   ~ldpc83(void) {}
+};
+class costas21 : public  FT4FT8Fields {
+ private:
+ public:
+  costas21(void);
+  ~costas21(void) {}
+};
+class payload174 : public  FT4FT8Fields {
+ private:
+ public:
+  payload174(const FT4FT8Fields & parts);
+  ~payload174(void) {}
 };
 #endif  //  FT4FT8FIELDS_H_
