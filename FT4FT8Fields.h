@@ -26,7 +26,6 @@ class FT4FT8Fields {
   void setType(const char * t) { fieldTypes.push_back(t); }
   FT4FT8Fields(void) { bits = 0; bytes = 0; fieldBytes = 0; }
   FT4FT8Fields(uint32_t bits, uint64_t data, const char * fieldType);
-  FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<const char *> fields);
   FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<const char *> fields,
                std::vector<uint32_t> fieldIndices, std::vector<uint32_t> fieldSizes);
 
@@ -50,8 +49,9 @@ class FT4FT8Fields {
   std::vector<bool> static ldpc(std::vector<bool> message);
   FT4FT8Fields operator+(const FT4FT8Fields & rhs);
   FT4FT8Fields& operator=(const FT4FT8Fields & rhs);
-  FT4FT8Fields operator () (const char * index, uint32_t instance);
+  FT4FT8Fields operator ()(const char * index, uint32_t instance);
 
+  FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<const char *> fields);
   FT4FT8Fields(const FT4FT8Fields& orig);
   ~FT4FT8Fields(void);
 };
@@ -354,7 +354,13 @@ class costas21 : public  FT4FT8Fields {
 class payload174 : public  FT4FT8Fields {
  private:
  public:
-  payload174(const FT4FT8Fields & parts);
+  explicit payload174(const FT4FT8Fields & parts);
   ~payload174(void) {}
+};
+class FT8Message237 : public  FT4FT8Fields {
+ private:
+ public:
+  explicit FT8Message237(const FT4FT8Fields & payload);
+  ~FT8Message237(void) {}
 };
 #endif  //  FT4FT8FIELDS_H_

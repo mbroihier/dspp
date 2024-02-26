@@ -1805,8 +1805,6 @@ costas21::costas21(void): FT4FT8Fields(21) {
     bitIndex++;
     if ((bitIndex % 8) == 0) byteIndex--;
   }
-  fieldIndices.push_back(0);
-  fieldSizes.push_back(bits);
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
@@ -1838,12 +1836,44 @@ payload174::payload174(const FT4FT8Fields & parts): FT4FT8Fields(174) {
     bitIndex++;
     if ((bitIndex % 8) == 0) byteIndex--;
   }
+  fieldTypes = parts.getFieldTypes();
   fieldTypes.push_back("part1");
   fieldTypes.push_back("part2");
+  fieldIndices = parts. getFieldIndices();
   fieldIndices.push_back(0);
   fieldIndices.push_back(bits/2);
+  fieldSizes = parts.getFieldSizes();
   fieldSizes.push_back(bits/2);
   fieldSizes.push_back(bits/2);
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+FT8Message237::FT8Message237(const FT4FT8Fields & payloadorig): FT4FT8Fields(237) {
+  setType("FT8Message237");
+  std::vector<const char *> p1;
+  std::vector<const char *> p2;
+  p1.push_back("part1");
+  p2.push_back("part2");
+  FT4FT8Fields payload = FT4FT8Fields(payloadorig);
+  FT4FT8Fields part1 = FT4FT8Fields(87, payload("part1", 0).getFieldBits(), p1);
+  FT4FT8Fields part2 = FT4FT8Fields(87, payload("part2", 0).getFieldBits(), p2);
+  costas21 costas;
+  FT4FT8Fields messageWithCostas = costas + part1 + costas + part2 + costas;
+  if (messageWithCostas.getBits() != 237) {
+    fprintf(stderr, "Attempting to make a full FT8Message237 object and components don't match\n");
+    exit(-1);
+  }
+  this->bits = messageWithCostas.getBits();
+  this->bytes = messageWithCostas.getBytes();
+  this->fieldBytes = reinterpret_cast<uint8_t *>(malloc(this->bytes));
+  uint8_t * orig = messageWithCostas.getFieldBytes();
+  for (uint32_t i = 0; i < this->bytes; i++) {
+    this->fieldBytes[i] = *orig++;
+  }
+  this->fieldBits = messageWithCostas.getFieldBits();
+  this->fieldTypes = messageWithCostas.getFieldTypes();
+  this->fieldSizes = messageWithCostas.getFieldSizes();
+  this->fieldIndices = messageWithCostas.getFieldIndices();
 }
 /* ---------------------------------------------------------------------- */
 #include <getopt.h>
@@ -1893,13 +1923,13 @@ int main(int argc, char *argv[]) {
   FT4FT8Fields f8 = cs14(FT4FT8Fields::crc(type1.getField()));
   FT4FT8Fields type1Pcs = type1 + f8;
   FT4FT8Fields ldpcPart = ldpc83(FT4FT8Fields::ldpc(type1Pcs.getField()));
-  payload174 fullPayload = type1Pcs + ldpcPart;
+  payload174 fullPayload = payload174(type1Pcs + ldpcPart);
   fullPayload.print();
   fullPayload.toOctal();
   costas21 costas;
   costas.print();
   costas.toOctal();
-  FT4FT8Fields messageWithCostas = costas + fullPayload + costas;
+  FT8Message237 messageWithCostas = FT8Message237(fullPayload);
   messageWithCostas.print();
   messageWithCostas.toOctal();
   return 0;
