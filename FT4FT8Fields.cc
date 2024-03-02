@@ -343,7 +343,7 @@ void FT4FT8Fields::toOctal(void) const {
       printed = false;
       octet |= (fieldBits[i]?1:0) << (2 - (i % 3));
       if ((i % 3) == 2) {
-        fprintf(stderr, "%d ", FT4FT8Fields::toGray(octet));
+        fprintf(stderr, "%d ", FT4FT8Utilities::toGray(octet));
         octet = 0;
         printed = true;
       }
@@ -354,100 +354,6 @@ void FT4FT8Fields::toOctal(void) const {
       fprintf(stderr, "%d\n", octet);
     }
   }
-}
-/* ---------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------- */
-std::vector<bool>  FT4FT8Fields::crc(std::vector<bool> message) {
-  const bool div[] = {true, true, false, false, true, true, true, false, true, false, true, false, true, true, true};
-  if (message.size() != 77) {
-    fprintf(stderr, "Message to CRC is not 77 bits, it is %d bits\n", message.size());
-    exit(-1);
-  }
-  // zero pad to 82 bits and then add 14 more zeros that will eventually contain the checksum
-  std::vector<bool> copy = message;
-  for (int i = 0; i < 14+5; i++) {
-    copy.push_back(false);
-  }
-  for (int i = 0; i < message.size()+5; i++) {
-    if (copy[i]) {
-      for (int j = 0; j < 15; j++) {
-        copy[i+j] = copy[i+j] ^ div[j];
-      }
-    }
-  }
-  std::vector<bool> cs;
-  for (int i = message.size()+5; i < copy.size(); i++) {
-    cs.push_back(copy[i]);
-  }
-  return cs;
-}
-/* ---------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------- */
-std::vector<bool>  FT4FT8Fields::ldpc(std::vector<bool> message) {
-  std::vector<bool> parityBits;
-  for (int i = 0; i < 83; i++) {
-    int sum = 0;
-    int bitIndex = 0;
-    for (auto bitValue : message) {
-      sum += (ldpc_generator[i][bitIndex++] & bitValue) ? 1:0;
-    }
-    parityBits.push_back((sum & 1) ? true:false);
-  }
-  return parityBits;
-}
-/* ---------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------- */
-bool  FT4FT8Fields::checkLdpc(std::vector<bool> message, uint32_t index, std::map<uint32_t,
-                              std::vector<uint32_t>> * possibleBits) {
-  bool returnValue = false;
-  std::vector<uint32_t> bits;
-  if (index < 83) {
-    int sum = 0;
-    for (uint32_t messageIndex = 0; messageIndex < 91; messageIndex++) {
-      sum += (ldpc_generator[index][messageIndex] & message[messageIndex]) ? 1:0;
-      if (ldpc_generator[index][messageIndex]) bits.push_back(messageIndex);
-    }
-    returnValue = ((sum & 1) ? true:false) ==  message[index+91];
-  }
-  if (!returnValue) (*possibleBits)[index] = bits;
-  return returnValue;
-}
-/* ---------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------- */
-bool  FT4FT8Fields::fastCheckLdpc(std::vector<bool> message, uint32_t index) {
-  bool returnValue = false;
-  if (index < 83) {
-    int sum = 0;
-    for (uint32_t messageIndex = 0; messageIndex < 91; messageIndex++) {
-      sum += (ldpc_generator[index][messageIndex] & message[messageIndex]) ? 1:0;
-    }
-    returnValue = ((sum & 1) ? true:false) ==  message[index+91];
-  }
-  return returnValue;
-}
-/* ---------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------- */
-uint32_t  FT4FT8Fields::scoreLdpc(std::vector<bool> message, std::map<uint32_t,
-                                  std::vector<uint32_t>> * possibleBits) {
-  uint32_t score = 83;
-  for (uint32_t index = 0; index < 83; index++) {
-    if (!FT4FT8Fields::checkLdpc(message, index, possibleBits)) {
-      score--;
-    }
-  }
-  return score;
-}
-/* ---------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------- */
-uint32_t  FT4FT8Fields::fastScoreLdpc(std::vector<bool> message) {
-  uint32_t score = 83;
-  for (uint32_t index = 0; index < 83; index++) {
-    if (!FT4FT8Fields::fastCheckLdpc(message, index)) {
-      score--;
-      break;
-    }
-  }
-  return score;
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
@@ -1080,9 +986,9 @@ int main(int argc, char *argv[]) {
   char one[] = "1";
   FT4FT8Fields f7 = i3::encode(one);
   FT4FT8Fields type1 = f1 + f2 + f3 + f4 + f5 + f6 + f7;
-  FT4FT8Fields f8 = cs14(FT4FT8Fields::crc(type1.getField()));
+  FT4FT8Fields f8 = cs14(FT4FT8Utilities::crc(type1.getField()));
   FT4FT8Fields type1Pcs = type1 + f8;
-  FT4FT8Fields ldpcPart = ldpc83(FT4FT8Fields::ldpc(type1Pcs.getField()));
+  FT4FT8Fields ldpcPart = ldpc83(FT4FT8Utilities::ldpc(type1Pcs.getField()));
   payload174 fullPayload = payload174(type1Pcs + ldpcPart);
   fullPayload.print();
   fullPayload.toOctal();
@@ -1099,12 +1005,11 @@ int main(int argc, char *argv[]) {
   std::vector<bool> cm = corruptedMessage.getUnmappedPayloadBits();
   // this loop should not any failures
   for (uint32_t index = 0; index < 83; index++) {
-    if (!FT4FT8Fields::checkLdpc(cm, index, &possibleBits)) {
+    if (!FT4FT8Utilities::checkLdpc(cm, index, &possibleBits)) {
       fprintf(stderr, "LDPC parity check failed at index: %d\n", index);
     }
   }
   // corrupt bits
-  //cm[10] = !cm[10];
   cm[90] = !cm[90];
   cm[92] = cm[90];
   cm[93] = cm[90];
@@ -1112,7 +1017,7 @@ int main(int argc, char *argv[]) {
   cm[95] = cm[90];
 
   std::vector<bool> revert = cm;
-  uint32_t score = FT4FT8Fields::scoreLdpc(cm, &possibleBits);
+  uint32_t score = FT4FT8Utilities::scoreLdpc(cm, &possibleBits);
   fprintf(stderr, "Score of corrupted message %d\n", score);
   // toggle a bit and see if score changes
   for (uint32_t bl = 1; bl <  7; bl++) {
@@ -1123,8 +1028,7 @@ int main(int argc, char *argv[]) {
         for (uint32_t shifts = 0; shifts < bl; shifts++) {
           cm[b+shifts] = pattern & (0x1 << shifts);
         }
-        score = FT4FT8Fields::fastScoreLdpc(cm);
-        //fprintf(stderr, "%d:%d ", b, score);
+        score = FT4FT8Utilities::fastScoreLdpc(cm);
         if (score == 83) {
           fprintf(stderr, "Errors may have been corrected at bit position %d to %d\n", b, b+bl-1);
           break;
@@ -1248,16 +1152,7 @@ int main(int argc, char *argv[]) {
       tV.push_back(value & 0x2);
       tV.push_back(value & 0x1);
     }
-    //fprintf(stderr, "size of tV %d, size of cm %d\n", tV.size(), cm.size());
     std::vector<bool> origTV = tV;
-    //for (auto b : tV) {
-    //  fprintf(stderr, "%d", b ? 1:0);
-    //}
-    //fprintf(stderr, "\n");
-    //for (auto b : cm) {
-    //  fprintf(stderr, "%d", b ? 1:0);
-    //}
-    //fprintf(stderr, "\n");
     for (uint32_t bl = 1; bl <  9; bl++) {
       fprintf(stderr, "working on %d bit error\n", bl);
       for (uint32_t b = 0; b < 174 - bl; b++) {
@@ -1266,8 +1161,7 @@ int main(int argc, char *argv[]) {
           for (uint32_t shifts = 0; shifts < bl; shifts++) {
             tV[b+shifts] = pattern & (0x1 << shifts);
           }
-          score = FT4FT8Fields::fastScoreLdpc(tV);
-          //fprintf(stderr, "%d:%d ", b, score);
+          score = FT4FT8Utilities::fastScoreLdpc(tV);
           if (score == 83) {
             fprintf(stderr, "Errors may have been corrected at bit position %d to %d\n", b, b+bl-1);
             break;
