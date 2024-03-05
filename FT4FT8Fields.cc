@@ -436,6 +436,34 @@ FT4FT8Fields  FT4FT8Fields::operator()(const char * index, uint32_t instance) {
   return FT4FT8Fields(1, 1);;
 }
 /* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+std::vector<bool> FT4FT8Fields::operator ()(const char * index, uint32_t instance, bool dumpBits) {
+  bool found = false;
+  uint32_t vectorIndex = 0;
+  for (auto ft : this->fieldTypes) {
+    if ( strcmp(ft, index) == 0 ) {
+      if (instance == 0) {
+        // fprintf(stderr, "Type found, we can return a vector, index = %d\n", vectorIndex);
+        found = true;
+        break;
+      } else {
+        instance--;
+      }
+    }
+    vectorIndex++;
+  }
+  std::vector<bool> data;
+  if (found) {
+    uint32_t startAt = this->fieldIndices[vectorIndex];
+    uint32_t endAt = this->fieldSizes[vectorIndex] + startAt;
+    for (uint32_t i = startAt; i < endAt; i++) {
+      data.push_back(this->fieldBits[i]);
+    }
+  }
+  return data;
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
 const char A1[] = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const char A2[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const char A3[] = "0123456789";
@@ -1077,6 +1105,9 @@ int main(int argc, char *argv[]) {
                                       { 7,  7,  5,  6,  0,  4,  3,  0,  3,  4,  1,  4,  7,  2,  1,  3,  1,  2,  1,  1,
                                         7,  6,  4,  5,  0,  3,  6,  2,  2,  3,  4,  3,  3,  7,  5,  2,  1,  4,  1,  5,
                                         1,  7,  2,  6,  5,  3,  2,  2,  7,  4,  3,  1,  4,  6,  3,  7,  5,  1 },
+                                      { 7,  7,  5,  6,  0,  4,  3,  0,  3,  4,  1,  4,  7,  2,  1,  3,  1,  2,  1,  1,
+                                        7,  6,  4,  5,  0,  3,  6,  2,  2,  3,  4,  3,  3,  7,  5,  2,  1,  4,  1,  5,
+                                        1,  7,  2,  6,  5,  3,  2,  2,  7,  4,  3,  1,  4,  6,  3,  7,  7,  7 },
                                       { 1,  0,  4,  4,  7,  7,  4,  5,  0,  0,  0,  5,  1,  2,  6,  3,  3,  2,  7,  1,
                                         7,  6,  4,  4,  2,  3,  4,  4,  2,  6,  5,  0,  3,  2,  7,  1,  4,  6,  6,  6,
                                         5,  7,  3,  3,  1,  7,  3,  4,  7,  1,  3,  4,  0,  0,  3,  0,  6,  0 } };
@@ -1092,7 +1123,16 @@ int main(int argc, char *argv[]) {
     }
     std::vector<bool> origTV = tV;
     std::vector<bool> resultTV;
-    fprintf(stderr, "Candidate %d, score: %d\n", r, FT4FT8Utilities::ldpcDecode(origTV, 15, &resultTV));
+    uint32_t score = FT4FT8Utilities::ldpcDecode(origTV, 15, &resultTV);
+    fprintf(stderr, "Candidate %d, score: %d\n", r, score);
+    if (score == 83) {
+      payload174 payload = payload174(resultTV);  // create a payload object with the corrected vector
+      if (FT4FT8Utilities::crc(payload("generic77", 0, true)) == payload("cs14", 0, true)) {
+        fprintf(stderr, "Checksums match\n");
+      } else {
+        fprintf(stderr, "Checksums don't match\n");
+      }
+    }
   }
 
   return 0;

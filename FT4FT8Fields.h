@@ -49,6 +49,7 @@ class FT4FT8Fields {
   FT4FT8Fields operator+(const FT4FT8Fields & rhs);
   FT4FT8Fields& operator=(const FT4FT8Fields & rhs);
   FT4FT8Fields operator ()(const char * index, uint32_t instance);
+  std::vector<bool> operator ()(const char * index, uint32_t instance, bool dumpBits);
 
   FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<const char *> fields);
   FT4FT8Fields(const FT4FT8Fields& orig);
