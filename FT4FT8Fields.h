@@ -15,6 +15,20 @@
 #include <cstdio>
 #include <cstdlib>
 #include "FT4FT8Utilities.h"
+static const int a[] = { 1, 2, 3, 4, 5, 6 };
+enum MESSAGE_TYPES { type1 = 0, type2 = 1, type3 = 2, type4 = 3, type5 = 4, type6 = 5, MTend = 6 };
+const char * OVERLAY[MTend][10] = { {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
+                                    {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
+                                    {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
+                                    {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
+                                    {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
+                                    {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 } };
+const uint32_t FSIZE[MTend][10] = { {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
+                                    {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
+                                    {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
+                                    {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
+                                    {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
+                                    {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 } };
 /* ---------------------------------------------------------------------- */
 class FT4FT8Fields {
  protected:
@@ -51,6 +65,8 @@ class FT4FT8Fields {
   FT4FT8Fields operator ()(const char * index, uint32_t instance);
   std::vector<bool> operator ()(const char * index, uint32_t instance, bool dumpBits);
 
+  std::vector<bool> static overlay(MESSAGE_TYPES mt, const FT4FT8Fields & object, const char * selector,
+                                   uint32_t instances);
   FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<const char *> fields);
   FT4FT8Fields(const FT4FT8Fields& orig);
   ~FT4FT8Fields(void);

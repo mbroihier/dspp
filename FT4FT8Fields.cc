@@ -30,7 +30,7 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits) {
 FT4FT8Fields::FT4FT8Fields(uint32_t bits, uint64_t data) {
   // fprintf(stderr, "in base class constructor, setting input: %d bits, %llu data %p\n", bits, data, this);
   if (pow(2.0, bits) <= data) {
-    fprintf(stderr, "data (%ld) can't fit in %d bits\n", data, bits);
+    fprintf(stderr, "data (%llu) can't fit in %d bits\n", data, bits);
     exit(-1);
   }
   this->bits = bits;
@@ -86,7 +86,7 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, uint64_t data) {
 FT4FT8Fields::FT4FT8Fields(uint32_t bits, uint64_t data, const char * fieldType) {
   // fprintf(stderr, "in base class constructor, setting input: %d bits, %llu data %p\n", bits, data, this);
   if (pow(2.0, bits) <= data) {
-    fprintf(stderr, "data (%ld) can't fit in %d bits\n", data, bits);
+    fprintf(stderr, "data (%llu) can't fit in %d bits\n", data, bits);
     exit(-1);
   }
   this->bits = bits;
@@ -146,7 +146,7 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, std::vector<bool> data) {
   // fprintf(stderr, "in base class constructor, setting input: %d bits, vector of boolean data size: %d %p\n", bits,
   //         data.size(), this);
   if (bits != data.size()) {
-    fprintf(stderr, "data vector of size %ld, can't fit in %d bits\n", data.size(), bits);
+    fprintf(stderr, "data vector of size %u, can't fit in %d bits\n", data.size(), bits);
     exit(-1);
   }
   this->bits = bits;
@@ -172,7 +172,7 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<co
   // fprintf(stderr, "in base class constructor, setting input: %d bits, vector of boolean data size: %d %p\n", bits,
   //         data.size(), this);
   if (bits != data.size()) {
-    fprintf(stderr, "data vector of size %ld, can't fit in %d bits\n", data.size(), bits);
+    fprintf(stderr, "data vector of size %u, can't fit in %d bits\n", data.size(), bits);
     exit(-1);
   }
   if (fields.size() != 1) {
@@ -204,7 +204,7 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<co
   // fprintf(stderr, "in base class constructor, setting input: %d bits, vector of boolean data size: %d %p\n", bits,
   //         data.size(), this);
   if (bits != data.size()) {
-    fprintf(stderr, "data vector of size %ld, can't fit in %d bits\n", data.size(), bits);
+    fprintf(stderr, "data vector of size %u, can't fit in %d bits\n", data.size(), bits);
     exit(-1);
   }
   this->bits = bits;
@@ -464,6 +464,37 @@ std::vector<bool> FT4FT8Fields::operator ()(const char * index, uint32_t instanc
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
+std::vector<bool> FT4FT8Fields::overlay(MESSAGE_TYPES mt, const FT4FT8Fields & object, const char * selector,
+                                        uint32_t instance) {
+  uint32_t index = 0;
+  uint32_t nextIndex = 0;
+  uint32_t startAt = 0;
+  uint32_t endAt = 0;
+  bool found = false;
+  std::vector<bool> returnVector;
+  do {
+    if (strcmp(OVERLAY[mt][index], selector) == 0) {
+      if (!instance) {
+        found = true;
+        startAt = nextIndex;
+        endAt = startAt + FSIZE[mt][index];
+      } else {
+        instance--;
+      }
+    }
+    nextIndex += FSIZE[mt][index];
+    index++;
+  } while (!found & (OVERLAY[mt][index] != 0));
+  if (found) {
+    std::vector<bool> allBits = object.getFieldBits();
+    for (uint32_t i = startAt; i < endAt; i++) {
+      returnVector.push_back(allBits[i]);
+    }
+  }
+  return returnVector;
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
 const char A1[] = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const char A2[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const char A3[] = "0123456789";
@@ -539,7 +570,6 @@ char * c28::decode(void) {
   for (int i = bits - 1; i >= 0; i--) {
     binary |= (fieldBits[i] ? 1:0) << (bits - 1 - i);
   }
-  bool status = false;  // error occurred
   if (binary == 0) {
     snprintf(callSign, sizeof(callSign), "DE");
   } else if (binary == 1) {
@@ -562,14 +592,11 @@ char * c28::decode(void) {
       working[1] = A2[binary % 36];
       binary /= 36;
       working[0] = A1[binary];
-      snprintf(callSign, sizeof(callSign), working);
+      snprintf(callSign, sizeof(callSign), "%s", working);
     } else {
-      fprintf(stderr, "Can't decode this callsign: %s\n", working);
-      status = true;
+      fprintf(stderr, "Can't decode this callsign: %16.16llx\n", binary);
+      snprintf(callSign, sizeof(callSign), "hash");
     }
-  }
-  if (status) {  // if error occurred
-    exit(-1);
   }
   return callSign;
 }
@@ -609,21 +636,43 @@ char * g15::decode(void) {
   bool status = false;  // error occurred
   char working[5];
   memset(working, ' ', 5); working[4] = 0;
-  working[3] = binary % 10 + '0';
-  binary /= 10;
-  working[2] = binary % 10 +'0';
-  binary /= 10;
-  working[1] = binary % 18 + 'A';
-  binary /= 18;
-  if (binary < 18) {
-    working[0] = binary + 'A';
-    snprintf(grid, sizeof(grid), working);
+  if (binary >= 32400) {  // signal report
+    binary -= 32400;
+    if (binary == 1) {
+      grid[0] = 0;  // blank
+    } else if (binary == 2) {
+      snprintf(grid, 5, "RRR");
+    } else if (binary == 3) {
+      snprintf(grid, 5, "RR73");
+    } else if (binary == 4) {
+      snprintf(grid, 5, "73");
+    } else {
+      if (binary < 0x7fffffff) {
+        int32_t signedBinary = binary;
+        signedBinary -= 35;
+        snprintf(grid, 5, "%c%d", binary < 0 ? '-':'+', abs(signedBinary));
+      } else {
+        grid[0] = 0;
+        fprintf(stderr, "data field too large to be decoded as g15\n");
+      }
+    }
   } else {
-    fprintf(stderr, "Can't decode this grid: %s\n", working);
-    status = true;
-  }
-  if (status) {  // if error occurred
-    exit(-1);
+    working[3] = binary % 10 + '0';
+    binary /= 10;
+    working[2] = binary % 10 +'0';
+    binary /= 10;
+    working[1] = binary % 18 + 'A';
+    binary /= 18;
+    if (binary < 18) {
+      working[0] = binary + 'A';
+      snprintf(grid, sizeof(grid), "%s", working);
+    } else {
+      fprintf(stderr, "Can't decode this grid: %s\n", working);
+      status = true;
+    }
+    if (status) {  // if error occurred
+      exit(-1);
+    }
   }
   return grid;
 }
@@ -670,7 +719,7 @@ char * r1::decode(void) {
   if (status) {  // if error occurred
     exit(-1);
   }
-  snprintf(r1char, sizeof(r1char), working);
+  snprintf(r1char, sizeof(r1char), "%s", working);
   return r1char;
 }
 /* ---------------------------------------------------------------------- */
@@ -715,7 +764,7 @@ char * R1::decode(void) {
   if (status) {  // if error occurred
     exit(-1);
   }
-  snprintf(R1char, sizeof(R1char), working);
+  snprintf(R1char, sizeof(R1char), "%s", working);
   return R1char;
 }
 /* ---------------------------------------------------------------------- */
@@ -991,12 +1040,12 @@ int main(int argc, char *argv[]) {
     }
     case 1: {
       fprintf(stderr, "got call_sign: %s\n", optarg);
-      snprintf(cs, sizeof(cs), optarg);
+      snprintf(cs, sizeof(cs), "%s", optarg);
       break;
     }
     case 2: {
       fprintf(stderr, "got grid_location: %s\n", optarg);
-      snprintf(g, sizeof(g), optarg);
+      snprintf(g, sizeof(g), "%s", optarg);
       break;
     }
     default:
@@ -1129,6 +1178,18 @@ int main(int argc, char *argv[]) {
       payload174 payload = payload174(resultTV);  // create a payload object with the corrected vector
       if (FT4FT8Utilities::crc(payload("generic77", 0, true)) == payload("cs14", 0, true)) {
         fprintf(stderr, "Checksums match\n");
+        std::vector<bool> i0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "i3", 0);
+        i3 mI3 = i3(i0);
+        fprintf(stderr, "Message type (i3): %s\n", mI3.decode());
+        std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "c28", 0);
+        c28 receivedCS = c28(b0);
+        fprintf(stderr, "Received Call Sign: %s\n", receivedCS.decode());
+        std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "c28", 1);
+        c28 senderCS = c28(b1);
+        fprintf(stderr, "Call Sign of sender: %s\n", senderCS.decode());
+        std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "g15", 0);
+        g15 location = g15(l0);
+        fprintf(stderr, "Location of sender or signal info: %s\n", location.decode());
       } else {
         fprintf(stderr, "Checksums don't match\n");
       }
