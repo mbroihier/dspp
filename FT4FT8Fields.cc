@@ -163,7 +163,7 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, std::vector<bool> data) {
   }
   this->bits = bits;
   this->bytes = bits /8 + (((bits % 8) == 0) ? 0:1);
-  for (int i = 0; i < bits; i++) {
+  for (uint32_t i = 0; i < bits; i++) {
     fieldBits.push_back(data[i]);
   }
   fieldBytes = reinterpret_cast<uint8_t *>(malloc(bytes));
@@ -193,7 +193,7 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<co
   }
   this->bits = bits;
   this->bytes = bits /8 + (((bits % 8) == 0) ? 0:1);
-  for (int i = 0; i < bits; i++) {
+  for (uint32_t i = 0; i < bits; i++) {
     fieldBits.push_back(data[i]);
   }
   fieldBytes = reinterpret_cast<uint8_t *>(malloc(bytes));
@@ -221,7 +221,7 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<co
   }
   this->bits = bits;
   this->bytes = bits /8 + (((bits % 8) == 0) ? 0:1);
-  for (int i = 0; i < bits; i++) {
+  for (uint32_t i = 0; i < bits; i++) {
     fieldBits.push_back(data[i]);
   }
   fieldBytes = reinterpret_cast<uint8_t *>(malloc(bytes));
@@ -249,7 +249,7 @@ FT4FT8Fields::FT4FT8Fields(const FT4FT8Fields& orig) {
   bits = orig.bits;
   bytes = orig.bytes;
   fieldBytes = reinterpret_cast<uint8_t *>(malloc(bytes));
-  for (int i = 0; i < bytes; i++) {
+  for (uint32_t i = 0; i < bytes; i++) {
     fieldBytes[i] = orig.fieldBytes[i];
   }
   fieldBits = orig.fieldBits;
@@ -264,7 +264,7 @@ c28::c28(const c28& orig) {
   bits = orig.bits;
   bytes = orig.bytes;
   fieldBytes = reinterpret_cast<uint8_t *>(malloc(bytes));
-  for (int i = 0; i < bytes; i++) {
+  for (uint32_t i = 0; i < bytes; i++) {
     fieldBytes[i] = orig.fieldBytes[i];
   }
   fieldBits = orig.fieldBits;
@@ -282,7 +282,7 @@ c28 c28::convertToC28(const FT4FT8Fields& orig) {
     newOne.bits = orig.getBits();
     newOne.bytes = orig.getBytes();
     newOne.fieldBytes = reinterpret_cast<uint8_t *>(malloc(newOne.bytes));
-    for (int i = 0; i < newOne.bytes; i++) {
+    for (uint32_t i = 0; i < newOne.bytes; i++) {
       newOne.fieldBytes[i] = oldBytes[i];
     }
     newOne.fieldBits = orig.getFieldBits();
@@ -301,12 +301,12 @@ void FT4FT8Fields::print(void) const {
   fprintf(stderr, "FT4FT8Fields object at %p\n", this);
   fprintf(stderr, "bits: %d, number of bytes: %d, bit vector size: %d\n", bits, bytes, fieldBits.size());
   if (bytes) { fprintf(stderr, "%p", fieldBytes); }
-  for (int i = 0; i < bytes; i++) {
+  for (uint32_t i = 0; i < bytes; i++) {
     fprintf(stderr, " %2.2x", fieldBytes[i]);
   }
   fprintf(stderr, "\n");
   if (fieldBits.size() == bits) {
-    for (int i = 0; i < bits; i++) {
+    for (uint32_t i = 0; i < bits; i++) {
       fprintf(stderr, "%d", fieldBits[i]?1:0);
     }
     fprintf(stderr, "\n");
@@ -334,7 +334,7 @@ void FT4FT8Fields::toOctal(void) const {
     int octet = 0;
     bool printed = false;
     fprintf(stderr, "Octal values\n");
-    for (int i = 0; i < bits; i++) {
+    for (uint32_t i = 0; i < bits; i++) {
       printed = false;
       octet |= (fieldBits[i]?1:0) << (2 - (i % 3));
       if ((i % 3) == 2) {
@@ -351,7 +351,7 @@ void FT4FT8Fields::toOctal(void) const {
     printed = false;
     octet = 0;
     fprintf(stderr, "Octal values - gray coded\n");
-    for (int i = 0; i < bits; i++) {
+    for (uint32_t i = 0; i < bits; i++) {
       printed = false;
       octet |= (fieldBits[i]?1:0) << (2 - (i % 3));
       if ((i % 3) == 2) {
@@ -411,7 +411,7 @@ FT4FT8Fields&  FT4FT8Fields::operator=(const FT4FT8Fields & rhs) {
   this->bytes = rhs.bytes;
   if (this->fieldBytes) { free(this->fieldBytes); }
   this->fieldBytes = reinterpret_cast<uint8_t *>(malloc(rhs.bytes));
-  for (int i = 0; i < rhs.bytes; i++) {
+  for (uint32_t i = 0; i < rhs.bytes; i++) {
     this->fieldBytes[i] = rhs.fieldBytes[i];
   }
   // fprintf(stderr, "FT4FT8Fields assignment %p\n", this);
@@ -918,7 +918,7 @@ FT8Message237::FT8Message237(const FT4FT8Fields & orig): FT4FT8Fields(237) {
   if (strcmp(origTypes.back(), "payload174") == 0) {  // this is a payload, so make a message from it
     const uint32_t map[]   = {0, 1, 3, 2, 5, 6, 4, 7 };
     unmappedPayloadBits = orig.getFieldBits();
-    int count = 0;
+    uint32_t count = 0;
     int triplet = 0;
     for (auto b : unmappedPayloadBits) {
       triplet = (triplet << 1) | (b ? 1:0);
@@ -975,7 +975,7 @@ FT8Message237::FT8Message237(const FT4FT8Fields & orig): FT4FT8Fields(237) {
     for (auto b : copyOrig("part2", 0).getFieldBits()) {
       mappedPayloadBits.push_back(b);
     }
-    int count = 0;
+    uint32_t count = 0;
     int triplet = 0;
     for (auto b : mappedPayloadBits) {
       triplet = (triplet << 1) | (b ? 1:0);

@@ -21,7 +21,7 @@ LDFLAGS= $(PARAMS_LIBS)
 SOURCES= dspp.cc 
 OBJECTS=$(SOURCES:.cc=.o)
 
-FT8SRC = FT8Utilities.cc FT8Utilities.h FT8Window.cc FT8Window.h FT8SpotCandidate.cc FT8SpotCandidate.h unpack.cc libldpc.cc 
+FT8SRC = FT4FT8Fields.cc FT4FT8Fields.h FT4FT8Utilities.cc FT4FT8Utilities.h FT8Utilities.cc FT8Utilities.h FT8Window.cc FT8Window.h FT8SpotCandidate.cc FT8SpotCandidate.h  
 WSPRSRC = WSPRUtilities.cc WSPRUtilities.h WindowSample.cc WindowSample.h WSPRWindow.cc WSPRWindow.h Fano.cc Fano.h SpotCandidate.cc SpotCandidate.h
 AGCSRC = AGC.cc AGC.h
 RTLTCPSRC = RTLTCPClient.cc RTLTCPClient.h RTLTCPServer.cc RTLTCPServer.h
@@ -29,7 +29,7 @@ FIRFILTSRC = FIRFilter.cc FIRFilter.h SFIRFilter.cc SFIRFilter.h CFilter.cc CFil
 MODSRC = FMMod.cc FMMod.h
 FFTSRC = DsppFFT.cc DsppFFT.h
 BASICSRC = Regression.cc Regression.h
-FT8OBJ = FT8Window.o FT8SpotCandidate.o FT8Utilities.o unpack.o libldpc.o
+FT8OBJ = FT8Window.o FT8SpotCandidate.o FT8Utilities.o FT4FT8Fields.o FT4FT8Utilities.o
 WSPROBJ = WSPRUtilities.o WindowSample.o WSPRWindow.o Fano.o SpotCandidate.o
 AGCOBJ = AGC.o
 RTLTCPOBJ = RTLTCPClient.o RTLTCPServer.o

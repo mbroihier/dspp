@@ -24,7 +24,7 @@ std::vector<bool>  FT4FT8Utilities::crc(std::vector<bool> message) {
   for (int i = 0; i < 14+5; i++) {
     copy.push_back(false);
   }
-  for (int i = 0; i < message.size()+5; i++) {
+  for (uint32_t i = 0; i < message.size()+5; i++) {
     if (copy[i]) {
       for (int j = 0; j < 15; j++) {
         copy[i+j] = copy[i+j] ^ div[j];
@@ -32,7 +32,7 @@ std::vector<bool>  FT4FT8Utilities::crc(std::vector<bool> message) {
     }
   }
   std::vector<bool> cs;
-  for (int i = message.size()+5; i < copy.size(); i++) {
+  for (uint32_t i = message.size()+5; i < copy.size(); i++) {
     cs.push_back(copy[i]);
   }
   return cs;
@@ -137,9 +137,9 @@ uint32_t FT4FT8Utilities::ldpcDecode(std::vector<bool> const & pIn174, uint32_t 
     for (int j = 0; j < 83; j++)
       e[j][i] = 0.0;
 
-  for (int iter = 0; iter < iterations; iter++) {
-    for (int j = 0; j < 83; j++) {
-      for (int ii1 = 0; ii1 < 7; ii1++) {
+  for (uint32_t iter = 0; iter < iterations; iter++) {
+    for (uint32_t j = 0; j < 83; j++) {
+      for (uint32_t ii1 = 0; ii1 < 7; ii1++) {
         int i1 = Nm[j][ii1] - 1;
         if (i1 < 0)
           continue;

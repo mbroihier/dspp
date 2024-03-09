@@ -323,7 +323,7 @@ void FT8Window::doWork() {
                                     } else {
                                       fprintf(stdout, "Msg decode of message type %s is not supported yet.\n",
                                               mI3.decode());
-                                      msg[0];
+                                      msg[0] = 0;
                                     }
                                     bool newCand = true;
                                     for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
