@@ -10,6 +10,18 @@
 #include <math.h>
 #include <cstring>
 #include "FT4FT8Fields.h"
+const uint32_t FSIZE[MTend][10] = { {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
+                                    {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
+                                    {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
+                                    {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
+                                    {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
+                                    {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 } };
+const char * OVERLY[MTend][10] = { {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
+                                   {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
+                                   {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
+                                   {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
+                                   {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
+                                   {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 } };
 
 /* ---------------------------------------------------------------------- */
 FT4FT8Fields::FT4FT8Fields(uint32_t bits) {
@@ -473,7 +485,7 @@ std::vector<bool> FT4FT8Fields::overlay(MESSAGE_TYPES mt, const FT4FT8Fields & o
   bool found = false;
   std::vector<bool> returnVector;
   do {
-    if (strcmp(OVERLAY[mt][index], selector) == 0) {
+    if (strcmp(OVERLY[mt][index], selector) == 0) {
       if (!instance) {
         found = true;
         startAt = nextIndex;
@@ -484,7 +496,7 @@ std::vector<bool> FT4FT8Fields::overlay(MESSAGE_TYPES mt, const FT4FT8Fields & o
     }
     nextIndex += FSIZE[mt][index];
     index++;
-  } while (!found & (OVERLAY[mt][index] != 0));
+  } while (!found & (OVERLY[mt][index] != 0));
   if (found) {
     std::vector<bool> allBits = object.getFieldBits();
     for (uint32_t i = startAt; i < endAt; i++) {
@@ -650,7 +662,7 @@ char * g15::decode(void) {
       if (binary < 0x7fffffff) {
         int32_t signedBinary = binary;
         signedBinary -= 35;
-        snprintf(grid, 5, "%c%d", binary < 0 ? '-':'+', abs(signedBinary));
+        snprintf(grid, 5, "%c%d", signedBinary < 0 ? '-':'+', abs(signedBinary));
       } else {
         grid[0] = 0;
         fprintf(stderr, "data field too large to be decoded as g15\n");
@@ -1019,6 +1031,7 @@ FT8Message237::FT8Message237(const FT4FT8Fields & orig): FT4FT8Fields(237) {
   }
 }
 /* ---------------------------------------------------------------------- */
+#ifdef SELFTEST
 #include <getopt.h>
 const char USAGE_STR[] = "%s --call_sign <KG5YJE>\n";
 const struct option longOpts[] = {
@@ -1181,15 +1194,20 @@ int main(int argc, char *argv[]) {
         std::vector<bool> i0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "i3", 0);
         i3 mI3 = i3(i0);
         fprintf(stderr, "Message type (i3): %s\n", mI3.decode());
-        std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "c28", 0);
-        c28 receivedCS = c28(b0);
-        fprintf(stderr, "Received Call Sign: %s\n", receivedCS.decode());
-        std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "c28", 1);
-        c28 senderCS = c28(b1);
-        fprintf(stderr, "Call Sign of sender: %s\n", senderCS.decode());
-        std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "g15", 0);
-        g15 location = g15(l0);
-        fprintf(stderr, "Location of sender or signal info: %s\n", location.decode());
+        if (strcmp(mI3.decode(), "1") == 0) {
+          std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "c28", 0);
+          c28 receivedCS = c28(b0);
+          //fprintf(stderr, "Received Call Sign: %s\n", receivedCS.decode());
+          std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "c28", 1);
+          c28 senderCS = c28(b1);
+          //fprintf(stderr, "Call Sign of sender: %s\n", senderCS.decode());
+          std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "g15", 0);
+          g15 location = g15(l0);
+          //fprintf(stderr, "Location of sender or signal info: %s\n", location.decode());
+          fprintf(stderr, "%s %s %s\n", receivedCS.decode(), senderCS.decode(), location.decode());
+        } else {
+          fprintf(stderr, "decode of message type %s is not supported yet.\n", mI3.decode());
+        }
       } else {
         fprintf(stderr, "Checksums don't match\n");
       }
@@ -1198,3 +1216,4 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
+#endif

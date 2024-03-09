@@ -19,6 +19,7 @@
 #include <thread>
 #include <unistd.h>
 #include <string.h>
+#include "FT4FT8Fields.h"
 #include "FT8SpotCandidate.h"
 #include "FT8Window.h"
 #include "FT8Utilities.h"
@@ -107,8 +108,8 @@ int FT8Window::remap(std::vector<int> tokens, std::vector<int> &symbols, int map
 }
 
 void FT8Window::doWork() {
-  void ldpc_decode(double llcodeword[], int iters, int plain[], int *ok);
-  void ft8_crc(int msg1[], int msglen, int out[14]);
+  //void ldpc_decode(double llcodeword[], int iters, int plain[], int *ok);
+  //void ft8_crc(int msg1[], int msglen, int out[14]);
   pid_t background = 0;
 
   time_t now;
@@ -185,6 +186,7 @@ void FT8Window::doWork() {
 
                       // Scan sequences of FFTs looking for FT8 signal
                       // For each peak
+                      std::vector<int> symbolVector;
                       for (int currentPeakIndex = 0; currentPeakIndex < number; currentPeakIndex++) {
                         int currentPeakBin = binArray[currentPeakIndex];
                         int freqBinsToProcess[FT8SpotCandidate::WINDOW];
@@ -252,7 +254,6 @@ void FT8Window::doWork() {
                               subset.push_back(candidateInfo[index + symbolSet]);
                             }
                             std::vector<int>  tokens;
-                            std::vector<int> symbolVector;
                             float snr = 0.0;
                             float slope = 0.0;
                             candidate.tokenize(size, subset, tokens, slope);
@@ -268,59 +269,65 @@ void FT8Window::doWork() {
                               }
                               fprintf(stderr, " end of symbols\n");
                               if (symbolMetric < 6) continue;  // if match is not good enough, go to next remapping
-                              ldpc_decode(ll174, 15, p174, &status);
-                              fprintf(stderr, "noisy vector: ");
-                              for (int i = 0; i < 91; i++) {
-                                fprintf(stderr, "%1d", (ll174[i] > 0.0) ? 0 : 1);
+                              std::vector<bool> bits;
+                              for (auto value : symbolVector) {
+                                bits.push_back(value & 0x4);
+                                bits.push_back(value & 0x2);
+                                bits.push_back(value & 0x1);
                               }
-                              fprintf(stderr, "\n");
-                              fprintf(stderr, "clean vector: ");
-                              for (int i = 0; i < 91; i++) {
-                                fprintf(stderr, "%1d", p174[i]);
+                              std::vector<bool> correctedBits;
+                              status = FT4FT8Utilities::ldpcDecode(bits, 15, &correctedBits);
+                              if (correctedBits.size() != 174) continue;
+                              payload174 payload = payload174(correctedBits);
+                              int * p174ptr = &p174[0];
+                              int nonZero = 0;
+                              for (auto b : correctedBits) {
+                                *p174ptr++ = b ? 1:0;
+                                nonZero += b ? 1:0;
                               }
-                              fprintf(stderr, "\n");
-                              fprintf(stderr, "delta vector: ");
-                              for (int i = 0; i < 91; i++) {
-                                bool sel = p174[i] == ((ll174[i] > 0.0) ? 0 : 1);
-                                if (sel) {
-                                  fprintf(stderr, " ");
-                                } else {
-                                  fprintf(stderr, ".");
-                                }
-                              }
-                              fprintf(stderr, "\n");
                               fprintf(stderr, " ldpc decode status: %d\n", status);
                               if (status >= 83) { // it is good enough
-                                int aa[91];
-                                int nonZero = 0;
-                                int outCRC[14];
                                 candidate.printReport();
-                                for (int i = 0; i < 91; i++) {
-                                  if (i < 77) {
-                                    aa[i] = p174[i];
-                                  } else {
-                                    aa[i] = 0;
-                                  }
-                                  if (aa[i]) nonZero++;
-                                }
                                 if (nonZero) {
                                   fprintf(stderr, "checking CRC\n");
-                                  ft8_crc(aa, 82, outCRC);
                                   bool dontMatch = false;
-                                  for (int i = 0; i < 14; i++) {
-                                    if (outCRC[i] != p174[91-14+i]) {
-                                      fprintf(stderr, "CRCs do not match\n");
-                                      dontMatch = true;
-                                      break;
-                                    }
+                                  if (FT4FT8Utilities::crc(payload("generic77", 0, true)) ==
+                                      payload("cs14", 0, true)) {
+                                    dontMatch = false;
+                                  } else {
+                                    dontMatch = true;
                                   }
                                   if (!dontMatch) {
+                                    char msg[50];
                                     fprintf(stderr, "CRCs match!, bin: %d, shift: %d, symbol set %d\n",
                                             currentPeakBin, shift, symbolSet);
-                                    std::string msg = unpack(p174);
+                                    //std::string msg = unpack(p174);
+                                    std::vector<bool> i0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
+                                                                                 "i3", 0);
+                                    i3 mI3 = i3(i0);
+                                    if (strcmp(mI3.decode(), "1") == 0) {
+                                      std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
+                                                                                   "c28", 0);
+                                      c28 receivedCS = c28(b0);
+                                      std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
+                                                                                   "c28", 1);
+                                      c28 senderCS = c28(b1);
+                                      std::vector<bool> R0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
+                                                                                   "R1", 0);
+                                      R1 R = R1(R0);
+                                      std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
+                                                                                   "g15", 0);
+                                      g15 location = g15(l0);
+                                      snprintf(msg, sizeof(msg), "%s %s %s%s", receivedCS.decode(),
+                                               senderCS.decode(), R.decode(), location.decode());
+                                    } else {
+                                      fprintf(stdout, "Msg decode of message type %s is not supported yet.\n",
+                                              mI3.decode());
+                                      msg[0];
+                                    }
                                     bool newCand = true;
                                     for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
-                                      if ((strcmp((*iter).second.message, msg.c_str()) == 0) &&
+                                      if ((strcmp((*iter).second.message, msg) == 0) &&
                                           (fabs((*iter).second.freq - (dialFreq + 1500.0 +
                                                                        candidate.getFrequency())) < 25.0)) {
                                         newCand = false;
@@ -332,7 +339,7 @@ void FT8Window::doWork() {
                                         }
                                       }
                                     }
-                                    if (newCand) {
+                                    if (newCand  && (strlen(msg) > 6)) {
                                       char * d = reinterpret_cast<char *>(malloc(7)); // date
                                       char * t = reinterpret_cast<char *>(malloc(7)); // time
                                       struct tm * gtm;
@@ -340,7 +347,7 @@ void FT8Window::doWork() {
                                       snprintf(d, 7, "%02d%02d%02d", gtm->tm_year - 100, gtm->tm_mon + 1,
                                                gtm->tm_mday);
                                       snprintf(t, 7, "%02d%02d%02d", gtm->tm_hour, gtm->tm_min, gtm->tm_sec / 15 * 15);
-                                      char * message = strdup(msg.c_str());
+                                      char * message = strdup(msg);
                                       int normalizedShift = symbolSet * 256 + shift;
                                       candidates[numberOfCandidates] = {d, t, message, 1,
                                                                         dialFreq + 1500.0 + candidate.getFrequency(),
@@ -348,7 +355,6 @@ void FT8Window::doWork() {
                                                                         snr };
                                       numberOfCandidates++;
                                     }
-                                    //fprintf(stdout, "got %s\n", msg.c_str());
                                   }
                                 } else {
                                   fprintf(stderr, "p174 is all zeros\n");
