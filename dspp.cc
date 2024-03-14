@@ -636,7 +636,7 @@ int dspp::decimate_ff(float cutOffFrequency, int M, int amount, int N, const cha
       FIRFilter filter(amount);
       filter.maxRealWindow();
     } else {
-      fprintf(stderr, "Unsupported decimate_ff window type: %s\n");
+      fprintf(stderr, "Unsupported decimate_ff window type: %s\n", window);
     }
   }
   return 0;

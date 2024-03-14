@@ -511,6 +511,7 @@ const char A1[] = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const char A2[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const char A3[] = "0123456789";
 const char A4[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const char A5[] = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/";
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
 uint32_t FT4FT8Fields::isIn(char b, const char * a) {
@@ -576,7 +577,7 @@ c28 c28::encode(char * displayFormat) {
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
-char * c28::decode(void) {
+char * c28::decode(std::map<uint32_t, char *> * hash22) {
   // from Karlis Goba (YL3JG) ft8_lib https://github.com/kgoba/ft8_lib
   uint64_t binary = 0;
   for (int i = bits - 1; i >= 0; i--) {
@@ -589,9 +590,9 @@ char * c28::decode(void) {
   } else if (binary == 2) {
     snprintf(callSign, sizeof(callSign), "CQ");
   } else {  // see if standard call sign
-    char working[7];
-    memset(working, ' ', 6); working[6] = 0;
-    if (binary > 2063592 + 4194304) {
+    char working[12];
+    memset(working, ' ', sizeof(working)-1); working[sizeof(working)-1] = 0;
+    if (binary >= 2063592 + 4194304) {
       binary = binary - 2063592 - 4194304;
       working[5] = A4[binary % 27];
       binary /= 27;
@@ -605,9 +606,38 @@ char * c28::decode(void) {
       binary /= 36;
       working[0] = A1[binary];
       snprintf(callSign, sizeof(callSign), "%s", working);
+      // now create and store a hash of this call sign - this is not thread safe
+      uint64_t hash = 0;
+      bool good = true;
+      for (uint32_t i = 0; i < sizeof(working) - 1; i++) {
+        int32_t index = isIn(working[i], A5);
+        if (index < 0) {  // can't hash
+          good = false;
+          break;
+        }
+        hash = 38 * hash + index;
+      }
+      if (good) {
+        hash *= 47055833459LL;
+        hash >>= 64 - 22;
+        if ((*hash22).find(binary) == (*hash22).end()) {
+          // don't overwrite an existing hash, or if you do, free the memory that has been allocated
+          (*hash22)[hash] = strdup(working);
+        }
+      } else {
+        fprintf(stdout, "failed to hash %s\n", working);
+      }
+    } else if (binary >= 2062592) {
+      binary -= 2062592;
+      if ((*hash22).find(binary) != (*hash22).end()) {
+        snprintf(callSign, sizeof(callSign), "%s", (*hash22)[binary]);
+      } else {
+        fprintf(stderr, "Can't decode this hash callsign: %16.16llx\n", binary);
+        snprintf(callSign, sizeof(callSign), "hash");
+      }
     } else {
-      fprintf(stderr, "Can't decode this callsign: %16.16llx\n", binary);
-      snprintf(callSign, sizeof(callSign), "hash");
+        fprintf(stderr, "Can't decode this callsign: %16.16llx\n", binary);
+        snprintf(callSign, sizeof(callSign), "unknown");
     }
   }
   return callSign;
@@ -653,16 +683,16 @@ char * g15::decode(void) {
     if (binary == 1) {
       grid[0] = 0;  // blank
     } else if (binary == 2) {
-      snprintf(grid, 5, "RRR");
+      snprintf(grid, sizeof(grid), "RRR");
     } else if (binary == 3) {
-      snprintf(grid, 5, "RR73");
+      snprintf(grid, sizeof(grid), "RR73");
     } else if (binary == 4) {
-      snprintf(grid, 5, "73");
+      snprintf(grid, sizeof(grid), "73");
     } else {
       if (binary < 0x7fffffff) {
         int32_t signedBinary = binary;
         signedBinary -= 35;
-        snprintf(grid, 5, "%c%d", signedBinary < 0 ? '-':'+', abs(signedBinary));
+        snprintf(grid, sizeof(grid), "%c%d", signedBinary < 0 ? '-':'+', abs(signedBinary));
       } else {
         grid[0] = 0;
         fprintf(stderr, "data field too large to be decoded as g15\n");
@@ -1031,6 +1061,7 @@ FT8Message237::FT8Message237(const FT4FT8Fields & orig): FT4FT8Fields(237) {
   }
 }
 /* ---------------------------------------------------------------------- */
+//#define SELFTEST 0
 #ifdef SELFTEST
 #include <getopt.h>
 const char USAGE_STR[] = "%s --call_sign <KG5YJE>\n";
@@ -1175,6 +1206,7 @@ int main(int argc, char *argv[]) {
                                         5,  7,  3,  3,  1,  7,  3,  4,  7,  1,  3,  4,  0,  0,  3,  0,  6,  0 } };
 
   uint32_t rows = sizeof(testVectors)/sizeof(uint32_t) / 58;
+  std::map<uint32_t, char *> hash22;
   for (uint32_t r = 0; r < rows; r++) {
     std::vector<bool> tV;
     for (uint32_t c = 0; c < 58; c++) {
@@ -1197,14 +1229,11 @@ int main(int argc, char *argv[]) {
         if (strcmp(mI3.decode(), "1") == 0) {
           std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "c28", 0);
           c28 receivedCS = c28(b0);
-          //fprintf(stderr, "Received Call Sign: %s\n", receivedCS.decode());
           std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "c28", 1);
           c28 senderCS = c28(b1);
-          //fprintf(stderr, "Call Sign of sender: %s\n", senderCS.decode());
           std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "g15", 0);
           g15 location = g15(l0);
-          //fprintf(stderr, "Location of sender or signal info: %s\n", location.decode());
-          fprintf(stderr, "%s %s %s\n", receivedCS.decode(), senderCS.decode(), location.decode());
+          fprintf(stderr, "%s %s %s\n", receivedCS.decode(&hash22), senderCS.decode(&hash22), location.decode());
         } else {
           fprintf(stderr, "decode of message type %s is not supported yet.\n", mI3.decode());
         }

@@ -97,14 +97,14 @@ class c1 : public FT4FT8Fields {
 /* ---------------------------------------------------------------------- */
 class c28 : public FT4FT8Fields {
  private:
-  char callSign[10];
+  char callSign[12];
  public:
   c28(void): FT4FT8Fields(28) { setType("c28"); }
   explicit c28(uint64_t data): FT4FT8Fields(28, data) { setType("c28");
     /* fprintf(stderr, "c28 constructor with data %llu %p\n", data, this); */ }
   explicit c28(std::vector<bool> data): FT4FT8Fields(28, data) { setType("c28"); }
   static c28 encode(char * displayFormat);
-  char * decode();
+  char * decode(std::map<uint32_t, char *> * hash22);
   c28 static convertToC28(const FT4FT8Fields& orig);
   c28(const c28& orig);
   ~c28(void) { /* fprintf(stderr, "in c28 destructor: %p\n", this); */ }

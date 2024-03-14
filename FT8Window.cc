@@ -126,6 +126,7 @@ void FT8Window::doWork() {
                   FT8Utilities reporter;
                   float deltaTime = 1.0 / freq * size;
                   float * samplePtr;
+                  std::map<uint32_t, char *> hash22;
                   fftObject = new DsppFFT(size);
                   while (!terminate) {
                     if (background) {
@@ -318,8 +319,8 @@ void FT8Window::doWork() {
                                       std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
                                                                                    "g15", 0);
                                       g15 location = g15(l0);
-                                      snprintf(msg, sizeof(msg), "%s %s %s%s", receivedCS.decode(),
-                                               senderCS.decode(), R.decode(), location.decode());
+                                      snprintf(msg, sizeof(msg), "%s %s %s%s", receivedCS.decode(&hash22),
+                                               senderCS.decode(&hash22), R.decode(), location.decode());
                                     } else {
                                       fprintf(stdout, "Msg decode of message type %s is not supported yet.\n",
                                               mI3.decode());
@@ -428,6 +429,9 @@ void FT8Window::doWork() {
                         sleep(0.3);
                       }
                     }
+                  }
+                  for (auto i : hash22) {
+                    free(i.second);  // release memory in hash
                   }
                   delete fftObject;
                 };
