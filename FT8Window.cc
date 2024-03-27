@@ -127,6 +127,8 @@ void FT8Window::doWork() {
                   float deltaTime = 1.0 / freq * size;
                   float * samplePtr;
                   std::map<uint32_t, char *> hash22;
+                  std::map<uint32_t, char *> hash12;
+                  std::map<uint32_t, char *> hash10;
                   fftObject = new DsppFFT(size);
                   while (!terminate) {
                     if (background) {
@@ -307,6 +309,7 @@ void FT8Window::doWork() {
                                                                                  "i3", 0);
                                     i3 mI3 = i3(i0);
                                     if (strcmp(mI3.decode(), "1") == 0) {
+                                      fprintf(stdout, "processing message type 1\n");
                                       std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
                                                                                    "c28", 0);
                                       c28 receivedCS = c28(b0);
@@ -319,8 +322,38 @@ void FT8Window::doWork() {
                                       std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
                                                                                    "g15", 0);
                                       g15 location = g15(l0);
-                                      snprintf(msg, sizeof(msg), "%s %s %s%s", receivedCS.decode(&hash22),
-                                               senderCS.decode(&hash22), R.decode(), location.decode());
+                                      snprintf(msg, sizeof(msg), "%s %s %s%s",
+                                               receivedCS.decode(&hash22, &hash12, &hash10),
+                                               senderCS.decode(&hash22, &hash12, &hash10), R.decode(),
+                                               location.decode());
+                                    } else if (strcmp(mI3.decode(), "4") == 0) {
+                                      fprintf(stdout, "processing message type 4\n");
+                                      std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, payload,
+                                                                                   "h12", 0);
+                                      h12 hashedCS = h12(b0);
+                                      std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, payload,
+                                                                                   "c58", 0);
+                                      c58 extendedCS = c58(b1);
+                                      std::vector<bool> b2 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, payload,
+                                                                                   "h1", 0);
+                                      h1 hashIsSecond = h1(b2);
+                                      std::vector<bool> b3 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, payload,
+                                                                                   "r2", 0);
+                                      r2 extra = r2(b3);
+                                      std::vector<bool> b4 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, payload,
+                                                                                   "c1", 0);
+                                      c1 firstIsCQ = c1(b4);
+                                      if (firstIsCQ.decode()) { // if first is CQ ignore hash field and extra
+                                        snprintf(msg, sizeof(msg), "CQ %s" , extendedCS.decode());
+                                      } else {
+                                        if (hashIsSecond.decode()) {  // flip the order of the call signs
+                                          snprintf(msg, sizeof(msg), "%s %s %s", extendedCS.decode(),
+                                                   hashedCS.decode(&hash12), extra.decode());
+                                        } else {
+                                          snprintf(msg, sizeof(msg), "%s %s %s",
+                                                   hashedCS.decode(&hash12), extendedCS.decode(), extra.decode());
+                                        }
+                                      }
                                     } else {
                                       fprintf(stdout, "Msg decode of message type %s is not supported yet.\n",
                                               mI3.decode());

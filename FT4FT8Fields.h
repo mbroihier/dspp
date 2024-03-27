@@ -15,7 +15,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include "FT4FT8Utilities.h"
-enum MESSAGE_TYPES { type1 = 0, type2 = 1, type3 = 2, type4 = 3, type5 = 4, type6 = 5, MTend = 6 };
+enum MESSAGE_TYPES { type0 = 0, type1 = 1, type2 = 2, type3 = 3, type4 = 4, type5 = 5, MTend = 6 };
 /* ---------------------------------------------------------------------- */
 class FT4FT8Fields {
  protected:
@@ -46,7 +46,7 @@ class FT4FT8Fields {
   std::vector<bool> getField(void) const { return fieldBits; }
   void print(void) const;
   void toOctal(void) const;
-  uint32_t static isIn(char b, const char * a);
+  int32_t static isIn(char b, const char * a);
   FT4FT8Fields operator+(const FT4FT8Fields & rhs);
   FT4FT8Fields& operator=(const FT4FT8Fields & rhs);
   FT4FT8Fields operator ()(const char * index, uint32_t instance);
@@ -91,6 +91,8 @@ class c1 : public FT4FT8Fields {
   c1(void): FT4FT8Fields(1) { setType("c1"); }
   explicit c1(uint64_t data): FT4FT8Fields(1, data) { setType("c1"); }
   explicit c1(std::vector<bool> data): FT4FT8Fields(1, data) { setType("c1"); }
+  bool decode(void);
+  static c1 encode(bool isCQ);
 
   ~c1(void) {}
 };
@@ -104,7 +106,8 @@ class c28 : public FT4FT8Fields {
     /* fprintf(stderr, "c28 constructor with data %llu %p\n", data, this); */ }
   explicit c28(std::vector<bool> data): FT4FT8Fields(28, data) { setType("c28"); }
   static c28 encode(char * displayFormat);
-  char * decode(std::map<uint32_t, char *> * hash22);
+  char * decode(std::map<uint32_t, char *> * hash22, std::map<uint32_t, char *> * hash12,
+                std::map<uint32_t, char *> * hash10);
   c28 static convertToC28(const FT4FT8Fields& orig);
   c28(const c28& orig);
   ~c28(void) { /* fprintf(stderr, "in c28 destructor: %p\n", this); */ }
@@ -112,10 +115,13 @@ class c28 : public FT4FT8Fields {
 /* ---------------------------------------------------------------------- */
 class c58 : public FT4FT8Fields {
  private:
+  char callSign[12];
  public:
   c58(void): FT4FT8Fields(58) { setType("c58"); }
   explicit c58(uint64_t data): FT4FT8Fields(58, data) { setType("c58"); }
   explicit c58(std::vector<bool> data): FT4FT8Fields(58, data) { setType("c58"); }
+  char * decode(void);
+  c58 static encode(char * displayFormat);
 
   ~c58(void) {}
 };
@@ -159,6 +165,8 @@ class h1 : public FT4FT8Fields {
   h1(void): FT4FT8Fields(1) { setType("h1"); }
   explicit h1(uint64_t data): FT4FT8Fields(1, data) { setType("h1"); }
   explicit h1(std::vector<bool> data): FT4FT8Fields(1, data) { setType("h1"); }
+  bool decode(void);
+  static h1 encode(bool isSecond);
 
   ~h1(void) {}
 };
@@ -175,10 +183,14 @@ class h10 : public FT4FT8Fields {
 /* ---------------------------------------------------------------------- */
 class h12 : public FT4FT8Fields {
  private:
+  char callSign[12];
  public:
   h12(void): FT4FT8Fields(12) { setType("h12"); }
   explicit h12(uint64_t data): FT4FT8Fields(12, data) { setType("h12"); }
   explicit h12(std::vector<bool> data): FT4FT8Fields(12, data) { setType("h12"); }
+  char * decode(std::map<uint32_t, char *> * hash12);
+  h12 static encode(char * displayField, std::map<uint32_t, char *> * hash22,
+                    std::map<uint32_t, char *> * hash12, std::map<uint32_t, char *> * hash10);
 
   ~h12(void) {}
 };
@@ -238,10 +250,13 @@ class r1 : public FT4FT8Fields {
 /* ---------------------------------------------------------------------- */
 class r2 : public FT4FT8Fields {
  private:
+  char RR[5];
  public:
   r2(void): FT4FT8Fields(2) { setType("r2"); }
   explicit r2(uint64_t data): FT4FT8Fields(2, data) { setType("r2"); }
   explicit r2(std::vector<bool> data): FT4FT8Fields(2, data) { setType("r2"); }
+  char * decode(void);
+  static r2 encode(char * displayFormat);
 
   ~r2(void) {}
 };

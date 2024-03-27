@@ -14,13 +14,13 @@ const uint32_t FSIZE[MTend][10] = { {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
                                     {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
                                     {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
                                     {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
-                                    {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
+                                    {12, 58, 1, 2, 1,  0, 0,  0,  0, 0 },
                                     {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 } };
 const char * OVERLY[MTend][10] = { {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
                                    {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
                                    {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
                                    {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
-                                   {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
+                                   {"h12", "c58", "h1", "r2", "c1",    0,     0,      0,        0, 0 },
                                    {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 } };
 
 /* ---------------------------------------------------------------------- */
@@ -514,7 +514,7 @@ const char A4[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const char A5[] = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/";
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
-uint32_t FT4FT8Fields::isIn(char b, const char * a) {
+int32_t FT4FT8Fields::isIn(char b, const char * a) {
   int len = strlen(a);
   int rtn = -1;
   for (int i = 0; i < len; i++) {
@@ -577,7 +577,8 @@ c28 c28::encode(char * displayFormat) {
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
-char * c28::decode(std::map<uint32_t, char *> * hash22) {
+char * c28::decode(std::map<uint32_t, char *> * hash22, std::map<uint32_t, char *> *hash12, std::map<uint32_t, char *>
+                   * hash10) {
   // from Karlis Goba (YL3JG) ft8_lib https://github.com/kgoba/ft8_lib
   uint64_t binary = 0;
   for (int i = bits - 1; i >= 0; i--) {
@@ -606,6 +607,15 @@ char * c28::decode(std::map<uint32_t, char *> * hash22) {
       binary /= 36;
       working[0] = A1[binary];
       snprintf(callSign, sizeof(callSign), "%s", working);
+      // working may have leading blanks, suppress them
+      while (working[0] == ' ') {
+        bool allBlanks = true;
+        for (uint32_t i = 0; i < sizeof(working) - 1; i++) {
+          working[i] = (working[i+1] == 0) ? ' ' : working[i+1];
+          if (working[i] != ' ') allBlanks = false;
+        }
+        if (allBlanks) break;
+      }
       // now create and store a hash of this call sign - this is not thread safe
       uint64_t hash = 0;
       bool good = true;
@@ -617,30 +627,90 @@ char * c28::decode(std::map<uint32_t, char *> * hash22) {
         }
         hash = 38 * hash + index;
       }
+      // now trim trailing blanks
+      char * tthash = strdup(working);
+      for (int32_t i = strlen(tthash) - 1; i >= 0; i--) {
+        if (tthash[i] == ' ') {
+          tthash[i] = 0;
+        } else {
+          break;
+        }
+      }
+      snprintf(callSign, sizeof(callSign), "%s", tthash);
       if (good) {
         hash *= 47055833459LL;
         hash >>= 64 - 22;
-        if ((*hash22).find(binary) == (*hash22).end()) {
+        if ((*hash22).find(hash) == (*hash22).end()) {
           // don't overwrite an existing hash, or if you do, free the memory that has been allocated
-          (*hash22)[hash] = strdup(working);
+          // fprintf(stdout, "new hash of %6.6llx for %s\n", hash, working);
+          (*hash22)[hash] = tthash;  // release this memory in destructor and do it first
+          hash >>= 10;  // calculate a 12 bit hash
+          (*hash12)[hash] = tthash;  // don't release this memory in destructor
+          hash >>= 2;  // calculate a 10 bit hash
+          (*hash10)[hash] = tthash;  // don't release this memory in destructor
+        } else {
+          free(tthash);  //  free memory that isn't used in the hash tables
+          // fprintf(stdout, "suppressing hash of %6.6llx for %s\n", hash, working);
         }
       } else {
+        free(tthash);  //  free memory that isn't used in the hash tables
         fprintf(stdout, "failed to hash %s\n", working);
       }
-    } else if (binary >= 2062592) {
-      binary -= 2062592;
+    } else if (binary >= 2063592) {
+      binary -= 2063592;
       if ((*hash22).find(binary) != (*hash22).end()) {
-        snprintf(callSign, sizeof(callSign), "%s", (*hash22)[binary]);
+        fprintf(stdout, "hash found and being translated to %s\n", (*hash22)[binary]);
+        snprintf(callSign, sizeof(callSign), "<%s>", (*hash22)[binary]);
       } else {
-        fprintf(stderr, "Can't decode this hash callsign: %16.16llx\n", binary);
-        snprintf(callSign, sizeof(callSign), "hash");
+        fprintf(stdout, "Can't decode this hash callsign: %16.16llx, not in table\n", binary);
+        snprintf(callSign, sizeof(callSign), "<hash>");
       }
     } else {
-        fprintf(stderr, "Can't decode this callsign: %16.16llx\n", binary);
+        fprintf(stdout, "Can't decode this callsign: %16.16llx, out of range\n", binary);
         snprintf(callSign, sizeof(callSign), "unknown");
     }
   }
   return callSign;
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+char * c58::decode(void) {
+  // from Karlis Goba (YL3JG) ft8_lib https://github.com/kgoba/ft8_lib
+  uint64_t binary = 0;
+  for (int i = bits - 1; i >= 0; i--) {
+    binary |= (fieldBits[i] ? 1LL:0LL) << (bits - 1 - i);
+  }
+  char working[12];
+  memset(working, ' ', sizeof(working)-1); working[sizeof(working)-1] = 0;
+  for (int32_t i = sizeof(working) - 2; i >= 0; i--) {
+    working[i] = A5[binary % 38];
+    binary /= 38;
+  }
+  snprintf(callSign, sizeof(callSign), "%s", working);
+  return callSign;
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+c58 c58::encode(char * displayFormat) {
+  // from Karlis Goba (YL3JG) ft8_lib https://github.com/kgoba/ft8_lib
+  uint64_t binary = 0;
+  if (strlen(displayFormat) < sizeof(callSign)) {
+    for (uint32_t i = 0; i < sizeof(callSign) - 1; i++) {
+      int32_t index = 0;
+      if (i < strlen(displayFormat)) index = isIn(displayFormat[i], A5);
+      if (index < 0) {  // couldn't encode
+        fprintf(stderr, "c58 encode could not encode the value: %c\n", displayFormat[i]);
+        exit(-1);
+      } else {
+        binary *= 38;
+        binary += index;
+      }
+    }
+  } else {
+    fprintf(stderr, "c58 can't encode this callsign: %s\n", displayFormat);
+    exit(-1);
+  }
+  return c58(binary);
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
@@ -870,6 +940,141 @@ char * n3::decode(void) {
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
+char * h12::decode(std::map<uint32_t, char *> * hash12) {
+  uint64_t binary = 0;
+  for (int i = bits - 1; i >= 0; i--) {
+    binary |= (fieldBits[i] ? 1:0) << (bits - 1 - i);
+  }
+  if ((*hash12).find(binary) != (*hash12).end()) {
+    snprintf(callSign, sizeof(callSign), "<%s>", (*hash12)[binary]);
+  } else {
+    snprintf(callSign, sizeof(callSign), "<hash>");
+  }
+  return callSign;
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+h12 h12::encode(char * displayFormat, std::map<uint32_t, char *> * hash22, std::map<uint32_t, char *> * hash12,
+                std::map<uint32_t, char *> * hash10) {
+  uint64_t hash = 0;
+  uint64_t returnHash = 0;
+  bool good = true;
+  char working[12];
+  memset(working, ' ', sizeof(working)); working[11] = 0;
+  uint32_t targetIndex = 0;
+  for (uint32_t i = 0; i < strlen(displayFormat); i++) {
+    if ((displayFormat[i] == ' ') && (targetIndex == 0)) continue;
+    working[targetIndex++] = displayFormat[i];
+  }
+  for (uint32_t i = 0; i < strlen(working); i++) {
+    int32_t index = isIn(working[i], A5);
+    if (index < 0) {  // can't hash
+      good = false;
+      break;
+    }
+    hash = 38 * hash + index;
+  }
+  // now trim trailing blanks
+  char * tthash = strdup(working);
+  for (int32_t i = strlen(tthash) - 1; i >= 0; i--) {
+    if (tthash[i] == ' ') {
+      tthash[i] = 0;
+    } else {
+      break;
+    }
+  }
+  if (good) {
+    hash *= 47055833459LL;
+    hash >>= 64 - 22;
+    if ((*hash22).find(hash) == (*hash22).end()) {
+      // don't overwrite an existing hash, or if you do, free the memory that has been allocated
+      // fprintf(stdout, "new hash of %6.6llx for %s\n", hash, working);
+      (*hash22)[hash] = tthash;  // release this memory in destructor and do it first
+      hash >>= 10;  // calculate a 12 bit hash
+      returnHash = hash;
+      (*hash12)[hash] = tthash;  // don't release this memory in destructor
+      hash >>= 2;  // calculate a 10 bit hash
+      (*hash10)[hash] = tthash;  // don't release this memory in destructor
+    } else {
+      free(tthash);  //  free memory that isn't used in the hash tables
+      // fprintf(stdout, "suppressing hash of %6.6llx for %s\n", hash, working);
+    }
+  } else {
+    free(tthash);  //  free memory that isn't used in the hash tables
+    fprintf(stdout, "h12 couldn't encode hash for %s\n", displayFormat);
+    exit(-1);
+  }
+  return h12(returnHash);
+}
+/* ---------------------------------------------------------------------- */
+bool h1::decode(void) {
+  uint64_t binary = 0;
+  for (int i = bits - 1; i >= 0; i--) {
+    binary |= (fieldBits[i] ? 1:0) << (bits - 1 - i);
+  }
+  bool isSecond = binary == 1;
+  return isSecond;
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+h1 h1::encode(bool isSecond) {
+  uint64_t binary = isSecond ? 1 : 0;
+  return h1(binary);
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+bool c1::decode(void) {
+  uint64_t binary = 0;
+  for (int i = bits - 1; i >= 0; i--) {
+    binary |= (fieldBits[i] ? 1:0) << (bits - 1 - i);
+  }
+  bool isCQ = binary == 1;
+  return isCQ;
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+c1 c1::encode(bool isCQ) {
+  uint64_t binary = isCQ ? 1 : 0;
+  return c1(binary);
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+char * r2::decode(void) {
+  uint64_t binary = 0;
+  for (int i = bits - 1; i >= 0; i--) {
+    binary |= (fieldBits[i] ? 1:0) << (bits - 1 - i);
+  }
+  if (binary == 1) {
+    snprintf(RR, sizeof(RR), "RRR");
+  } else if (binary == 2) {
+    snprintf(RR, sizeof(RR), "RR73");
+  } else if (binary == 3) {
+    snprintf(RR, sizeof(RR), "73");
+  } else {
+    RR[0] = 0;
+  }
+  return RR;
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+r2 r2::encode(char * displayFormat) {
+  uint64_t binary = 0;
+  if (strcmp(displayFormat, "RRR") == 0) {
+    binary = 1;
+  } else if (strcmp(displayFormat, "RR73") == 0) {
+    binary = 2;
+  } else if (strcmp(displayFormat, "73") == 0) {
+    binary = 3;
+  } else if (strcmp(displayFormat, "") == 0) {
+    binary = 0;
+  } else {
+    fprintf(stderr, "Could not encode %s into r2 field\n", displayFormat);
+    exit(-1);
+  }
+  return r2(binary);
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
 costas21::costas21(void): FT4FT8Fields(21) {
   setType("costas21");
   fieldBits.push_back(false); fieldBits.push_back(true); fieldBits.push_back(true);    // 3
@@ -1061,7 +1266,7 @@ FT8Message237::FT8Message237(const FT4FT8Fields & orig): FT4FT8Fields(237) {
   }
 }
 /* ---------------------------------------------------------------------- */
-//#define SELFTEST 0
+// #define SELFTEST 0
 #ifdef SELFTEST
 #include <getopt.h>
 const char USAGE_STR[] = "%s --call_sign <KG5YJE>\n";
@@ -1124,7 +1329,7 @@ int main(int argc, char *argv[]) {
   corruptedMessage.toOctal();
   std::map<uint32_t, std::vector<uint32_t>> possibleBits;
   std::vector<bool> cm = corruptedMessage.getUnmappedPayloadBits();
-  // this loop should not any failures
+  // this loop should not have any failures
   for (uint32_t index = 0; index < 83; index++) {
     if (!FT4FT8Utilities::checkLdpc(cm, index, &possibleBits)) {
       fprintf(stderr, "LDPC parity check failed at index: %d\n", index);
@@ -1207,6 +1412,8 @@ int main(int argc, char *argv[]) {
 
   uint32_t rows = sizeof(testVectors)/sizeof(uint32_t) / 58;
   std::map<uint32_t, char *> hash22;
+  std::map<uint32_t, char *> hash12;
+  std::map<uint32_t, char *> hash10;
   for (uint32_t r = 0; r < rows; r++) {
     std::vector<bool> tV;
     for (uint32_t c = 0; c < 58; c++) {
@@ -1233,7 +1440,8 @@ int main(int argc, char *argv[]) {
           c28 senderCS = c28(b1);
           std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload, "g15", 0);
           g15 location = g15(l0);
-          fprintf(stderr, "%s %s %s\n", receivedCS.decode(&hash22), senderCS.decode(&hash22), location.decode());
+          fprintf(stderr, "%s %s %s\n", receivedCS.decode(&hash22, &hash12, &hash10),
+                  senderCS.decode(&hash22, &hash12, &hash10), location.decode());
         } else {
           fprintf(stderr, "decode of message type %s is not supported yet.\n", mI3.decode());
         }
@@ -1243,6 +1451,56 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  // tests for type 4 messages
+  char example[] = "ISAQU";
+  FT4FT8Fields f10 = h12::encode(example, &hash22, &hash12, &hash10);
+  f10.print();
+  char c58cs[] = "KG5YJE/1";
+  FT4FT8Fields f11 = c58::encode(c58cs);
+  fprintf(stderr, "f11 with c58cs\n");
+  f11.print();
+  FT4FT8Fields f12 = h1::encode(false);
+  fprintf(stderr, "f12 with false\n");
+  f12.print();
+  char r2field[] = "RR73";
+  FT4FT8Fields f13 = r2::encode(r2field);
+  fprintf(stderr, "f13 with RR73\n");
+  f13.print();
+  FT4FT8Fields f14 = c1::encode(true);
+  fprintf(stderr, "f14 with c1 true\n");
+  f14.print();
+  FT4FT8Fields type4 = f10 + f11 + f12 + f13 + f14;
+  fprintf(stderr, "type4 message\n");
+  type4.print();
+  char msg[128];
+  std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, type4,
+                                               "h12", 0);
+  h12 hashedCS = h12(b0);
+  std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, type4,
+                                               "c58", 0);
+  c58 extendedCS = c58(b1);
+  extendedCS.print();
+  std::vector<bool> b2 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, type4,
+                                               "h1", 0);
+  h1 hashIsSecond = h1(b2);
+  std::vector<bool> b3 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, type4,
+                                               "r2", 0);
+  r2 extra = r2(b3);
+  std::vector<bool> b4 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, type4,
+                                               "c1", 0);
+  c1 firstIsCQ = c1(b4);
+  if (firstIsCQ.decode()) {  // if first is CQ ignore hash field and extra
+    snprintf(msg, sizeof(msg), "CQ %s" , extendedCS.decode());
+  } else {
+    if (hashIsSecond.decode()) {  // flip the order of the call signs
+      snprintf(msg, sizeof(msg), "%s %s %s", extendedCS.decode(),
+               hashedCS.decode(&hash12), extra.decode());
+    } else {
+      snprintf(msg, sizeof(msg), "%s %s %s",
+               hashedCS.decode(&hash12), extendedCS.decode(), extra.decode());
+    }
+  }
+  fprintf(stderr, "Decoded type 4 message: %s\n", msg);
   return 0;
 }
 #endif
