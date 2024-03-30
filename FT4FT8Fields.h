@@ -227,10 +227,13 @@ class n4 : public FT4FT8Fields {
 /* ---------------------------------------------------------------------- */
 class p1 : public FT4FT8Fields {
  private:
+  char p1char[3];
  public:
   p1(void): FT4FT8Fields(1) { setType("p1"); }
   explicit p1(uint64_t data): FT4FT8Fields(1, data) { setType("p1"); }
   explicit p1(std::vector<bool> data): FT4FT8Fields(1, data) { setType("p1"); }
+  static p1 encode(char * displayFormat);
+  char * decode();
 
   ~p1(void) {}
 };

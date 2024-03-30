@@ -10,15 +10,15 @@
 #include <math.h>
 #include <cstring>
 #include "FT4FT8Fields.h"
-const uint32_t FSIZE[MTend][10] = { {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
+const uint32_t FSIZE[MTend][10] = { {71, 3,  0, 0, 0,  0, 0,  0,  0, 0 },
                                     {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
                                     {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
                                     {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 },
                                     {12, 58, 1, 2, 1,  0, 0,  0,  0, 0 },
                                     {28, 1, 28, 1, 1, 15, 3, 14, 83, 0 } };
-const char * OVERLY[MTend][10] = { {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
+const char * OVERLY[MTend][10] = { {"f71", "n3",     0,    0,    0,     0,    0,      0,        0, 0 },
                                    {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
-                                   {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
+                                   {"c28", "p1", "c28", "p1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
                                    {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 },
                                    {"h12", "c58", "h1", "r2", "c1",    0,     0,      0,        0, 0 },
                                    {"c28", "r1", "c28", "r1", "R1", "g15", "i3", "cs14", "ldpc83", 0 } };
@@ -42,7 +42,7 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits) {
 FT4FT8Fields::FT4FT8Fields(uint32_t bits, uint64_t data) {
   // fprintf(stderr, "in base class constructor, setting input: %d bits, %llu data %p\n", bits, data, this);
   if (pow(2.0, bits) <= data) {
-    fprintf(stderr, "data (%llu) can't fit in %d bits\n", data, bits);
+    fprintf(stderr, "data (%lu) can't fit in %d bits\n", data, bits);
     exit(-1);
   }
   this->bits = bits;
@@ -98,7 +98,7 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, uint64_t data) {
 FT4FT8Fields::FT4FT8Fields(uint32_t bits, uint64_t data, const char * fieldType) {
   // fprintf(stderr, "in base class constructor, setting input: %d bits, %llu data %p\n", bits, data, this);
   if (pow(2.0, bits) <= data) {
-    fprintf(stderr, "data (%llu) can't fit in %d bits\n", data, bits);
+    fprintf(stderr, "data (%lu) can't fit in %d bits\n", data, bits);
     exit(-1);
   }
   this->bits = bits;
@@ -158,7 +158,7 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, std::vector<bool> data) {
   // fprintf(stderr, "in base class constructor, setting input: %d bits, vector of boolean data size: %d %p\n", bits,
   //         data.size(), this);
   if (bits != data.size()) {
-    fprintf(stderr, "data vector of size %u, can't fit in %d bits\n", data.size(), bits);
+    fprintf(stderr, "data vector of size %lu, can't fit in %d bits\n", data.size(), bits);
     exit(-1);
   }
   this->bits = bits;
@@ -184,7 +184,7 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<co
   // fprintf(stderr, "in base class constructor, setting input: %d bits, vector of boolean data size: %d %p\n", bits,
   //         data.size(), this);
   if (bits != data.size()) {
-    fprintf(stderr, "data vector of size %u, can't fit in %d bits\n", data.size(), bits);
+    fprintf(stderr, "data vector of size %lu, can't fit in %d bits\n", data.size(), bits);
     exit(-1);
   }
   if (fields.size() != 1) {
@@ -216,7 +216,7 @@ FT4FT8Fields::FT4FT8Fields(uint32_t bits, std::vector<bool> data, std::vector<co
   // fprintf(stderr, "in base class constructor, setting input: %d bits, vector of boolean data size: %d %p\n", bits,
   //         data.size(), this);
   if (bits != data.size()) {
-    fprintf(stderr, "data vector of size %u, can't fit in %d bits\n", data.size(), bits);
+    fprintf(stderr, "data vector of size %lu, can't fit in %d bits\n", data.size(), bits);
     exit(-1);
   }
   this->bits = bits;
@@ -299,7 +299,7 @@ c28 c28::convertToC28(const FT4FT8Fields& orig) {
 /* ---------------------------------------------------------------------- */
 void FT4FT8Fields::print(void) const {
   fprintf(stderr, "FT4FT8Fields object at %p\n", this);
-  fprintf(stderr, "bits: %d, number of bytes: %d, bit vector size: %d\n", bits, bytes, fieldBits.size());
+  fprintf(stderr, "bits: %d, number of bytes: %d, bit vector size: %ld\n", bits, bytes, fieldBits.size());
   if (bytes) { fprintf(stderr, "%p", fieldBytes); }
   for (uint32_t i = 0; i < bytes; i++) {
     fprintf(stderr, " %2.2x", fieldBytes[i]);
@@ -662,11 +662,11 @@ char * c28::decode(std::map<uint32_t, char *> * hash22, std::map<uint32_t, char 
         fprintf(stdout, "hash found and being translated to %s\n", (*hash22)[binary]);
         snprintf(callSign, sizeof(callSign), "<%s>", (*hash22)[binary]);
       } else {
-        fprintf(stdout, "Can't decode this hash callsign: %16.16llx, not in table\n", binary);
+        fprintf(stdout, "Can't decode this hash callsign: %16.16lx, not in table\n", binary);
         snprintf(callSign, sizeof(callSign), "<hash>");
       }
     } else {
-        fprintf(stdout, "Can't decode this callsign: %16.16llx, out of range\n", binary);
+        fprintf(stdout, "Can't decode this callsign: %16.16lx, out of range\n", binary);
         snprintf(callSign, sizeof(callSign), "unknown");
     }
   }
@@ -808,6 +808,52 @@ r1 r1::encode(char * displayFormat) {
     exit(-1);
   }
   return r1(binary);
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+char * p1::decode(void) {
+  // from Karlis Goba (YL3JG) ft8_lib https://github.com/kgoba/ft8_lib
+  uint64_t binary = 0;
+  for (int i = bits - 1; i >= 0; i--) {
+    binary |= (fieldBits[i] ? 1:0) << (bits - 1 - i);
+  }
+  bool status = false;  // error occurred
+  char working[3];
+  if (binary == 0) {
+    working[0] = 0;
+  } else if (binary == 1) {
+    working[0]= '/';
+    working[1]= 'P';
+    working[2] = 0;
+  } else {
+    status = true;
+  }
+  if (status) {  // if error occurred
+    exit(-1);
+  }
+  snprintf(p1char, sizeof(p1char), "%s", working);
+  return p1char;
+}
+/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
+p1 p1::encode(char * displayFormat) {
+  // from Karlis Goba (YL3JG) ft8_lib https://github.com/kgoba/ft8_lib
+  uint64_t binary = 0;
+  char * copy = strdup(displayFormat);
+  bool status = false;  // error occurred
+  if (strcmp(copy, "/P") == 0) {
+    binary = 1;
+  } else if (strlen(copy) == 0) {
+    binary = 0;
+  } else {  // it is not valide
+    fprintf(stderr, "Can't encode this suffix: %s\n", copy);
+    status = true;
+  }
+  free(copy);
+  if (status) {  // if error occurred
+    exit(-1);
+  }
+  return p1(binary);
 }
 /* ---------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
@@ -1120,7 +1166,7 @@ payload174::payload174(const FT4FT8Fields & parts): FT4FT8Fields(174) {
 /* ---------------------------------------------------------------------- */
 payload174::payload174(const std::vector<bool> & data): FT4FT8Fields(174) {
   if (data.size() != 174) {
-    fprintf(stderr, "Bit vector (%d) is not a consistent size for a payload (174)\n", data.size());
+    fprintf(stderr, "Bit vector (%ld) is not a consistent size for a payload (174)\n", data.size());
     exit(-1);
   }
   fieldBits = data;

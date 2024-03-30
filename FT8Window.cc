@@ -313,19 +313,49 @@ void FT8Window::doWork() {
                                       std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
                                                                                    "c28", 0);
                                       c28 receivedCS = c28(b0);
+                                      std::vector<bool> s0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
+                                                                                   "r1", 0);
+                                      r1 receivedCSSuf = r1(s0);
                                       std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
                                                                                    "c28", 1);
                                       c28 senderCS = c28(b1);
+                                      std::vector<bool> s1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
+                                                                                   "r1", 1);
+                                      r1 senderCSSuf = r1(s1);
                                       std::vector<bool> R0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
                                                                                    "R1", 0);
                                       R1 R = R1(R0);
                                       std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
                                                                                    "g15", 0);
                                       g15 location = g15(l0);
-                                      snprintf(msg, sizeof(msg), "%s %s %s%s",
-                                               receivedCS.decode(&hash22, &hash12, &hash10),
-                                               senderCS.decode(&hash22, &hash12, &hash10), R.decode(),
-                                               location.decode());
+                                      snprintf(msg, sizeof(msg), "%s%s %s%s %s%s",
+                                               receivedCS.decode(&hash22, &hash12, &hash10), receivedCSSuf.decode(),
+                                               senderCS.decode(&hash22, &hash12, &hash10), senderCSSuf.decode(),
+                                               R.decode(), location.decode());
+                                    } else if (strcmp(mI3.decode(), "2") == 0) {
+                                      fprintf(stdout, "processing message type 2\n");
+                                      std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2, payload,
+                                                                                   "c28", 0);
+                                      c28 receivedCS = c28(b0);
+                                      std::vector<bool> s0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2, payload,
+                                                                                   "p1", 0);
+                                      p1 receivedCSSuf = p1(s0);
+                                      std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2, payload,
+                                                                                   "c28", 1);
+                                      c28 senderCS = c28(b1);
+                                      std::vector<bool> s1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2, payload,
+                                                                                   "p1", 1);
+                                      p1 senderCSSuf = p1(s1);
+                                      std::vector<bool> R0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2, payload,
+                                                                                   "R1", 0);
+                                      R1 R = R1(R0);
+                                      std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2, payload,
+                                                                                   "g15", 0);
+                                      g15 location = g15(l0);
+                                      snprintf(msg, sizeof(msg), "%s%s %s%s %s%s",
+                                               receivedCS.decode(&hash22, &hash12, &hash10), receivedCSSuf.decode(),
+                                               senderCS.decode(&hash22, &hash12, &hash10), senderCSSuf.decode(),
+                                               R.decode(), location.decode());
                                     } else if (strcmp(mI3.decode(), "4") == 0) {
                                       fprintf(stdout, "processing message type 4\n");
                                       std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, payload,
@@ -354,6 +384,13 @@ void FT8Window::doWork() {
                                                    hashedCS.decode(&hash12), extendedCS.decode(), extra.decode());
                                         }
                                       }
+                                    } else if (strcmp(mI3.decode(), "0") == 0) {
+                                      fprintf(stdout, "processing message type 0\n");
+                                      std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type0, payload,
+                                                                                   "n3", 0);
+                                      n3 type0Type = n3(b0);
+                                      fprintf(stdout, "type 0 subtype: %s\n", type0Type.decode());
+                                      msg[0] = 0;
                                     } else {
                                       fprintf(stdout, "Msg decode of message type %s is not supported yet.\n",
                                               mI3.decode());

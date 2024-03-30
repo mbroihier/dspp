@@ -16,7 +16,7 @@
 std::vector<bool>  FT4FT8Utilities::crc(std::vector<bool> message) {
   const bool div[] = {true, true, false, false, true, true, true, false, true, false, true, false, true, true, true};
   if (message.size() != 77) {
-    fprintf(stderr, "Message to CRC is not 77 bits, it is %d bits\n", message.size());
+    fprintf(stderr, "Message to CRC is not 77 bits, it is %ld bits\n", message.size());
     exit(-1);
   }
   // zero pad to 82 bits and then add 14 more zeros that will eventually contain the checksum
