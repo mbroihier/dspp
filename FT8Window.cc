@@ -222,8 +222,6 @@ void FT8Window::doWork() {
                                                     freqBinsToProcess[bin] * 2 + 1];
                               float m = sqrt(r * r + i * i);
                               sr.magSlice.push_back(m);
-                              sr.r.push_back(r);
-                              sr.i.push_back(i);
                               acc += m;
                               accBinLoc += bin * m;
                             }
@@ -244,7 +242,6 @@ void FT8Window::doWork() {
                           }
                           FT8SpotCandidate candidate(currentPeakBin, candidateInfo, deltaFreq, size);
                           if (!candidate.isValid()) continue;
-                          //if (shift == 0) candidate.printReport();
                           double ll174[174];
                           int p174[174];
                           int status = 0;

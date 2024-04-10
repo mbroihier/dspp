@@ -16,7 +16,7 @@
 class FT8SpotCandidate {
  public:
   struct StartEnd { int start; int end; };
-  struct SampleRecord { float centroid; float magnitude; std::vector<float> r; std::vector<float> i;
+  struct SampleRecord { float centroid; float magnitude;
     std::vector<float> magSlice; int timeStamp; float timeSeconds; };
   static const int WINDOW = 11;
   static const int HALF_WINDOW = 5;
