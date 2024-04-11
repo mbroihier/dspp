@@ -8,23 +8,22 @@
 
 /* ---------------------------------------------------------------------- */
 
-#include <algorithm>
-#include <map>
 #include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <thread>
 #include <unistd.h>
 #include <string.h>
+#include <algorithm>
+#include <map>
+#include <thread>
 #include "FT4FT8Fields.h"
 #include "FT8SpotCandidate.h"
 #include "FT8Window.h"
 #include "FT8Utilities.h"
-#include "unpack.h"
-//#define SELFTEST 1
+// #define SELFTEST 1
 
 /* ---------------------------------------------------------------------- */
 void FT8Window::init(int size, int number, char * prefix, float dialFreq, char * reporterID,
@@ -46,7 +45,7 @@ void FT8Window::init(int size, int number, char * prefix, float dialFreq, char *
   mag = reinterpret_cast<float *>(malloc(size * sizeof(float)));
   sortedMag = reinterpret_cast<float *>(malloc(size * sizeof(float)));
   magAcc = reinterpret_cast<float *>(malloc(size * sizeof(float)));
-  sampleBufferSize = (int) freq * PROCESSING_SIZE * 2;
+  sampleBufferSize = static_cast<int>(freq) * PROCESSING_SIZE * 2;
   tic = 0;
   memset(magAcc, 0, size * sizeof(float));
   for (int index = 0; index < size * 2 * FFTS_PER_SHIFT * SHIFTS; index++) {
@@ -108,8 +107,6 @@ int FT8Window::remap(std::vector<int> tokens, std::vector<int> &symbols, int map
 }
 
 void FT8Window::doWork() {
-  //void ldpc_decode(double llcodeword[], int iters, int plain[], int *ok);
-  //void ft8_crc(int msg1[], int msglen, int out[14]);
   pid_t background = 0;
 
   time_t now;
@@ -169,7 +166,7 @@ void FT8Window::doWork() {
                         }
                       }
 
-                      calculateSNR(magAcc); // also sets binArray
+                      calculateSNR(magAcc);  // also sets binArray
 
                       for (int i = 0; i < size; i++) {
                         bool inBinArray = false;
@@ -189,252 +186,280 @@ void FT8Window::doWork() {
 
                       // Scan sequences of FFTs looking for FT8 signal
                       // For each peak
-                      std::vector<int> symbolVector;
+                      std::vector<std::thread *> canThreads;
                       for (int currentPeakIndex = 0; currentPeakIndex < number; currentPeakIndex++) {
-                        int currentPeakBin = binArray[currentPeakIndex];
-                        int freqBinsToProcess[FT8SpotCandidate::WINDOW];
-                        int offset = FT8SpotCandidate::WINDOW / 2;
-                        for (int i = -offset; i <= offset; i++) {
-                          if (i < 0) {
-                            freqBinsToProcess[i + offset] = ((currentPeakBin + i) >= 0) ?
-                              currentPeakBin + i : size + (currentPeakBin + i);
-                          } else {
-                            freqBinsToProcess[i + offset] = (currentPeakBin + i) % size;
-                          }
-                        }
-                        std::vector<FT8SpotCandidate::SampleRecord> candidateInfo;
-                        for (int shift = 0; shift < SHIFTS; shift += 10) {
-                          fprintf(stderr, "Bin %d, processing sample shift of %d\n", currentPeakBin, shift);
-                          candidateInfo.clear();  // clear information for this cycle
-                          for (int t = 0; t < FFTS_PER_SHIFT; t++) {
-                            FT8SpotCandidate::SampleRecord sr;
-                            sr.centroid = 0.0;
-                            sr.magnitude = 0.0;
-                            sr.magSlice.clear();
-                            sr.timeStamp = t;
-                            sr.timeSeconds = t * deltaTime;
-                            float acc = 0.0;
-                            float accBinLoc = 0.0;
-                            for (int bin = 0; bin < FT8SpotCandidate::WINDOW; bin++) {
-                              float r = fftOverTime[shift * FFTS_PER_SHIFT * size * 2 + t * size * 2 +
-                                                    freqBinsToProcess[bin] * 2];
-                              float i = fftOverTime[shift * FFTS_PER_SHIFT * size * 2 + t * size * 2 +
-                                                    freqBinsToProcess[bin] * 2 + 1];
-                              float m = sqrt(r * r + i * i);
-                              sr.magSlice.push_back(m);
-                              acc += m;
-                              accBinLoc += bin * m;
-                            }
-                            if (acc > 1.0) {
-                              sr.centroid = accBinLoc / acc;
-                              sr.magnitude = acc;
-                              candidateInfo.push_back(sr);
-                            } else {
-                              sr.centroid = 0.0;
-                              sr.magnitude = acc;
-                              candidateInfo.push_back(sr);
-                              fprintf(stderr, "Error - should always be able to generate a centroid\n");
-                              fprintf(stderr, "FFT sample %d, in shift %d\n", t, shift);
-                              fprintf(stderr, "currentPeakIndex: %d, currentPeakBin: %d\n",
-                                      currentPeakIndex, currentPeakBin);
-                              break;
-                            }
-                          }
-                          FT8SpotCandidate candidate(currentPeakBin, candidateInfo, deltaFreq, size);
-                          if (!candidate.isValid()) continue;
-                          double ll174[174];
-                          int p174[174];
-                          int status = 0;
-                          int numberOfSymbolSets = candidateInfo.size() - NOMINAL_NUMBER_OF_SYMBOLS + 1;
-                          fprintf(stderr, "number of symbol sets: %d (%ld - %d + 1)\n", numberOfSymbolSets,
-                                  candidateInfo.size(), NOMINAL_NUMBER_OF_SYMBOLS);
-                          for (int symbolSet = 0; symbolSet < numberOfSymbolSets; symbolSet++) {
-                            std::vector<FT8SpotCandidate::SampleRecord> subset;
-                            for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
-                              subset.push_back(candidateInfo[index + symbolSet]);
-                            }
-                            std::vector<int>  tokens;
-                            float snr = 0.0;
-                            float slope = 0.0;
-                            candidate.tokenize(size, subset, tokens, slope);
-                            fprintf(stderr, "tokenization returned %ld tokens\n", tokens.size());
-                            if (tokens.size() == 0) continue;
-                            snr = SNRData[currentPeakIndex].SNR;
-                            for (int remapIndex = 0; remapIndex < 24; remapIndex += 24) {
-                              int symbolMetric = remap(tokens, symbolVector, remapIndex, ll174);
-                              fprintf(stderr, "symbol metric after remap(%d): %d, peak bin: %d\n",
-                                      remapIndex, symbolMetric, currentPeakBin);
-                              for (auto entry : symbolVector) {
-                                fprintf(stderr, "%2d", entry);
-                              }
-                              fprintf(stderr, " end of symbols\n");
-                              if (symbolMetric < 6) continue;  // if match is not good enough, go to next remapping
-                              std::vector<bool> bits;
-                              for (auto value : symbolVector) {
-                                bits.push_back(value & 0x4);
-                                bits.push_back(value & 0x2);
-                                bits.push_back(value & 0x1);
-                              }
-                              std::vector<bool> correctedBits;
-                              status = FT4FT8Utilities::ldpcDecode(bits, 15, &correctedBits);
-                              if (correctedBits.size() != 174) continue;
-                              payload174 payload = payload174(correctedBits);
-                              int * p174ptr = &p174[0];
-                              int nonZero = 0;
-                              for (auto b : correctedBits) {
-                                *p174ptr++ = b ? 1:0;
-                                nonZero += b ? 1:0;
-                              }
-                              fprintf(stderr, " ldpc decode status: %d\n", status);
-                              if (status >= 83) { // it is good enough
-                                candidate.printReport();
-                                if (nonZero) {
-                                  fprintf(stderr, "checking CRC\n");
-                                  bool dontMatch = false;
-                                  if (FT4FT8Utilities::crc(payload("generic77", 0, true)) ==
-                                      payload("cs14", 0, true)) {
-                                    dontMatch = false;
-                                  } else {
-                                    dontMatch = true;
-                                  }
-                                  if (!dontMatch) {
-                                    char msg[50];
-                                    fprintf(stderr, "CRCs match!, bin: %d, shift: %d, symbol set %d\n",
-                                            currentPeakBin, shift, symbolSet);
-                                    //std::string msg = unpack(p174);
-                                    std::vector<bool> i0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
-                                                                                 "i3", 0);
-                                    i3 mI3 = i3(i0);
-                                    if (strcmp(mI3.decode(), "1") == 0) {
-                                      fprintf(stdout, "processing message type 1\n");
-                                      std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
-                                                                                   "c28", 0);
-                                      c28 receivedCS = c28(b0);
-                                      std::vector<bool> s0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
-                                                                                   "r1", 0);
-                                      r1 receivedCSSuf = r1(s0);
-                                      std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
-                                                                                   "c28", 1);
-                                      c28 senderCS = c28(b1);
-                                      std::vector<bool> s1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
-                                                                                   "r1", 1);
-                                      r1 senderCSSuf = r1(s1);
-                                      std::vector<bool> R0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
-                                                                                   "R1", 0);
-                                      R1 R = R1(R0);
-                                      std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1, payload,
-                                                                                   "g15", 0);
-                                      g15 location = g15(l0);
-                                      snprintf(msg, sizeof(msg), "%s%s %s%s %s%s",
-                                               receivedCS.decode(&hash22, &hash12, &hash10), receivedCSSuf.decode(),
-                                               senderCS.decode(&hash22, &hash12, &hash10), senderCSSuf.decode(),
-                                               R.decode(), location.decode());
-                                    } else if (strcmp(mI3.decode(), "2") == 0) {
-                                      fprintf(stdout, "processing message type 2\n");
-                                      std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2, payload,
-                                                                                   "c28", 0);
-                                      c28 receivedCS = c28(b0);
-                                      std::vector<bool> s0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2, payload,
-                                                                                   "p1", 0);
-                                      p1 receivedCSSuf = p1(s0);
-                                      std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2, payload,
-                                                                                   "c28", 1);
-                                      c28 senderCS = c28(b1);
-                                      std::vector<bool> s1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2, payload,
-                                                                                   "p1", 1);
-                                      p1 senderCSSuf = p1(s1);
-                                      std::vector<bool> R0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2, payload,
-                                                                                   "R1", 0);
-                                      R1 R = R1(R0);
-                                      std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2, payload,
-                                                                                   "g15", 0);
-                                      g15 location = g15(l0);
-                                      snprintf(msg, sizeof(msg), "%s%s %s%s %s%s",
-                                               receivedCS.decode(&hash22, &hash12, &hash10), receivedCSSuf.decode(),
-                                               senderCS.decode(&hash22, &hash12, &hash10), senderCSSuf.decode(),
-                                               R.decode(), location.decode());
-                                    } else if (strcmp(mI3.decode(), "4") == 0) {
-                                      fprintf(stdout, "processing message type 4\n");
-                                      std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, payload,
-                                                                                   "h12", 0);
-                                      h12 hashedCS = h12(b0);
-                                      std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, payload,
-                                                                                   "c58", 0);
-                                      c58 extendedCS = c58(b1);
-                                      std::vector<bool> b2 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, payload,
-                                                                                   "h1", 0);
-                                      h1 hashIsSecond = h1(b2);
-                                      std::vector<bool> b3 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, payload,
-                                                                                   "r2", 0);
-                                      r2 extra = r2(b3);
-                                      std::vector<bool> b4 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4, payload,
-                                                                                   "c1", 0);
-                                      c1 firstIsCQ = c1(b4);
-                                      if (firstIsCQ.decode()) { // if first is CQ ignore hash field and extra
-                                        snprintf(msg, sizeof(msg), "CQ %s" , extendedCS.decode());
-                                      } else {
-                                        if (hashIsSecond.decode()) {  // flip the order of the call signs
-                                          snprintf(msg, sizeof(msg), "%s %s %s", extendedCS.decode(),
-                                                   hashedCS.decode(&hash12), extra.decode());
+                        auto doit = [ &hash22, &hash12, &hash10,
+                                      &candidates, &spotTime, &numberOfCandidates, this]
+                          (int currentPeakIndex, float deltaTime) {
+                                      std::vector<int> symbolVector;
+                                      int currentPeakBin = binArray[currentPeakIndex];
+                                      int freqBinsToProcess[FT8SpotCandidate::WINDOW];
+                                      int offset = FT8SpotCandidate::WINDOW / 2;
+                                      for (int i = -offset; i <= offset; i++) {
+                                        if (i < 0) {
+                                          freqBinsToProcess[i + offset] = ((currentPeakBin + i) >= 0) ?
+                                            currentPeakBin + i : size + (currentPeakBin + i);
                                         } else {
-                                          snprintf(msg, sizeof(msg), "%s %s %s",
-                                                   hashedCS.decode(&hash12), extendedCS.decode(), extra.decode());
+                                          freqBinsToProcess[i + offset] = (currentPeakBin + i) % size;
                                         }
                                       }
-                                    } else if (strcmp(mI3.decode(), "0") == 0) {
-                                      fprintf(stdout, "processing message type 0\n");
-                                      std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type0, payload,
-                                                                                   "n3", 0);
-                                      n3 type0Type = n3(b0);
-                                      fprintf(stdout, "type 0 subtype: %s\n", type0Type.decode());
-                                      msg[0] = 0;
-                                    } else {
-                                      fprintf(stdout, "Msg decode of message type %s is not supported yet.\n",
-                                              mI3.decode());
-                                      msg[0] = 0;
-                                    }
-                                    bool newCand = true;
-                                    for (auto iter = candidates.begin(); iter != candidates.end(); iter++) {
-                                      if ((strcmp((*iter).second.message, msg) == 0) &&
-                                          (fabs((*iter).second.freq - (dialFreq + 1500.0 +
-                                                                       candidate.getFrequency())) < 25.0)) {
-                                        newCand = false;
-                                        (*iter).second.occurrence++;
-                                        int normalizedShift = symbolSet * 512 + shift;
-                                        (*iter).second.shift += normalizedShift;
-                                        if (snr > (*iter).second.snr) {
-                                          (*iter).second.snr = snr;
+                                      std::vector<FT8SpotCandidate::SampleRecord> candidateInfo;
+                                      for (int shift = 0; shift < SHIFTS; shift += 10) {
+                                        fprintf(stderr, "Bin %d, processing sample shift of %d\n", currentPeakBin,
+                                                shift);
+                                        candidateInfo.clear();  // clear information for this cycle
+                                        for (int t = 0; t < FFTS_PER_SHIFT; t++) {
+                                          FT8SpotCandidate::SampleRecord sr;
+                                          sr.centroid = 0.0;
+                                          sr.magnitude = 0.0;
+                                          sr.magSlice.clear();
+                                          sr.timeStamp = t;
+                                          sr.timeSeconds = t * deltaTime;
+                                          float acc = 0.0;
+                                          float accBinLoc = 0.0;
+                                          for (int bin = 0; bin < FT8SpotCandidate::WINDOW; bin++) {
+                                            float r = fftOverTime[shift * FFTS_PER_SHIFT * size * 2 + t * size * 2 +
+                                                                  freqBinsToProcess[bin] * 2];
+                                            float i = fftOverTime[shift * FFTS_PER_SHIFT * size * 2 + t * size * 2 +
+                                                                  freqBinsToProcess[bin] * 2 + 1];
+                                            float m = sqrt(r * r + i * i);
+                                            sr.magSlice.push_back(m);
+                                            acc += m;
+                                            accBinLoc += bin * m;
+                                          }
+                                          if (acc > 1.0) {
+                                            sr.centroid = accBinLoc / acc;
+                                            sr.magnitude = acc;
+                                            candidateInfo.push_back(sr);
+                                          } else {
+                                            sr.centroid = 0.0;
+                                            sr.magnitude = acc;
+                                            candidateInfo.push_back(sr);
+                                            fprintf(stderr, "Error - should always be able to generate a centroid\n");
+                                            fprintf(stderr, "FFT sample %d, in shift %d\n", t, shift);
+                                            fprintf(stderr, "currentPeakIndex: %d, currentPeakBin: %d\n",
+                                                    currentPeakIndex, currentPeakBin);
+                                            break;
+                                          }
+                                        }
+                                        FT8SpotCandidate candidate(currentPeakBin, candidateInfo, deltaFreq, size);
+                                        if (!candidate.isValid()) continue;
+                                        double ll174[174];
+                                        int p174[174];
+                                        int status = 0;
+                                        int numberOfSymbolSets = candidateInfo.size() - NOMINAL_NUMBER_OF_SYMBOLS + 1;
+                                        fprintf(stderr, "number of symbol sets: %d (%ld - %d + 1)\n",
+                                                numberOfSymbolSets, candidateInfo.size(), NOMINAL_NUMBER_OF_SYMBOLS);
+                                        for (int symbolSet = 0; symbolSet < numberOfSymbolSets; symbolSet++) {
+                                          std::vector<FT8SpotCandidate::SampleRecord> subset;
+                                          for (int index = 0; index < NOMINAL_NUMBER_OF_SYMBOLS; index++) {
+                                            subset.push_back(candidateInfo[index + symbolSet]);
+                                          }
+                                          std::vector<int>  tokens;
+                                          float snr = 0.0;
+                                          float slope = 0.0;
+                                          candidate.tokenize(size, subset, tokens, slope);
+                                          fprintf(stderr, "tokenization returned %ld tokens\n", tokens.size());
+                                          if (tokens.size() == 0) continue;
+                                          snr = SNRData[currentPeakIndex].SNR;
+                                          for (int remapIndex = 0; remapIndex < 24; remapIndex += 24) {
+                                            int symbolMetric = remap(tokens, symbolVector, remapIndex, ll174);
+                                            fprintf(stderr, "symbol metric after remap(%d): %d, peak bin: %d\n",
+                                                    remapIndex, symbolMetric, currentPeakBin);
+                                            for (auto entry : symbolVector) {
+                                              fprintf(stderr, "%2d", entry);
+                                            }
+                                            fprintf(stderr, " end of symbols\n");
+                                            if (symbolMetric < 6) continue;  // if match is not good enough,
+                                                                             //   go to next remapping
+                                            std::vector<bool> bits;
+                                            for (auto value : symbolVector) {
+                                              bits.push_back(value & 0x4);
+                                              bits.push_back(value & 0x2);
+                                              bits.push_back(value & 0x1);
+                                            }
+                                            std::vector<bool> correctedBits;
+                                            status = FT4FT8Utilities::ldpcDecode(bits, 15, &correctedBits);
+                                            if (correctedBits.size() != 174) continue;
+                                            payload174 payload = payload174(correctedBits);
+                                            int * p174ptr = &p174[0];
+                                            int nonZero = 0;
+                                            for (auto b : correctedBits) {
+                                              *p174ptr++ = b ? 1:0;
+                                              nonZero += b ? 1:0;
+                                            }
+                                            fprintf(stderr, " ldpc decode status: %d\n", status);
+                                            if (status >= 83) {  // it is good enough
+                                              candidate.printReport();
+                                              if (nonZero) {
+                                                fprintf(stderr, "checking CRC\n");
+                                                bool dontMatch = false;
+                                                if (FT4FT8Utilities::crc(payload("generic77", 0, true)) ==
+                                                    payload("cs14", 0, true)) {
+                                                  dontMatch = false;
+                                                } else {
+                                                  dontMatch = true;
+                                                }
+                                                if (!dontMatch) {
+                                                  char msg[50];
+                                                  fprintf(stderr, "CRCs match!, bin: %d, shift: %d, symbol set %d\n",
+                                                          currentPeakBin, shift, symbolSet);
+                                                  std::vector<bool> i0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1,
+                                                                                               payload, "i3", 0);
+                                                  i3 mI3 = i3(i0);
+                                                  if (strcmp(mI3.decode(), "1") == 0) {
+                                                    fprintf(stdout, "processing message type 1\n");
+                                                    std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1,
+                                                                                                 payload, "c28", 0);
+                                                    c28 receivedCS = c28(b0);
+                                                    std::vector<bool> s0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1,
+                                                                                                 payload, "r1", 0);
+                                                    r1 receivedCSSuf = r1(s0);
+                                                    std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1,
+                                                                                                 payload, "c28", 1);
+                                                    c28 senderCS = c28(b1);
+                                                    std::vector<bool> s1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1,
+                                                                                                 payload, "r1", 1);
+                                                    r1 senderCSSuf = r1(s1);
+                                                    std::vector<bool> R0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1,
+                                                                                                 payload, "R1", 0);
+                                                    R1 R = R1(R0);
+                                                    std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type1,
+                                                                                                 payload, "g15", 0);
+                                                    g15 location = g15(l0);
+                                                    threadDataMutex.lock();
+                                                    snprintf(msg, sizeof(msg), "%s%s %s%s %s%s",
+                                                             receivedCS.decode(&hash22, &hash12, &hash10),
+                                                             receivedCSSuf.decode(),
+                                                             senderCS.decode(&hash22, &hash12, &hash10),
+                                                             senderCSSuf.decode(),
+                                                             R.decode(), location.decode());
+                                                    threadDataMutex.unlock();
+                                                  } else if (strcmp(mI3.decode(), "2") == 0) {
+                                                    fprintf(stdout, "processing message type 2\n");
+                                                    std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2,
+                                                                                                 payload, "c28", 0);
+                                                    c28 receivedCS = c28(b0);
+                                                    std::vector<bool> s0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2,
+                                                                                                 payload, "p1", 0);
+                                                    p1 receivedCSSuf = p1(s0);
+                                                    std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2,
+                                                                                                 payload, "c28", 1);
+                                                    c28 senderCS = c28(b1);
+                                                    std::vector<bool> s1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2,
+                                                                                                 payload, "p1", 1);
+                                                    p1 senderCSSuf = p1(s1);
+                                                    std::vector<bool> R0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2,
+                                                                                                 payload, "R1", 0);
+                                                    R1 R = R1(R0);
+                                                    std::vector<bool> l0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type2,
+                                                                                                 payload, "g15", 0);
+                                                    g15 location = g15(l0);
+                                                    threadDataMutex.lock();
+                                                    snprintf(msg, sizeof(msg), "%s%s %s%s %s%s",
+                                                             receivedCS.decode(&hash22, &hash12, &hash10),
+                                                             receivedCSSuf.decode(),
+                                                             senderCS.decode(&hash22, &hash12, &hash10),
+                                                             senderCSSuf.decode(),
+                                                             R.decode(), location.decode());
+                                                    threadDataMutex.unlock();
+                                                  } else if (strcmp(mI3.decode(), "4") == 0) {
+                                                    fprintf(stdout, "processing message type 4\n");
+                                                    std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4,
+                                                                                                 payload, "h12", 0);
+                                                    h12 hashedCS = h12(b0);
+                                                    std::vector<bool> b1 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4,
+                                                                                                 payload, "c58", 0);
+                                                    c58 extendedCS = c58(b1);
+                                                    std::vector<bool> b2 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4,
+                                                                                                 payload, "h1", 0);
+                                                    h1 hashIsSecond = h1(b2);
+                                                    std::vector<bool> b3 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4,
+                                                                                                 payload, "r2", 0);
+                                                    r2 extra = r2(b3);
+                                                    std::vector<bool> b4 = FT4FT8Fields::overlay(MESSAGE_TYPES::type4,
+                                                                                                 payload, "c1", 0);
+                                                    c1 firstIsCQ = c1(b4);
+                                                    if (firstIsCQ.decode()) { // if first is CQ
+                                                                              //   ignore hash field and extra
+                                                      snprintf(msg, sizeof(msg), "CQ %s" , extendedCS.decode());
+                                                    } else {
+                                                      threadDataMutex.lock();
+                                                      if (hashIsSecond.decode()) {  // flip the order of the call signs
+                                                        snprintf(msg, sizeof(msg), "%s %s %s", extendedCS.decode(),
+                                                                 hashedCS.decode(&hash12), extra.decode());
+                                                      } else {
+                                                        snprintf(msg, sizeof(msg), "%s %s %s",
+                                                                 hashedCS.decode(&hash12), extendedCS.decode(),
+                                                                 extra.decode());
+                                                      }
+                                                      threadDataMutex.unlock();
+                                                    }
+                                                  } else if (strcmp(mI3.decode(), "0") == 0) {
+                                                    fprintf(stdout, "processing message type 0\n");
+                                                    std::vector<bool> b0 = FT4FT8Fields::overlay(MESSAGE_TYPES::type0,
+                                                                                                 payload, "n3", 0);
+                                                    n3 type0Type = n3(b0);
+                                                    fprintf(stdout, "type 0 subtype: %s\n", type0Type.decode());
+                                                    msg[0] = 0;
+                                                  } else {
+                                                    fprintf(stdout, "Msg decode of message type %s is not"
+                                                            " supported yet.\n", mI3.decode());
+                                                    msg[0] = 0;
+                                                  }
+                                                  bool newCand = true;
+                                                  threadDataMutex.lock();
+                                                  for (auto iter = candidates.begin(); iter != candidates.end();
+                                                       iter++) {
+                                                    if ((strcmp((*iter).second.message, msg) == 0) &&
+                                                        (fabs((*iter).second.freq - (dialFreq + 1500.0 +
+                                                                                     candidate.getFrequency())) <
+                                                         25.0)) {
+                                                      newCand = false;
+                                                      (*iter).second.occurrence++;
+                                                      int normalizedShift = symbolSet * 512 + shift;
+                                                      (*iter).second.shift += normalizedShift;
+                                                      if (snr > (*iter).second.snr) {
+                                                        (*iter).second.snr = snr;
+                                                      }
+                                                    }
+                                                  }
+                                                  if (newCand  && (strlen(msg) > 6)) {
+                                                    char * d = reinterpret_cast<char *>(malloc(7));  // date
+                                                    char * t = reinterpret_cast<char *>(malloc(7));  // time
+                                                    struct tm * gtm;
+                                                    gtm = gmtime(&spotTime);
+                                                    snprintf(d, 7, "%02d%02d%02d", gtm->tm_year - 100, gtm->tm_mon + 1,
+                                                             gtm->tm_mday);
+                                                    snprintf(t, 7, "%02d%02d%02d", gtm->tm_hour, gtm->tm_min,
+                                                             gtm->tm_sec / 15 * 15);
+                                                    char * message = strdup(msg);
+                                                    int normalizedShift = symbolSet * 256 + shift;
+                                                    candidates[numberOfCandidates] = {d, t, message, 1,
+                                                                                      dialFreq + 1500.0 +
+                                                                                      candidate.getFrequency(),
+                                                                                      normalizedShift,
+                                                                                      snr };
+                                                    numberOfCandidates++;
+                                                  }
+                                                  threadDataMutex.unlock();
+                                                }
+                                              } else {
+                                                fprintf(stderr, "p174 is all zeros\n");
+                                              }
+                                            } else {
+                                              fprintf(stderr, "ldpc status is not good enough\n");
+                                            }
+                                          }
                                         }
                                       }
-                                    }
-                                    if (newCand  && (strlen(msg) > 6)) {
-                                      char * d = reinterpret_cast<char *>(malloc(7)); // date
-                                      char * t = reinterpret_cast<char *>(malloc(7)); // time
-                                      struct tm * gtm;
-                                      gtm = gmtime(&spotTime);
-                                      snprintf(d, 7, "%02d%02d%02d", gtm->tm_year - 100, gtm->tm_mon + 1,
-                                               gtm->tm_mday);
-                                      snprintf(t, 7, "%02d%02d%02d", gtm->tm_hour, gtm->tm_min, gtm->tm_sec / 15 * 15);
-                                      char * message = strdup(msg);
-                                      int normalizedShift = symbolSet * 256 + shift;
-                                      candidates[numberOfCandidates] = {d, t, message, 1,
-                                                                        dialFreq + 1500.0 + candidate.getFrequency(),
-                                                                        normalizedShift,
-                                                                        snr };
-                                      numberOfCandidates++;
-                                    }
-                                  }
-                                } else {
-                                  fprintf(stderr, "p174 is all zeros\n");
-                                }
-                              } else {
-                                fprintf(stderr, "ldpc status is not good enough\n");
-                              }
-                            }
-                          }
-                        }
+                                    };
+                        std::thread * tp = new std::thread(doit, currentPeakIndex, deltaTime);
+                        canThreads.push_back(tp);
                       }
-                      
+                      for (auto th : canThreads) {
+                        (*th).join();
+                      }
                       if (strlen(prefix) > 0) {
                         if (candidates.size()) {
                           char sampleFile[100];
@@ -455,8 +480,9 @@ void FT8Window::doWork() {
 
                           if (strlen(reporterID)) {
                             reporter.reportSpot(reporterID, reporterLocation, (*iter).second.freq,
-                                                spotTime/15*15 + (int) ((*iter).second.shift * SECONDS_PER_SHIFT /
-                                                                        (*iter).second.occurrence - 0.5),
+                                                spotTime/15*15 + static_cast<int>((*iter).second.shift *
+                                                                                  SECONDS_PER_SHIFT /
+                                                                                  (*iter).second.occurrence - 0.5),
                                                 (*iter).second.snr, (*iter).second.message);
                           }
                         }
@@ -492,7 +518,6 @@ void FT8Window::doWork() {
                         }
                         fflush(stdout);  // flush standard out to make file output sane
                       } else {  // nothing to do yet
-                        //fprintf(stderr, "waiting to start\n");
                         sleep(0.3);
                       }
                     }
@@ -517,9 +542,10 @@ void FT8Window::doWork() {
                 (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2);
         fread(remainsOf2Win, sizeof(float), (PERIOD - PROCESSING_SIZE) * BASE_BAND * 2, stdin);
       }
-      fprintf(stderr, "allocating window IQ memory - %ld bytes\n", (int)freq  * sizeof(float) * 2 * PROCESSING_SIZE);
+      fprintf(stderr, "allocating window IQ memory - %ld bytes\n", static_cast<int>(freq)  * sizeof(float) * 2 *
+              PROCESSING_SIZE);
       now = time(0);
-      entry = {now, reinterpret_cast<float *> (malloc((int)freq * sizeof(float) * 2 * PROCESSING_SIZE))};
+      entry = {now, reinterpret_cast<float *> (malloc(static_cast<int>(freq) * sizeof(float) * 2 * PROCESSING_SIZE))};
       fprintf(stderr, "\nCollecting %d samples at %ld - %s", sampleBufferSize, now - baseTime, ctime(&now));
       if ((count = fread(entry.data, sizeof(float), PROCESSING_SIZE * BASE_BAND * 2, stdin)) == 0) {
         fprintf(stderr, "Input read was empty, sleeping for a while at %s", ctime(&now));
@@ -536,13 +562,12 @@ void FT8Window::doWork() {
         } else {  // fell too far behind, don't queue new window
           fprintf(stderr, "Not queuing the window -- fallen too far behind\n");
           fprintf(stdout, "Not queuing the window -- fallen too far behind\n");
-          free (entry.data);
+          free(entry.data);
         }
       }
       firstTime = false;
     }
     sleep(0.3);
-
   }
   terminate = true;
   process.join();  // wait for search thread to finish
@@ -559,7 +584,6 @@ int FT8Window::SNRCompare(const void * a, const void * b) {
 }
 void FT8Window::calculateSNR(float * accumulatedMagnitude) {
   int regionOfInterestCount = 0;
-  //int regionSize = 75.0 * size / BASE_BAND;
   int regionSize = size - 2800.0 * size / BASE_BAND;  // care about 2800 Hz of the 3200 Hz bandwidth
   int bound0 = (size - regionSize) / 2;
   int bound1 = (size + regionSize) / 2;
@@ -573,7 +597,7 @@ void FT8Window::calculateSNR(float * accumulatedMagnitude) {
   }
   fprintf(stderr, "sorting %d magnitudes\n", regionOfInterestCount);
   qsort(working, regionOfInterestCount, sizeof(SNRInfo), SNRCompare);
-  float noisePower = working[(int)(0.30 * regionOfInterestCount)].magnitude;
+  float noisePower = working[static_cast<int>(0.30 * regionOfInterestCount)].magnitude;
   float noisePowerdB = 20 * log10(noisePower);
   fprintf(stderr, "noisePower: %f, dB: %5.2f, power dB: %5.2f\n", noisePower, 10 * log10(noisePower),
           20 * log10(noisePower));
@@ -591,7 +615,6 @@ void FT8Window::calculateSNR(float * accumulatedMagnitude) {
             SNRData[i].SNR);
     fprintf(stderr, "SNRAlt[%2d]: %10.0f, bin: %d, SNR: %f dB\n", i, SNRData[i].magnitude, SNRData[i].bin,
             10 * log10(working[regionOfInterestCount - i - 1].magnitude) - 10 * log10(noisePower) - 17.0);
-    
   }
   free(working);
 }
@@ -627,7 +650,7 @@ int main() {
   snprintf(pre, sizeof(pre), "%s", "");
   snprintf(id, sizeof(id), "%s", "KG5YJE/P");
   snprintf(loc, sizeof(loc), "%s", "EM13");
-  FT8Window testObj(512, 9, pre, dialFreq, id, loc );
+  FT8Window testObj(512, 9, pre, dialFreq, id, loc);
   testObj.doWork();
 }
 #endif

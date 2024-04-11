@@ -57,6 +57,7 @@ public:
   struct WindowOfIQDataT { time_t windowStartTime; float * data; };
   std::queue<WindowOfIQDataT> windows;
   std::mutex windowsMutex;
+  std::mutex threadDataMutex;
   
   char reporterID[13] = {0};
   char reporterLocation[7] = {0};
