@@ -21,7 +21,7 @@ Installation (Raspberry PI example):
 ```
   sudo apt-get update
   sudo apt-get upgrade
-  sudo apt-get install build-essential cmake git libfftw3-dev
+  sudo apt-get install build-essential cmake git libfftw3-dev libcurl4-gnutls-dev
 ```
   6)  Install the repository
 ```

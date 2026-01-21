@@ -14,6 +14,7 @@
 #include "FIRFilter.h"
 #include "DsppFFT.h"
 #include "FMMod.h"
+#include "RealToQuadrature.h"
 #include "RTLTCPClient.h"
 #include "RTLTCPServer.h"
 #include "SFIRFilter.h"
@@ -47,6 +48,7 @@ class dspp {
   int custom_fir_ff(const char * filePath, int M, int N, FIRFilter::WindowType window);
   int custom_fir_cc(const char * filePath, int M, int N, FIRFilter::WindowType window);
   int real_to_complex_fc();
+  int real_to_quadrature_fc(bool selector);
   int real_of_complex_cf();
   int mag_cf();
   int gain(float gain);

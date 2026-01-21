@@ -29,6 +29,7 @@ FIRFILTSRC = FIRFilter.cc FIRFilter.h SFIRFilter.cc SFIRFilter.h CFilter.cc CFil
 MODSRC = FMMod.cc FMMod.h
 FFTSRC = DsppFFT.cc DsppFFT.h
 BASICSRC = Regression.cc Regression.h
+QUADSRC = RealToQuadrature.cc RealToQuadrature.h
 FT8OBJ = FT8Window.o FT8SpotCandidate.o FT8Utilities.o FT4FT8Fields.o FT4FT8Utilities.o
 WSPROBJ = WSPRUtilities.o WindowSample.o WSPRWindow.o Fano.o SpotCandidate.o
 AGCOBJ = AGC.o
@@ -37,6 +38,7 @@ FIRFILTOBJ = FIRFilter.o SFIRFilter.o CFilter.o Poly.o
 MODOBJ = FMMod.o
 FFTOBJ = DsppFFT.o
 BASICOBJ = Regression.o
+QUADOBJ = RealToQuadrature.o
 
 EXECUTABLE=dspp
 
@@ -73,9 +75,12 @@ tools:
 	$(CC) $(CFLAGS) iqToWave.cc -o iqToWave.o
 	$(CC) $(LDFLAGS) iqToWave.o -o iqToWave -lm -lfftw3
 
+	$(CC) $(CFLAGS) s16ToWave.cc -o s16ToWave.o
+	$(CC) $(LDFLAGS) s16ToWave.o -o s16ToWave 
 
-$(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(FT8OBJ) $(BASICOBJ)
-	$(CC) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(FT8OBJ) $(BASICOBJ) -o dspp $(LDFLAGS)
+
+$(EXECUTABLE): $(SOURCES) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(FT8OBJ) $(BASICOBJ) $(QUADOBJ)
+	$(CC) $(OBJECTS) $(FIRFILTOBJ) $(RTLTCPOBJ) $(MODOBJ) $(FFTOBJ) $(AGCOBJ) $(WSPROBJ) $(FT8OBJ) $(BASICOBJ) $(QUADOBJ) -o dspp $(LDFLAGS)
 
 $(BASICOBJ) : $(BASICSRC)
 	$(CC) $(CFLAGS) $*.cc -o $@
@@ -86,6 +91,8 @@ $(WSPROBJ) : $(WSPRSRC)
 $(AGCOBJ) : $(AGCSRC)
 	$(CC) $(CFLAGS) $*.cc -o $@
 $(RTLTCPOBJ) : $(RTLTCPSRC)
+	$(CC) $(CFLAGS) $*.cc -o $@
+$(QUADOBJ) : $(QUADSRC)
 	$(CC) $(CFLAGS) $*.cc -o $@
 $(FIRFILTOBJ) : $(FIRFILTSRC)
 	$(CC) $(CFLAGS) $*.cc -o $@

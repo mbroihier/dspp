@@ -52,6 +52,7 @@ static const char USAGE_STR[] = "\n"
         "  comb_byte_c                 : Comb filter a complex stream\n"
         "  sfir_ff                     : Smooth FIR filter a real stream\n"
         "  real_to_complex_fc          : real stream to complex stream\n"
+        "  real_to_quadrature_fc       : real stream to complex quadrature stream\n"
         "  fmmod_fc                    : real stream FM modulated quadrature (I/Q) stream\n"
         "  head                        : take first n bytes of stream\n"
         "  tail                        : take bytes after n bytes of stream\n"
@@ -110,6 +111,7 @@ static struct option longOpts[] = {
   { "WindowSample"               , no_argument, NULL, 40 },
   { "convert_f_byte"             , no_argument, NULL, 41 },
   { "FT8Window"                  , no_argument, NULL, 42 },
+  { "real_to_quadrature_fc"      , no_argument, NULL, 43 },
   { NULL, 0, NULL, 0 }
 };
 
@@ -331,6 +333,7 @@ int dspp::shift_frequency_cc(float amount) {
   float * fptr, * ofptr;
   float sinDeltaAmount = sin(amount*2.0*M_PI);
   float cosDeltaAmount = cos(amount*2.0*M_PI);
+  float phase = 0.0;
   float cosAmount = 1.0;
   float sinAmount = 0.0;
   float newCosAmount;
@@ -377,6 +380,11 @@ int dspp::shift_frequency_cc(float amount) {
       sinAmount = newSinAmount;
     }
     fwrite(&of, sizeof(float), count, stdout);
+    phase += cosDeltaAmount * count / 2.0;
+    while(phase > M_PI) phase -= 2.0 * M_PI;   // taken from CSDR
+    while(phase < -M_PI) phase += 2.0 * M_PI;
+    cosAmount = cos(phase);
+    sinAmount = sin(phase);
   }
 
   return 0;
@@ -404,6 +412,7 @@ int dspp::shift_frequency_uByteuByte(float amount) {
   unsigned char * ubptr, * uobptr;
   float sinDeltaAmount = sin(amount*2.0*M_PI);
   float cosDeltaAmount = cos(amount*2.0*M_PI);
+  float phase = 0.0;
   float cosAmount = 1.0;
   float sinAmount = 0.0;
   float newCosAmount;
@@ -450,6 +459,11 @@ int dspp::shift_frequency_uByteuByte(float amount) {
       sinAmount = newSinAmount;
     }
     fwrite(&ob, sizeof(char), BUFFER_SIZE, stdout);
+    phase += cosDeltaAmount * count / 2.0;
+    while(phase > M_PI) phase -= 2.0 * M_PI;   // taken from CSDR
+    while(phase < -M_PI) phase += 2.0 * M_PI;
+    cosAmount = cos(phase);
+    sinAmount = sin(phase);
   }
 
   return 0;
@@ -866,6 +880,26 @@ int dspp::real_to_complex_fc() {
 }
 /* ---------------------------------------------------------------------- */
 /*
+ *      real_to_quadrature_fc.cc -- DSP Pipe - real stream to complex quadrature
+ *
+ *      Copyright (C) 2019 
+ *          Mark Broihier
+ *
+ */
+
+/* ---------------------------------------------------------------------- */
+int dspp::real_to_quadrature_fc(bool selector) {
+  const int BUFFER_SIZE = 256;
+  RealToQuadrature rtqo(BUFFER_SIZE);
+  if (selector) {
+    rtqo.processSampleSetHilbert();
+  } else {
+    rtqo.processSampleSetDownconversion();
+  }
+  return 0;
+}
+/* ---------------------------------------------------------------------- */
+/*
  *      real_of_complex_fc.cc -- DSP Pipe - real part of complex stream
  *
  *      Copyright (C) 2019 
@@ -1102,6 +1136,15 @@ int dspp::head(int amount) {
   const int BUFFER_SIZE = 4096;
   int count = 0;
   unsigned char bytes[BUFFER_SIZE];
+  if (amount > 0) {
+    fprintf(stderr, "Limiting data to %d bytes, head\n", amount);
+  } else {
+    fprintf(stderr, "unsupported size: %d bytes, head\n", amount);
+    fclose(stdin);
+    fclose(stdout);
+    return 0;
+  }
+    
   for (;;) {
     count = fread(&bytes, sizeof(unsigned char), BUFFER_SIZE, stdin);
     if(count < BUFFER_SIZE) {
@@ -1113,13 +1156,20 @@ int dspp::head(int amount) {
     if (amount > count) {
       fwrite(&bytes, sizeof(unsigned char), count, stdout);
     } else {
-      fwrite(&bytes, sizeof(unsigned char), amount, stdout);
+      if (amount > 0) {
+        fwrite(&bytes, sizeof(unsigned char), amount, stdout);
+      } else {
+        fprintf(stderr, "Done with writes, head\n");
+        break;
+      }
     }
     amount -= BUFFER_SIZE;
     if (amount < 1) {
       break;
     }
   }
+  fprintf(stderr, "Loop terminated, head\n");
+  fclose(stdin);
   fclose(stdout);
   return 0;
 }
@@ -1559,7 +1609,7 @@ int main(int argc, char *argv[]) {
       }
       case 14: {
 	if (argc == 2) {
-          fprintf(stderr, "starting real to complex quadrature \n");
+          fprintf(stderr, "starting real to complex \n");
           doneProcessing = !dsppInstance.real_to_complex_fc();
 	} else {
 	  fprintf(stderr, "real_to_complex_fc parameter error\n");
@@ -1579,6 +1629,7 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "%d\n", argc);
 	  doneProcessing = true;
         }
+        break;
       }
       case 16: {
         int amount;
@@ -1590,6 +1641,7 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "%d\n", argc);
 	  doneProcessing = true;
         }
+        break;
       }
       case 17: {
         int amount;
@@ -1871,6 +1923,22 @@ int main(int argc, char *argv[]) {
 	} else {
 	  fprintf(stderr, "FT8Window should have 5 parameters - error\n");
 	  doneProcessing = true;
+	}
+        break;
+      }
+      case 43: {
+	if (argc == 2) {
+          fprintf(stderr, "starting real to complex quadrature - downconversion\n");
+          doneProcessing = !dsppInstance.real_to_quadrature_fc(false);
+	} else {
+          if (argc == 3 && strncmp(argv[2], "-H", 0) == 0) {
+            fprintf(stderr, "starting real to complex quadrature - Hilbert\n");
+            doneProcessing = !dsppInstance.real_to_quadrature_fc(true);
+          } else {
+            fprintf(stderr, "real_to_quadrature_fc parameter error\n");
+            fprintf(stderr, "%d\n", argc);
+            doneProcessing = true;
+          }
 	}
         break;
       }

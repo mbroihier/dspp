@@ -30,7 +30,6 @@ Mark Broihier
 
 #include <cstring>
 #include <ctype.h>
-#include <fftw3.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -58,7 +57,7 @@ int main(int argc, char ** argv) {
   int duration;
 
   if (argc != 3) {
-    fprintf(stderr, "Usage: ./iqToWave <frequency> <duration>\n");
+    fprintf(stderr, "Usage: ./s16ToWave <frequency> <duration>\n");
     exit(-1);
   }
   samplingFrequency = atoi(argv[1]);
@@ -69,7 +68,7 @@ int main(int argc, char ** argv) {
   memcpy(header.riffID, "RIFF", 4);
   header.fileSize = sizeof(wav_header) + samplingFrequency * duration * sizeof(int16_t);
   memcpy(header.fileType, "WAVE", 4);
-  memcpy(header.marker, "fmt ",4);
+  memcpy(header.marker, "fmt ", 4);
   header.len = 16;
   header.dataType = 1;
   header.channels = 1;
@@ -82,47 +81,12 @@ int main(int argc, char ** argv) {
 
   fwrite(&header, sizeof(wav_header), 1, stdout);
 
-  float realPart;
-  float imagPart;
-  float thisSample = 0.0;
   int16_t data;
   int numberOfSamples = duration * samplingFrequency;
-  int average = 0;
-  int accumulator = 0;
-  float deltaT = 1.0 / samplingFrequency;
   fprintf(stderr, "writing %d samples to standard output\n", numberOfSamples);
-  fftw_complex * signal;
-  fftw_complex * signalInFreqDomain;
-  signal = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*numberOfSamples);
-  signalInFreqDomain = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*numberOfSamples);
-  fftw_plan planF = fftw_plan_dft_1d(numberOfSamples, signal, signalInFreqDomain, FFTW_FORWARD, FFTW_ESTIMATE);
-  fftw_plan planB = fftw_plan_dft_1d(numberOfSamples, signalInFreqDomain, signal, FFTW_BACKWARD, FFTW_ESTIMATE);
-  double * doublePtr = (double *) signal;
   for (int i = 0; i < numberOfSamples ; i++) {
-    fread(&realPart, sizeof(float), 1, stdin);
-    fread(&imagPart, sizeof(float), 1, stdin);
-    *doublePtr++ = realPart;
-    *doublePtr++ = imagPart;
-  }
-  fftw_execute(planF);
-  for (int i = numberOfSamples/2; i < numberOfSamples; i++) { // zero out negative frequencies
-    signalInFreqDomain[i][0] = 0.0;
-    signalInFreqDomain[i][1] = 0.0;
-  }
-  fftw_execute(planB);
-  doublePtr = (double *) signal;
-  for (int i = 0; i < numberOfSamples; i++) {
-    thisSample = *doublePtr++ / numberOfSamples;  // normalize inverse FFT
-    thisSample = fmax(fmin(thisSample, 1.0), -1.0) * 32767.0;
-    if (i < 1000) {  // don't saturate accumulator
-      accumulator += thisSample;
-      average = accumulator / (i + 1);
-      if((i % 200) == 0) fprintf(stderr, "average: %d, accumulator: %d, time: %4.1f\n", average,
-                                 accumulator, i * deltaT);
-    }
-    data = thisSample - average;
+    fread(&data, sizeof(int16_t), 1, stdin);
     fwrite(&data, sizeof(int16_t), 1, stdout);
-    doublePtr++; // skip complex component
   }
   return 0;
 }

@@ -184,10 +184,10 @@ int main(int argc, char ** argv) {
 
   struct wav_header header;
   
-  sprintf(header.riffID, "RIFF");
+  memcpy(header.riffID, "RIFF", 4);
   header.fileSize = sizeof(wav_header) + SAMPLING_FREQUENCY * DURATION * sizeof(int16_t);
-  sprintf(header.fileType, "WAVE");
-  sprintf(header.marker, "fmt ");
+  memcpy(header.fileType, "WAVE", 4);
+  memcpy(header.marker, "fmt ", 4);
   header.len = 16;
   header.dataType = 1;
   header.channels = 1;
@@ -195,7 +195,7 @@ int main(int argc, char ** argv) {
   header.bitRate = SAMPLING_FREQUENCY * 16 * 1 / 8;
   header.bitsPerSampleChannels = 16 * 1 / 8;
   header.bitsPerSample = 16;
-  sprintf(header.dataMarker, "data");
+  memcpy(header.dataMarker, "data", 4);
   header.dataSize = SAMPLING_FREQUENCY * DURATION * 2;
 
   if (wave) {
