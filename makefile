@@ -60,6 +60,9 @@ tools:
 	$(CC) $(CFLAGS) baseBandWSPR.cc -o baseBandWSPR.o
 	$(CC) $(LDFLAGS) baseBandWSPR.o -o baseBandWSPR -lm
 
+	$(CC) $(CFLAGS) baseBandWSPRRealToQuad.cc -o baseBandWSPRRealToQuad.o
+	$(CC) $(LDFLAGS) baseBandWSPRRealToQuad.o -o baseBandWSPRRealToQuad -lm
+
 	$(CC) $(CFLAGS) baseBandFT8.cc -o baseBandFT8.o
 	$(CC) $(LDFLAGS) baseBandFT8.o -o baseBandFT8 -lm
 

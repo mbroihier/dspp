@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
         max_index = index;
       }
     }
-    const char * fmt = "\"%d : %d\\n\"";
+    const char * fmt = "\"%d : %d, %d\\n\"";
     fprintf(octaveFH, "mag = [");
     for (int i = 0; i < size; i++) {
       fprintf(octaveFH, "%f ", bins[i]);
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
     fprintf(octaveFH, "fh = fopen(\"freq.txt\", \"w\");\n");
     fprintf(octaveFH, "for jj = 1:size(bins)(2)\n");
     fprintf(octaveFH, "freq(jj) = %" PRId64 " + freq(jj);\n", centerFreq);
-    fprintf(octaveFH, "fprintf(fh, %s, jj, freq(jj));\n", fmt);
+    fprintf(octaveFH, "fprintf(fh, %s, jj, freq(jj), mag(jj));\n", fmt);
     fprintf(octaveFH, "endfor\n");
     fprintf(octaveFH, "fclose(fh);\n");
     fprintf(octaveFH, "peak = max(mag) * 2;\n");

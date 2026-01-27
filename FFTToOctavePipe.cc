@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
       } else {
         index = j - half;
       }
-      //index = j;
+      index = j;
       bins[index] = mag;
       if (peak < mag) {
         peak = mag;

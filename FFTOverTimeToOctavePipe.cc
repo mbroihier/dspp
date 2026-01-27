@@ -24,9 +24,10 @@ void handler(int sig) {
 int main(int argc, char *argv[]) {
 
   FILE * octaveFH = popen("octave --persist 2>/dev/null", "w");
-  //FILE * octaveFH = fopen("debugScript.m", "w");
+  //FILE * octaveFH = fopen("_FFTOverTimeToOctave.m", "w");
   if (!octaveFH) {
     fprintf(stderr, "octave pipe did not open\n");
+    //fprintf(stderr, "octave script file (FFTOverTimeToOctave.m) did not open\n");
     return -1;
   }
   float f;
@@ -46,13 +47,15 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "size: %d, sampling frequency: %" PRId64 ", duration: %d, center frequency: %" PRId64 "\n",
             size, freq, duration, centerFreq);
   } else {
-    fprintf(stderr,"Usage:  FFTOverTimeToOctave <size of fft (complex)> <sampling frequency> <duration>"
+    fprintf(stderr,"Usage:  FFTOverTimeToOctavePipe <size of fft (complex)> <sampling frequency> <duration>"
             " <center frequency>\n");
     return -1;
   }
   int graph = 0;
   int timeSample = 0;
+  int index;
   int max_index;
+  int half = size / 2;
   float max_value;
   float * bins = (float *) malloc(size * sizeof(float));
   fprintf(octaveFH, "frange = linspace(%" PRId64 ", %" PRId64 ", %d);\n", centerFreq - freq/2,
@@ -69,7 +72,7 @@ int main(int argc, char *argv[]) {
       for (int j=0; j<size; j++) {
         if ((fread(&f, sizeof(float), 1, stdin)) < 1) {
           fprintf(stderr, "Too little data\n");
-          //fclose(octaveFH);
+          //if (octaveFH) fclose(octaveFH);
           if (octaveFH) pclose(octaveFH);
           octaveFH = 0;
           break;
@@ -77,17 +80,22 @@ int main(int argc, char *argv[]) {
         r = f*f;
         if ((fread(&f, sizeof(float), 1, stdin)) < 1) {
           fprintf(stderr, "Too little data\n");
-          //fclose(octaveFH);
+          //if (octaveFH) fclose(octaveFH);
           if (octaveFH) pclose(octaveFH);
           octaveFH = 0;
           break;
         }
         i = f*f;
         mag = sqrt(r+i);
-        bins[j] = mag;
+        if (j < half) {
+          index = j + half;
+        } else {
+          index = j - half;
+        }
+        bins[index] = mag;
         if (max_value < mag) {
           max_value = mag;
-          max_index = j;
+          max_index = index;
         }
       }
       if (octaveFH) {
@@ -99,11 +107,11 @@ int main(int argc, char *argv[]) {
       if (!octaveFH) break;
     }
     timeSample = 0;
-    if (octaveFH) {
+    if (octaveFH && run) {
       fprintf(octaveFH, "];\n");
       fprintf(octaveFH, "mag = reshape(mag, %d, %d);\n", size, duration);
       fprintf(octaveFH, "waterfall(X, Y, mag);\n");
-      fprintf(octaveFH, "title(\"%d index: %d, freq: %.0f\")\n", graph++, max_index,
+      fprintf(octaveFH, "title(\"Graph %d, peak freq: %.0f\")\n", graph++,
               centerFreq + freq * (max_index / (size - 1.0) - 0.5));
       fprintf(octaveFH, "view(0,90);\n");
       fprintf(octaveFH, "drawnow;\n");
@@ -115,7 +123,9 @@ int main(int argc, char *argv[]) {
   fprintf(stdout, "sampling frequency: %" PRId64 " half sampling frequency: %.0f, max_index: %d, size: %d, center frequ\
 ency: %" PRId64 "\n", freq, freq/2.0, max_index, size-1, centerFreq);
   fprintf(stdout, "Controlled exit, pipe should be clean\n");
-  //fclose(octaveFH);
+  //if (octaveFH) fclose(octaveFH);
+  //FILE * trimFile = popen("grep -n drawnow _FFTOverTimeToOctave.m | tail -1 | cut -d \":\" -f 1 | xargs -I {} head -{} _FFTOverTimeToOctave.m > FFTOverTimeToOctave.m ; rm _FFTOverTimeToOctave.m", "w");
+  //pclose(trimFile);
   if (octaveFH) pclose(octaveFH);
   return 0;
 }

@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
       if (!octaveFH) break;
     }
     timeSample = 0;
-    if (octaveFH) {
+    if (octaveFH && run) {
       fprintf(octaveFH, "];\n");
       fprintf(octaveFH, "mag = reshape(mag, %d, %d);\n", size, duration);
       fprintf(octaveFH, "waterfall(X, Y, mag);\n");
