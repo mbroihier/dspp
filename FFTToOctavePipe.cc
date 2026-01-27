@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
   int size = 0;
   int maxPlots = 0;
   int64_t freq = 0;
-  int64_t half_freq = 0;
+  int64_t half_samples = 0;
   int64_t centerFreq = 0;
   float sum = 0.0;
   float r = 0.0;
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
   if (argc == 5) {
     sscanf(argv[1], "%d", &size);
     sscanf(argv[2], "%" PRId64 , &freq);
-    half_freq = freq / 2;
+    half_samples = size / 2;
     fprintf(stderr, "size: %d, frequency: %" PRId64 ", raw input %s %s\n", size, freq, argv[1], argv[2]);
     sscanf(argv[3], "%d", &maxPlots);
     sscanf(argv[4], "%" PRId64 , &centerFreq);
@@ -114,12 +114,12 @@ int main(int argc, char *argv[]) {
     fprintf(octaveFH, "axis([min(freq) max(freq) 0.0001 peak]);\n");
     fprintf(octaveFH, "semilogy(freq(bins), mag(bins));\n");
     fprintf(octaveFH, "title(\"%d peak frequency: %.0f\")\n", graph++,
-            max_index < half_freq ?
+            max_index < half_samples ?
             freq*(max_index/(size-1.0))+centerFreq : freq*(max_index/(size-1.0))-freq+centerFreq);
     fprintf(octaveFH, "drawnow;\n");
   }
   fprintf(stdout, "peak frequency: %.0f\n",
-            max_index < half_freq ?
+            max_index < half_samples ?
             freq*(max_index/(size-1.0))+centerFreq : freq*(max_index/(size-1.0))-freq+centerFreq);
   fprintf(stdout, "sampling frequency: %" PRId64 " half sampling frequency: %.0f, max_index: %d, size: %d, center frequency: %" PRId64 "\n", freq, freq/2.0, max_index, size-1, centerFreq);
   fprintf(stdout, "Controlled exit, pipe should be clean\n");
